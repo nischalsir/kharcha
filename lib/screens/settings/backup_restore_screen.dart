@@ -9,14 +9,16 @@ import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/backup_service.dart';
 import '../../services/cache_service.dart';
+import '../../services/google_drive_backup_service.dart';
 import '../../services/supabase_backup_service.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 
-/// Backup & restore screen with two transports:
-///  * the app's Supabase Storage bucket (per-user cloud folder), and
+/// Backup & restore screen with three transports:
+///  * the app's Supabase Storage bucket (per-user cloud folder),
+///  * the user's own Google Drive (hidden app folder), and
 ///  * a `.json` file on the device that can be shared/imported directly.
 ///
 /// The data snapshot/merge logic lives in [BackupService]; this screen only
@@ -31,10 +33,13 @@ class BackupRestoreScreen extends StatefulWidget {
 class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   late final BackupService _backup;
   late final SupabaseBackupService _cloud;
+  final GoogleDriveBackupService _drive = GoogleDriveBackupService();
 
   bool _busy = false;
   bool _loadingCloud = false;
   List<CloudBackupFile> _cloudFiles = const <CloudBackupFile>[];
+  bool _loadingDrive = false;
+  List<CloudBackupFile> _driveFiles = const <CloudBackupFile>[];
   String? _lastExportPath;
 
   @override
@@ -46,6 +51,130 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     );
     _cloud = SupabaseBackupService();
     if (_cloud.isConfigured) _loadCloud();
+    _restoreDrive();
+  }
+
+  // --- Google Drive ------------------------------------------------------------
+
+  /// Reconnects silently if Drive was connected before; never shows UI.
+  Future<void> _restoreDrive() async {
+    if (await _drive.restore()) await _loadDrive();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _connectDrive() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _drive.connect();
+      if (!mounted) return;
+      showMessage(
+        context,
+        '${context.t('Connected to Google Drive', 'Google Drive जोडियो')}: '
+        '${_drive.accountEmail ?? ''}',
+      );
+      await _loadDrive();
+    } catch (error) {
+      if (mounted) showMessage(context, error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _disconnectDrive() async {
+    await _drive.disconnect();
+    if (!mounted) return;
+    setState(() => _driveFiles = const <CloudBackupFile>[]);
+    showMessage(
+      context,
+      context.t(
+        'Google Drive disconnected. Your backups stay in Drive.',
+        'Google Drive छुटाइयो। ब्याकअपहरू Drive मै रहन्छन्।',
+      ),
+    );
+  }
+
+  Future<void> _loadDrive() async {
+    if (!_drive.isConnected) return;
+    setState(() => _loadingDrive = true);
+    try {
+      final files = await _drive.listBackups();
+      if (mounted) setState(() => _driveFiles = files);
+    } catch (error) {
+      if (mounted) showMessage(context, error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingDrive = false);
+    }
+  }
+
+  Future<void> _uploadDrive() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _drive.upload(_backup.exportToJson());
+      if (!mounted) return;
+      showMessage(
+        context,
+        context.t('Backed up to Google Drive.', 'Google Drive मा ब्याकअप गरियो।'),
+      );
+      await _loadDrive();
+    } catch (error) {
+      if (mounted) {
+        showMessage(
+          context,
+          '${context.t('Drive backup failed', 'Drive ब्याकअप असफल भयो')}: $error',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _restoreDriveFile(CloudBackupFile file) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final text = await _drive.download(file);
+      if (!mounted) return;
+      await _restoreFromText(text, file.name);
+    } catch (error) {
+      if (mounted) {
+        showMessage(
+          context,
+          '${context.t('Restore failed', 'रिस्टोर असफल भयो')}: $error',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _deleteDriveFile(CloudBackupFile file) async {
+    final confirmed = await _confirm(
+      title: context.t('Delete backup?', 'ब्याकअप मेटाउनुहुन्छ?'),
+      message: context.t(
+        'Remove this backup from your Google Drive?',
+        'यो ब्याकअप Google Drive बाट हटाउनुहुन्छ?',
+      ),
+      confirmLabel: context.t('Delete', 'मेटाउनुहोस्'),
+      destructive: true,
+    );
+    if (confirmed != true) return;
+    try {
+      await _drive.delete(file);
+      if (!mounted) return;
+      setState(
+        () => _driveFiles =
+            _driveFiles.where((item) => item.path != file.path).toList(),
+      );
+    } catch (error) {
+      if (mounted) {
+        showMessage(
+          context,
+          '${context.t('Delete failed', 'मेटाउन असफल भयो')}: $error',
+        );
+      }
+    }
   }
 
   Future<void> _loadCloud() async {
@@ -390,6 +519,82 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                         busy: _busy,
                         onRestore: () => _restoreCloud(file),
                         onDelete: () => _deleteCloud(file),
+                      ),
+                    ),
+              ],
+              const SizedBox(height: 26),
+              const _SectionLabel('Google Drive'),
+              const SizedBox(height: 8),
+              if (!_drive.isConnected)
+                _ActionCard(
+                  icon: Icons.add_to_drive_rounded,
+                  color: const Color(0xFF34A853),
+                  title: context.t('Connect Google Drive', 'Google Drive जोड्नुहोस्'),
+                  subtitle: context.t(
+                    'Keep backups in your own Drive. Kharcha only sees its '
+                        'own backup files.',
+                    'आफ्नै Drive मा ब्याकअप राख्नुहोस्। खर्चाले आफ्नै ब्याकअप '
+                        'फाइल मात्र देख्छ।',
+                  ),
+                  enabled: !_busy,
+                  onTap: _connectDrive,
+                )
+              else ...<Widget>[
+                _ActionCard(
+                  icon: Icons.backup_rounded,
+                  color: const Color(0xFF34A853),
+                  title: context.t('Back up to Google Drive', 'Google Drive मा ब्याकअप'),
+                  subtitle: _drive.accountEmail ?? '',
+                  enabled: !_busy,
+                  onTap: _uploadDrive,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: <Widget>[
+                    Text(
+                      context.t('Drive backups', 'Drive ब्याकअपहरू'),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_loadingDrive)
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      TextButton(
+                        onPressed: _busy ? null : _disconnectDrive,
+                        child: Text(context.t('Disconnect', 'छुटाउनुहोस्')),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (_driveFiles.isEmpty && !_loadingDrive)
+                  GlassCard(
+                    child: Text(
+                      context.t(
+                        'No Drive backups yet.',
+                        'अहिलेसम्म कुनै Drive ब्याकअप छैन।',
+                      ),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: glass.textSecondary,
+                      ),
+                    ),
+                  )
+                else
+                  for (final file in _driveFiles)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _BackupTile(
+                        title: _formatDate(file.updatedAt),
+                        subtitle: _formatSize(file.size),
+                        icon: Icons.add_to_drive_rounded,
+                        busy: _busy,
+                        onRestore: () => _restoreDriveFile(file),
+                        onDelete: () => _deleteDriveFile(file),
                       ),
                     ),
               ],

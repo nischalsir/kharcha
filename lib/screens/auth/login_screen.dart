@@ -195,6 +195,21 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleGoogle() async {
+    final AuthProvider auth = context.read<AuthProvider>();
+    setState(() => _isLoading = true);
+    try {
+      await auth.signInWithGoogle();
+      if (!mounted) return;
+      _returnToShell();
+      unawaited(UpdateService().maybeShowUpdateDialog(context));
+    } catch (_) {
+      // The failure is already exposed through AuthProvider.
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _continueAsGuest() async {
     final AuthProvider auth = context.read<AuthProvider>();
     setState(() => _isLoading = true);
@@ -365,7 +380,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            AuthGoogleButton(onPressed: _isLoading ? null : _handleGoogle),
+            const SizedBox(height: 12),
             AuthGhostButton(
               label: context.t('Explore as guest', 'पाहुनाको रूपमा हेर्नुहोस्'),
               icon: Icons.visibility_outlined,
