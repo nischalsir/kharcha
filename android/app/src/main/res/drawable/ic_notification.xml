@@ -1,0 +1,22 @@
+<!--
+  Status bar / notification small icon.
+
+  Android renders small notification icons as a silhouette: it ignores colour
+  and masks the drawable to white, so this must be a solid white shape on a
+  transparent 24dp canvas. A full-colour launcher icon here renders as an
+  unreadable white blob.
+
+  The glyph is the Material "account balance wallet" mark, which matches the
+  Kharcha launcher artwork (a wallet on near-black). Swap the <path> data if
+  the launcher artwork changes.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M11.5,3a4.5,4.5 0 0,1 4.386,3.497l1.872,-0.468A1,1 0 0,1 19,7v1.81A6.5,6.5 0 0,1 20.502,11H21a1,1 0 0,1 1,1v3a1,1 0 0,1 -0.553,0.894l-1.169,0.585A6.5,6.5 0 0,1 18,18.978V20a1,1 0 0,1 -1,1h-3a1,1 0 0,1 -1,-1h-1a1,1 0 0,1 -1,1H8a1,1 0 0,1 -1,-1v-1.023a6.5,6.5 0 0,1 -2.852,-4.102A3,3 0 0,1 2,12v-0.5a1,1 0 1,1 2,0v0.5c0,0.149 0.033,0.29 0.09,0.416a6.5,6.5 0 0,1 2.937,-4.41A4.5,4.5 0 0,1 11.5,3m4.5,8a1,1 0 1,0 0,2a1,1 0 0,0 0,-2m-4.5,-6a2.5,2.5 0 0,0 -2.477,2.17C9.498,7.06 9.992,7 10.5,7h3.377l0.068,-0.018A2.5,2.5 0 0,0 11.5,5" />
+</vector>

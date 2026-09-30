@@ -1,0 +1,379 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/errors/app_failure.dart';
+import '../../core/theme/app_theme.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/biometric_service.dart';
+import '../../widgets/common/auth_widgets.dart';
+import '../../widgets/common/form_helpers.dart';
+import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/pressable_scale.dart';
+import '../../widgets/common/primary_button.dart';
+
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({super.key});
+
+  @override
+  State<SignupScreen> createState() => _SignupScreenState();
+}
+
+class _SignupScreenState extends State<SignupScreen> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
+  bool _agreeToTerms = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSignup() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (!_agreeToTerms) {
+      context.read<AuthProvider>().setError(
+        FailureKind.invalidData,
+        'Please agree to the Terms of Service',
+      );
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    setState(() => _isLoading = true);
+
+    final AuthProvider auth = context.read<AuthProvider>();
+    auth.clearError();
+
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text;
+
+    try {
+      await auth.signUp(
+        email: email,
+        password: password,
+        fullName: _nameController.text.trim().isEmpty
+            ? null
+            : _nameController.text.trim(),
+      );
+
+      if (!mounted) return;
+      if (auth.session == null) {
+        _showVerificationDialog();
+        return;
+      }
+
+      await _suggestBiometrics(email: email, password: password);
+      if (mounted) _returnToShell();
+    } catch (_) {
+      // The failure is already exposed through AuthProvider.
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Once per account creation, offer to store the credentials behind the
+  /// fingerprint so the next launch is a single tap.
+  Future<void> _suggestBiometrics({
+    required String email,
+    required String password,
+  }) async {
+    final BiometricService biometric = context.read<BiometricService>();
+    final BiometricCapability capability = await biometric.capability();
+    if (!capability.available) return;
+    if (await biometric.wasSuggested()) return;
+    await biometric.markSuggested();
+    if (!mounted) return;
+
+    final bool? enable = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign in faster next time'),
+        content: Text(
+          'Turn on ${capability.kind.label.toLowerCase()} sign-in and Kharcha will '
+          'unlock with a single tap instead of your password.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+
+    if (enable != true) return;
+    await biometric.enable(email: email, password: password);
+  }
+
+  /// Unwinds to the root route so `_AuthWrapper` can decide what to show
+  /// (the shell when signed in, the login page when not).
+  void _returnToShell() {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  void _showVerificationDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Verify your email'),
+        content: const Text(
+          'We sent a verification link to your inbox. Open it to activate your '
+          'account, then come back and sign in.',
+        ),
+        actions: <Widget>[
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+
+    return AuthScaffold(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            AuthBrand(
+              title: 'Create your account',
+              subtitle: 'Start tracking expenses, budgets and shared costs.',
+              leading: Align(
+                alignment: Alignment.centerLeft,
+                child: PressableScale(
+                  onTap: _returnToShell,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: glass.fill,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      size: 20,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
+            const AuthErrorBanner(),
+            GlassCard(
+              radius: 28,
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  TextFormField(
+                    controller: _nameController,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const <String>[AutofillHints.name],
+                    decoration: buildInputDecoration(
+                      context,
+                      label: 'Full name',
+                      hint: 'Optional',
+                      prefixIcon: Icons.person_outline_rounded,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const <String>[AutofillHints.email],
+                    decoration: buildInputDecoration(
+                      context,
+                      label: 'Email',
+                      hint: 'you@example.com',
+                      prefixIcon: Icons.email_outlined,
+                    ),
+                    validator: (value) {
+                      final email = value?.trim() ?? '';
+                      if (email.isEmpty) return 'Email is required';
+                      if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,}$')
+                          .hasMatch(email)) {
+                        return 'Enter a valid email';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const <String>[AutofillHints.newPassword],
+                    decoration: buildInputDecoration(
+                      context,
+                      label: 'Password',
+                      hint: 'At least 6 characters',
+                      prefixIcon: Icons.lock_outline_rounded,
+                      suffixIcon: IconButton(
+                        tooltip: _obscurePassword ? 'Show' : 'Hide',
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
+                      ),
+                    ),
+                    validator: (value) {
+                      final password = value ?? '';
+                      if (password.isEmpty) return 'Password is required';
+                      if (password.length < 6) {
+                        return 'Password must be at least 6 characters';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    obscureText: _obscureConfirmPassword,
+                    textInputAction: TextInputAction.done,
+                    autofillHints: const <String>[AutofillHints.newPassword],
+                    decoration: buildInputDecoration(
+                      context,
+                      label: 'Confirm password',
+                      hint: 'Re-enter your password',
+                      prefixIcon: Icons.lock_reset_rounded,
+                      suffixIcon: IconButton(
+                        tooltip: _obscureConfirmPassword ? 'Show' : 'Hide',
+                        icon: Icon(
+                          _obscureConfirmPassword
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscureConfirmPassword =
+                              !_obscureConfirmPassword,
+                        ),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please confirm your password';
+                      }
+                      if (value != _passwordController.text) {
+                        return 'Passwords do not match';
+                      }
+                      return null;
+                    },
+                    onFieldSubmitted: (_) => _handleSignup(),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Checkbox(
+                          value: _agreeToTerms,
+                          onChanged: (value) =>
+                              setState(() => _agreeToTerms = value ?? false),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text.rich(
+                            TextSpan(
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: glass.textSecondary,
+                                height: 1.4,
+                              ),
+                              children: <InlineSpan>[
+                                const TextSpan(text: 'I agree to the '),
+                                TextSpan(
+                                  text: 'Terms',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const TextSpan(text: ' and '),
+                                TextSpan(
+                                  text: 'Privacy Policy',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  PrimaryButton(
+                    label: 'Create account',
+                    icon: Icons.check_rounded,
+                    onPressed: _handleSignup,
+                    isLoading: _isLoading,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Text(
+                  'Already have an account?',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: glass.textSecondary,
+                  ),
+                ),
+                TextButton(
+                  onPressed: _returnToShell,
+                  child: Text(
+                    'Sign in',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

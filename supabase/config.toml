@@ -1,0 +1,30 @@
+project_id = "eazyeerunsxfyecjpyox"
+
+# JWT verification is disabled per function rather than globally, and the
+# reason is different in each case. Both of these authenticate some other way,
+# so the platform-level check has nothing to look for.
+#
+#   ai-push-digest   invoked by pg_cron through pg_net, which has no user JWT.
+#                    Authenticated instead by x-kharcha-internal-secret, read
+#                    from the service-role-only ai_push_worker table.
+#   send-push        also accepts that same internal secret so scheduled jobs can
+#                    notify arbitrary users. A user JWT, when present, is checked
+#                    first and restricts the caller to notifying themselves.
+#
+# Because the platform check is off, the secret in each function is the entire
+# authentication boundary. Both fail closed: a missing or unreadable secret
+# rejects the request rather than allowing it.
+[functions.ai-push-digest]
+verify_jwt = false
+
+[functions.ai-daily-buddy]
+verify_jwt = false
+
+[functions.send-push]
+verify_jwt = false
+
+# Unchanged from the default on purpose: this one only ever acts on behalf of a
+# signed-in user, so the platform check is doing real work and the function's own
+# getUser() call is a second, independent check on the same token.
+[functions.register-push-token]
+verify_jwt = true

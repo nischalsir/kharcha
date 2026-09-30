@@ -1,0 +1,14 @@
+﻿# Source of truth for the launcher icon. `dart run flutter_launcher_icons` reads
+# this file in preference to any flutter_launcher_icons section in pubspec.yaml.
+# Re-run it after replacing assets/images/logo.png. The logo is a full-bleed
+# near-black square with a centred mark, so it is safe to reuse as the adaptive
+# foreground (the mask only crops the outer third, which is flat background) and
+# the background colour is matched to it so the 16% inset ring is invisible.
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "assets/images/logo.png"
+  adaptive_icon_background: "#121212"
+  adaptive_icon_foreground: "assets/images/logo.png"
+  min_sdk_android: 23
+

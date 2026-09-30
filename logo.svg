@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+        
+		<defs>
+			
+				<filter id="shadow-0" x="-200%" y="-200%" width="500%" height="500%">
+					<feDropShadow
+						dx="0"
+						dy="0.6"
+						stdDeviation="0.8"
+						flood-color="#000000"
+						flood-opacity="0.18"
+					/>
+				</filter>
+			
+		</defs>
+        <g >
+            
+            <defs>
+                <linearGradient id="bg-grad" x1="0%" y1="100%" x2="0%" y2="0%">
+                    <stop offset="0%" stop-color="#191414" /><stop offset="100%" stop-color="#121212" />
+                </linearGradient>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#bg-grad)" />
+        
+			
+            <g transform="translate(256, 256) scale(10, 10) rotate(0) translate(-12, -12)" opacity="1" style="mix-blend-mode: normal" filter="url(#shadow-0)">
+			<title xmlns="http://www.w3.org/2000/svg" fill="#ffffff">mingcute:pig-money-fill</title>
+<path xmlns="http://www.w3.org/2000/svg" fill="#ffffff" d="M11.5 3a4.5 4.5 0 0 1 4.386 3.497l1.872-.468A1 1 0 0 1 19 7v1.81A6.5 6.5 0 0 1 20.502 11H21a1 1 0 0 1 1 1v3a1 1 0 0 1-.553.894l-1.169.585A6.5 6.5 0 0 1 18 18.978V20a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1h-1a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-1.023a6.5 6.5 0 0 1-2.852-4.102A3 3 0 0 1 2 12v-.5a1 1 0 1 1 2 0v.5c0 .149.033.29.09.416a6.5 6.5 0 0 1 2.937-4.41A4.5 4.5 0 0 1 11.5 3m4.5 8a1 1 0 1 0 0 2a1 1 0 0 0 0-2m-4.5-6a2.5 2.5 0 0 0-2.477 2.17C9.498 7.06 9.992 7 10.5 7h3.377l.068-.018A2.5 2.5 0 0 0 11.5 5"/>
+		</g>
+			
+        </g>
+    </svg>

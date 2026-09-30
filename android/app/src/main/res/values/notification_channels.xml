@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Channel ids. MUST match PushNotificationService.channels in
+      lib/services/push_notification_service.dart.
+
+      Android does not let an app change a channel's importance or sound after
+      the user has seen it, so these ids are treated as permanent API: add a new
+      id rather than repurposing an existing one.
+    -->
+    <string name="notification_channel_default" translatable="false">kharcha_default</string>
+    <string name="notification_channel_budget" translatable="false">kharcha_budget</string>
+    <string name="notification_channel_reminders" translatable="false">kharcha_reminders</string>
+    <string name="notification_channel_social" translatable="false">kharcha_social</string>
+    <string name="notification_channel_insights" translatable="false">kharcha_insights</string>
+</resources>

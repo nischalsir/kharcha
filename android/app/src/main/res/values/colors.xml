@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#121212</color>
+    <!--
+      Default notification accent: the Kharcha brand red (MornyeAccent.red
+      light, lib/theme/mornye_theme.dart). This is only the fallback used when a
+      notification is delivered without an explicit tint; notifications shown
+      from Dart pass the resolved ColorScheme primary so the accent follows the
+      user's chosen theme.
+    -->
+    <color name="notification_accent">#CC2E33</color>
+</resources>

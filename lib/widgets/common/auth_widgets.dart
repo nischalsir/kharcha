@@ -1,0 +1,318 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/errors/app_failure.dart';
+import '../../core/theme/app_theme.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/biometric_service.dart';
+import 'pressable_scale.dart';
+
+/// Presentation for the UI-agnostic [BiometricKind] reported by the service.
+extension BiometricUi on BiometricKind {
+  String get label => switch (this) {
+    BiometricKind.face => 'Face unlock',
+    BiometricKind.fingerprint => 'Fingerprint',
+    BiometricKind.none => 'Biometrics',
+  };
+
+  IconData get icon => switch (this) {
+    BiometricKind.face => Icons.face_retouching_natural_rounded,
+    BiometricKind.fingerprint ||
+    BiometricKind.none => Icons.fingerprint_rounded,
+  };
+}
+
+/// Shared building blocks for the sign-in / sign-up screens so both pages
+/// follow the same glass visual language as the rest of the app.
+class AuthScaffold extends StatelessWidget {
+  const AuthScaffold({super.key, required this.child, this.maxWidth = 460});
+
+  final Widget child;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: context.glass.background,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: SizedBox(
+                    width: math.min(constraints.maxWidth, maxWidth),
+                    child: child,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Gradient app mark + headline used at the top of the auth pages.
+class AuthBrand extends StatelessWidget {
+  const AuthBrand({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    this.leading,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final glass = context.glass;
+
+    final mark = Container(
+      width: 68,
+      height: 68,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[scheme.primary, scheme.secondary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: scheme.primary.withValues(alpha: 0.32),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Icon(
+        Icons.account_balance_wallet_rounded,
+        size: 34,
+        color: scheme.onPrimary,
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (leading != null) ...<Widget>[leading!, const SizedBox(height: 8)],
+        Align(alignment: Alignment.centerLeft, child: mark),
+        const SizedBox(height: 22),
+        Text(
+          title,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: glass.textSecondary,
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Inline, dismissible error strip fed by [AuthProvider].
+class AuthErrorBanner extends StatelessWidget {
+  const AuthErrorBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Consumer<AuthProvider>(
+      builder: (context, auth, _) {
+        final AppFailure? failure = auth.failure;
+        if (failure == null) return const SizedBox.shrink();
+        return Container(
+          margin: const EdgeInsets.only(bottom: 18),
+          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+          decoration: BoxDecoration(
+            color: scheme.errorContainer.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(
+                failure.isOffline
+                    ? Icons.wifi_off_rounded
+                    : Icons.error_outline_rounded,
+                color: scheme.onErrorContainer,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  failure.message,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onErrorContainer,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: auth.clearError,
+                icon: const Icon(Icons.close_rounded, size: 18),
+                color: scheme.onErrorContainer,
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Dismiss',
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Glass secondary button (biometric sign-in, continue as guest, …).
+class AuthGhostButton extends StatelessWidget {
+  const AuthGhostButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    this.tint,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final IconData? icon;
+  final Color? tint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    final color = tint ?? theme.colorScheme.primary;
+    final enabled = onPressed != null;
+
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: PressableScale(
+        onTap: onPressed,
+        child: Container(
+          height: 54,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: glass.fill,
+            borderRadius: BorderRadius.circular(27),
+            border: Border.all(color: color.withValues(alpha: 0.28)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (icon != null) ...<Widget>[
+                Icon(icon, size: 20, color: color),
+                const SizedBox(width: 10),
+              ],
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Label + optional subtitle with a trailing switch, used for "remember me"
+/// on the login page and for the biometric preference in settings.
+class AuthSwitchRow extends StatelessWidget {
+  const AuthSwitchRow({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.subtitle,
+    this.icon,
+    this.enabled = true,
+  });
+
+  final String label;
+  final String? subtitle;
+  final IconData? icon;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    final scheme = theme.colorScheme;
+    final color = enabled ? scheme.onSurface : scheme.onSurfaceVariant;
+
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: PressableScale(
+        onTap: enabled ? () => onChanged?.call(!value) : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: <Widget>[
+              if (icon != null) ...<Widget>[
+                Icon(
+                  icon,
+                  size: 20,
+                  color: value ? scheme.primary : glass.textSecondary,
+                ),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      label,
+                      style: theme.textTheme.titleSmall?.copyWith(color: color),
+                    ),
+                    if (subtitle != null)
+                      Text(
+                        subtitle!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: glass.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                value: value,
+                onChanged: enabled ? onChanged : null,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
