@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/errors/app_failure.dart';
+import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/biometric_service.dart';
+import '../../services/update_service.dart';
 import '../../widgets/common/auth_widgets.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
@@ -45,7 +49,7 @@ class _SignupScreenState extends State<SignupScreen> {
     if (!_agreeToTerms) {
       context.read<AuthProvider>().setError(
         FailureKind.invalidData,
-        'Please agree to the Terms of Service',
+        context.t('Please agree to the Terms of Service', 'कृपया सेवा शर्तहरूमा सहमत हुनुहोस्'),
       );
       return;
     }
@@ -74,7 +78,10 @@ class _SignupScreenState extends State<SignupScreen> {
       }
 
       await _suggestBiometrics(email: email, password: password);
-      if (mounted) _returnToShell();
+      if (mounted) {
+        _returnToShell();
+        unawaited(UpdateService().maybeShowUpdateDialog(context));
+      }
     } catch (_) {
       // The failure is already exposed through AuthProvider.
     } finally {
@@ -130,15 +137,19 @@ class _SignupScreenState extends State<SignupScreen> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Verify your email'),
-        content: const Text(
-          'We sent a verification link to your inbox. Open it to activate your '
-          'account, then come back and sign in.',
+        title: Text(context.t('Verify your email', 'तपाईंको इमेल सत्यापन गर्नुहोस्')),
+        content: Text(
+          context.t(
+            'We sent a verification link to your inbox. Open it to activate your '
+            'account, then come back and sign in.',
+            'हामीले तपाईंको इनबक्समा सत्यापन लिङ्क पठाएका छौं। आफ्नो खाता सक्रिय गर्न '
+            'उसे खोल्नुहोस्, भनेर फेरि आउनुहोस् र साइन इन गर्नुहोस्।',
+          ),
         ),
         actions: <Widget>[
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: Text(context.t('OK', 'ठिक छ')),
           ),
         ],
       ),
@@ -157,8 +168,8 @@ class _SignupScreenState extends State<SignupScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             AuthBrand(
-              title: 'Create your account',
-              subtitle: 'Start tracking expenses, budgets and shared costs.',
+              title: context.t('Create your account', 'तपाईंको खाता बनाउनुहोस्'),
+              subtitle: context.t('Start tracking expenses, budgets and shared costs.', 'खर्च, बजेट र साझा लागतहरू ट्र्याक गर्न सुरु गर्नुहोस्।'),
               leading: Align(
                 alignment: Alignment.centerLeft,
                 child: PressableScale(
@@ -212,10 +223,10 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     validator: (value) {
                       final email = value?.trim() ?? '';
-                      if (email.isEmpty) return 'Email is required';
+                      if (email.isEmpty) return context.t('Email is required', 'इमेल आवश्यक छ');
                       if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,}$')
                           .hasMatch(email)) {
-                        return 'Enter a valid email';
+                        return context.t('Enter a valid email', 'मान्य इमेल लेख्नुहोस्');
                       }
                       return null;
                     },
@@ -246,9 +257,12 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     validator: (value) {
                       final password = value ?? '';
-                      if (password.isEmpty) return 'Password is required';
+                      if (password.isEmpty) return context.t('Password is required', 'पासवर्ड आवश्यक छ');
                       if (password.length < 6) {
-                        return 'Password must be at least 6 characters';
+                        return context.t(
+                          'Password must be at least 6 characters',
+                          'पासवर्ड कम्तीमा ६ अक्षरको हुनुपर्छ',
+                        );
                       }
                       return null;
                     },
@@ -280,10 +294,10 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please confirm your password';
+                        return context.t('Please confirm your password', 'कृपया पासवर्ड पुष्टि गर्नुहोस्');
                       }
                       if (value != _passwordController.text) {
-                        return 'Passwords do not match';
+                        return context.t('Passwords do not match', 'पासवर्ड मिल्दैन');
                       }
                       return null;
                     },
@@ -316,17 +330,17 @@ class _SignupScreenState extends State<SignupScreen> {
                                 height: 1.4,
                               ),
                               children: <InlineSpan>[
-                                const TextSpan(text: 'I agree to the '),
+                                TextSpan(text: context.t('I agree to the ', 'म ')),
                                 TextSpan(
-                                  text: 'Terms',
+                                  text: context.t('Terms', 'शर्तहरू'),
                                   style: TextStyle(
                                     color: theme.colorScheme.primary,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                const TextSpan(text: ' and '),
+                                TextSpan(text: context.t(' and ', ' र ')),
                                 TextSpan(
-                                  text: 'Privacy Policy',
+                                  text: context.t('Privacy Policy', 'गोपनीयता नीति'),
                                   style: TextStyle(
                                     color: theme.colorScheme.primary,
                                     fontWeight: FontWeight.w600,
@@ -341,7 +355,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   const SizedBox(height: 18),
                   PrimaryButton(
-                    label: 'Create account',
+                    label: context.t('Create account', 'खाता बनाउनुहोस्'),
                     icon: Icons.check_rounded,
                     onPressed: _handleSignup,
                     isLoading: _isLoading,
@@ -354,7 +368,7 @@ class _SignupScreenState extends State<SignupScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Text(
-                  'Already have an account?',
+                  context.t('Already have an account?', 'पहिले नै खाता छ?'),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: glass.textSecondary,
                   ),
@@ -362,7 +376,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 TextButton(
                   onPressed: _returnToShell,
                   child: Text(
-                    'Sign in',
+                    context.t('Sign in', 'साइन इन'),
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: theme.colorScheme.primary,
                       fontWeight: FontWeight.w700,

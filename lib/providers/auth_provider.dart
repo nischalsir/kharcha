@@ -192,7 +192,7 @@ class AuthProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (error) {
-      _failure = AppFailure.from(error);
+      _failure = _mapAuthError(error);
       notifyListeners();
       rethrow;
     } finally {
@@ -216,12 +216,61 @@ class AuthProvider extends ChangeNotifier {
       _refreshMfaState();
       notifyListeners();
     } catch (error) {
-      _failure = AppFailure.from(error);
+      _failure = _mapAuthError(error);
       notifyListeners();
       rethrow;
     } finally {
       _setLoading(false);
     }
+  }
+
+  /// Maps Supabase auth errors to user-friendly messages.
+  AppFailure _mapAuthError(Object error) {
+    if (error is AuthException) {
+      final message = error.message.toLowerCase();
+      if (message.contains('invalid login') ||
+          message.contains('invalid credentials') ||
+          message.contains('wrong password') ||
+          message.contains('user not found') ||
+          message.contains('email not confirmed')) {
+        return const AppFailure(
+          FailureKind.syncFailed,
+          'Wrong email or password. Please try again.',
+        );
+      }
+      if (message.contains('signup_disabled')) {
+        return const AppFailure(
+          FailureKind.syncFailed,
+          'Sign up is currently disabled.',
+        );
+      }
+      if (message.contains('email_already_exists') ||
+          message.contains('user already registered')) {
+        return const AppFailure(
+          FailureKind.syncFailed,
+          'An account with this email already exists. Try signing in.',
+        );
+      }
+      if (message.contains('weak_password')) {
+        return const AppFailure(
+          FailureKind.syncFailed,
+          'Password is too weak. Use at least 6 characters.',
+        );
+      }
+      if (message.contains('invalid_email')) {
+        return const AppFailure(
+          FailureKind.syncFailed,
+          'Please enter a valid email address.',
+        );
+      }
+      if (message.contains('network') || message.contains('connection')) {
+        return const AppFailure(
+          FailureKind.offline,
+          'No internet connection. Please check your network.',
+        );
+      }
+    }
+    return AppFailure.from(error);
   }
 
   Future<void> signInAnonymously() async {
@@ -236,7 +285,7 @@ class AuthProvider extends ChangeNotifier {
       _user = response.user;
       notifyListeners();
     } catch (error) {
-      _failure = AppFailure.from(error);
+      _failure = _mapAuthError(error);
       notifyListeners();
       rethrow;
     } finally {

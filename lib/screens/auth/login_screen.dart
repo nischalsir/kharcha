@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +9,7 @@ import '../../core/router/route_paths.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/biometric_service.dart';
+import '../../services/update_service.dart';
 import '../../widgets/common/auth_widgets.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
@@ -79,7 +82,11 @@ class _LoginScreenState extends State<LoginScreen> {
       await auth.signIn(email: email, password: password);
       await _persistLogin(biometric, email: email, password: password);
       await _maybeSuggestBiometrics(biometric, email: email, password: password);
-      if (mounted) _returnToShell();
+      if (mounted) {
+        _returnToShell();
+        // Check for updates after successful login
+        unawaited(UpdateService().maybeShowUpdateDialog(context));
+      }
     } catch (_) {
       // The failure is already exposed through AuthProvider.
     } finally {

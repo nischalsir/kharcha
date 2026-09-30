@@ -2,6 +2,9 @@
 
 ## Fixes
 - **User data isolation fixed**: Added explicit `user_id` filter to sync pull queries for defense-in-depth. Every user now only sees their own transactions, budgets, friends, categories, and settings.
+- **Login/Signup improvements**: Better error messages ("Wrong email or password" instead of generic "Could not sign in to sync"), fully localized strings, improved UX.
+- **Update checker**: App now checks GitHub releases on login/signup and prompts to update if a newer version is available.
+- **Removed app version from More page** for cleaner UI.
 - **Database cleaned**: All previous test accounts and data removed for a fresh start.
 
 ## Highlights (from v1.0.0)

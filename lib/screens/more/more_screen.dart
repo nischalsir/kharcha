@@ -11,7 +11,6 @@ import '../../screens/calculator/calculator_screen.dart';
 import '../../screens/festivals/festivals_screen.dart';
 import '../../screens/reports/reports_screen.dart';
 import '../../screens/settings/settings_screen.dart';
-import '../../screens/settings/version_screen.dart';
 import '../../widgets/common/glass_card.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -73,7 +72,6 @@ class MoreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final glass = context.glass;
     final mode = context.watch<AppSettingsProvider>().themeMode;
 
     return SafeArea(
@@ -167,15 +165,6 @@ class MoreScreen extends StatelessWidget {
               'यस खाताबाट साइन आउट गर्नुहोस्',
             ),
             onTap: () => _logout(context),
-          ),
-          const SizedBox(height: 24),
-          Center(
-            child: Text(
-              'Kharcha v${VersionScreen.appVersion}',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: glass.textTertiary,
-              ),
-            ),
           ),
         ],
       ),
