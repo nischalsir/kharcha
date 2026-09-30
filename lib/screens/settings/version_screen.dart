@@ -11,8 +11,8 @@ class VersionScreen extends StatelessWidget {
   const VersionScreen({super.key});
 
   /// Keep in sync with pubspec.yaml (`version: 1.0.0+2`).
-  static const String appVersion = '1.0.0';
-  static const String buildNumber = '2';
+  static const String appVersion = '1.0.1';
+  static const String buildNumber = '3';
   static const String applicationId = 'com.nischalpandey.kharcha';
 
   static const String developerName = 'Nischal Pandey';

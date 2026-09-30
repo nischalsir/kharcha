@@ -72,11 +72,14 @@ class SupabaseService {
     int pageSize = 500,
   }) async {
     final client = _requireClient();
+    final uid = userId;
     try {
       final base = client.from(entity.table).select();
+      // Explicit user_id filter for defense-in-depth; RLS also enforces this.
+      final withUser = uid == null ? base : base.eq('user_id', uid);
       final filtered = cursor == null
-          ? base
-          : base.gt('server_updated_at', cursor);
+          ? withUser
+          : withUser.gt('server_updated_at', cursor);
       final rows = await filtered
           .order('server_updated_at', ascending: true)
           .limit(pageSize);

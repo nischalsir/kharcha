@@ -1,6 +1,10 @@
-# Kharcha v1.0.0
+# Kharcha v1.0.1
 
-## Highlights
+## Fixes
+- **User data isolation fixed**: Added explicit `user_id` filter to sync pull queries for defense-in-depth. Every user now only sees their own transactions, budgets, friends, categories, and settings.
+- **Database cleaned**: All previous test accounts and data removed for a fresh start.
+
+## Highlights (from v1.0.0)
 - **Bikram Sambat calendar** in Nepali with gazetted festival dates from the Ministry of Home Affairs
 - **Expense / income tracking** with categories, monthly budget, and "Spent this month" card showing total, % of income, and category breakdown
 - **AI flame mascot**: glows gold when you're saving, turns blue/sad when overspending, reacts to every transaction with random lines ("Hmmmm… money!", "Save money!")
@@ -11,7 +15,7 @@
 - **Security**: row-level security on every table, private storage, secrets only in edge functions, input limits matched to the database
 
 ## Install
-1. Download the APK below (`kharcha-v1.0.0.apk`)
+1. Download the APK below (`kharcha-v1.0.1.apk`)
 2. Enable *Install unknown apps* for your browser / file manager
 3. Open the APK → Install
 
