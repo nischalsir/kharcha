@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: ⬇️ Download the latest APK
+    url: https://github.com/nischalsir/kharcha/releases/latest
+    about: Check you're on the newest version before reporting a bug.

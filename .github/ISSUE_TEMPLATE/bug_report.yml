@@ -1,0 +1,53 @@
+name: 🐛 Bug report
+description: Something in Kharcha isn't working the way it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping make Kharcha better! Please don't include passwords,
+        bank details or real transaction data in this report.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+      placeholder: When I add an expense, the flame doesn't react…
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Payments
+        2. Tap + and add an expense of रु 500
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Settings → Version, or the APK name (e.g. v1.0.2).
+      placeholder: v1.0.2
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone and Android version
+      placeholder: Samsung Galaxy A52, Android 14
+  - type: dropdown
+    id: account
+    attributes:
+      label: Account type
+      options:
+        - Signed in with email
+        - Guest
+        - Not sure
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or screen recording
+      description: Drag files here. Please blur any amounts or names you'd rather not share.

@@ -1,0 +1,30 @@
+name: ✨ Feature idea
+description: Suggest something that would make Kharcha more useful.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: Describe the problem or moment where Kharcha falls short.
+      placeholder: I'd like to see how much I spent during Dashain compared to last year…
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could Kharcha help?
+      description: Your idea for a solution. Sketches and screenshots welcome.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the app?
+      options:
+        - Expenses & income
+        - Budgets & reports
+        - Calendar, festivals & tithi
+        - The flame / AI
+        - Notifications
+        - Friends & Pasal
+        - Account, sync & backup
+        - Something else
