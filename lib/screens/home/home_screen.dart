@@ -9,13 +9,14 @@ import '../../providers/ai_insight_provider.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/dashboard_provider.dart';
+import '../../widgets/common/ai_mood_badge.dart';
+import '../../widgets/common/animated_number.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/section_header.dart';
 import '../../widgets/common/stat_card.dart';
 import '../../widgets/dashboard/ai_birthday_banner.dart';
 import '../../widgets/dashboard/day_insight_card.dart';
 import '../../widgets/dashboard/pasal_summary_card.dart';
-import '../../widgets/dashboard/push_notification_card.dart';
 import '../../widgets/dashboard/quick_actions_row.dart';
 import '../../widgets/dashboard/recent_payments_list.dart';
 import '../../widgets/dashboard/spending_chart_card.dart';
@@ -139,7 +140,70 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            sliver: SliverToBoxAdapter(child: const PushNotificationCard()),
+            sliver: SliverToBoxAdapter(
+              child: GlassCard(
+                strong: true,
+                glow: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            context.t('Total Balance', 'कुल बचत'),
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: glass.textSecondary,
+                            ),
+                          ),
+                        ),
+                        AiMoodBadge(
+                          mood: context.watch<AiInsightProvider>().mood,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    AnimatedNumber(
+                      value: data.totalBalance,
+                      style: theme.textTheme.displaySmall,
+                    ),
+                    const _MoodReactionBubble(),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _MiniStat(
+                            label: context.t('Income', 'आम्दानी'),
+                            value: data.totalIncome,
+                            color: glass.success,
+                            icon: Icons.south_west,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _MiniStat(
+                            label: context.t('Expenses', 'खर्च'),
+                            value: data.totalExpense,
+                            color: glass.danger,
+                            icon: Icons.north_east,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _MiniStat(
+                            label: context.t('Savings', 'बचत'),
+                            value: data.netSavings,
+                            color: theme.colorScheme.primary,
+                            icon: Icons.savings_outlined,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
           if (data.monthlyBudget > 0)
             SliverPadding(
@@ -373,6 +437,111 @@ class _FriendsSummaryCard extends StatelessWidget {
             icon: Icons.arrow_downward,
             color: context.glass.success,
             onTap: () => Navigator.of(context).pushNamed(RoutePaths.friends),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A short-lived speech bubble under the balance, shown only while the mascot
+/// is reacting to a transaction the user just added.
+///
+/// Reads `reaction` rather than `mood` on purpose: the standing time/weather
+/// mood is always present and would keep this bubble on screen permanently.
+class _MoodReactionBubble extends StatelessWidget {
+  const _MoodReactionBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final reaction = context.watch<AiInsightProvider>().reaction;
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topLeft,
+      child: reaction == null
+          ? const SizedBox(width: double.infinity)
+          : Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: reaction.color(context).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: reaction.color(context).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(reaction.emoji, style: const TextStyle(fontSize: 16)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        reaction.message,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: reaction.color(context),
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
+
+  final String label;
+  final double value;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: glass.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            CurrencyFormatter.compact(value),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],
