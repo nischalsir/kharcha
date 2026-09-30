@@ -130,10 +130,12 @@ class VersionScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Kharcha is a simple, private expense tracker built for Nepal. '
-                'It keeps your transactions, budgets, friends and Pasal credit '
-                'in one place, works offline, and syncs securely when you are '
-                'online.',
+                'Kharcha is a Nepali-first expense tracker built around the Bikram Sambat '
+                'calendar. It works offline, syncs securely via Supabase, and includes '
+                'an AI flame mascot that reacts to your spending. Push notifications '
+                'cover budget alerts, daily AI greetings (morning/night), and transaction '
+                'reminders. All data is encrypted at rest; secrets live only in server-side '
+                'Edge Functions.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: glass.textSecondary,
                   height: 1.5,
