@@ -16,6 +16,11 @@
 - **Offline-first sync**, encrypted backups, biometric lock
 - **Security**: row-level security on every table, private storage, secrets only in edge functions, input limits matched to the database
 
+## Screenshots
+| Home | Calendar | Login | Sign Up |
+|------|----------|-------|---------|
+| <img src="assets/images/screenshots/home.jpg" width="200"> | <img src="assets/images/screenshots/calender.jpg" width="200"> | <img src="assets/images/screenshots/login.jpg" width="200"> | <img src="assets/images/screenshots/signup.jpg" width="200"> |
+
 ## Tech Stack
 - **Frontend**: Flutter 3.47 (Dart 3.13)
 - **Backend**: Supabase (Postgres + Edge Functions in Deno)
