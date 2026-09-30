@@ -8,7 +8,6 @@ import '../core/config/env.dart';
 import '../core/errors/app_failure.dart';
 import '../models/app_settings_model.dart';
 import '../services/cloudinary_service.dart';
-import '../services/google_account.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthProvider();
@@ -147,129 +146,6 @@ class AuthProvider extends ChangeNotifier {
     final moved = result is Map ? result['moved'] : null;
     return moved is num ? moved.toInt() : 0;
   }
-
-  // --- Google ------------------------------------------------------------------
-
-  static const List<String> _googleScopes = <String>['email', 'profile'];
-
-  /// Google's signed ID token (proves who the user is) plus an access token,
-  /// which Supabase uses to verify the ID token was issued to this app.
-  Future<({String idToken, String accessToken})> _googleTokens() async {
-    final account = await GoogleAccount.pick(scopeHint: _googleScopes);
-    final idToken = account.authentication.idToken;
-    if (idToken == null) {
-      throw const AppFailure(
-        FailureKind.syncFailed,
-        'Google did not return an ID token. Check the web OAuth client in '
-        'google-services.json.',
-      );
-    }
-    final authorization =
-        await account.authorizationClient.authorizationForScopes(_googleScopes) ??
-        await account.authorizationClient.authorizeScopes(_googleScopes);
-    return (idToken: idToken, accessToken: authorization.accessToken);
-  }
-
-  /// A friendlier message for the one server-side misconfiguration users are
-  /// likely to hit: the Google provider not being switched on in Supabase.
-  AppFailure _mapGoogleError(Object error) {
-    if (error is AppFailure) return error;
-    if (error is AuthException &&
-        error.message.toLowerCase().contains('provider')) {
-      return const AppFailure(
-        FailureKind.syncFailed,
-        'Google sign-in isn’t enabled on the server yet.',
-      );
-    }
-    return _mapAuthError(error);
-  }
-
-  /// "Continue with Google": signs in, creating the account on first use.
-  /// An existing email account with the same verified Gmail is linked rather
-  /// than duplicated (Supabase does this automatically).
-  Future<void> signInWithGoogle() async {
-    _setLoading(true);
-    _clearError();
-    try {
-      final tokens = await _googleTokens();
-      final response = await _requireClient().auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: tokens.idToken,
-        accessToken: tokens.accessToken,
-      );
-      _session = response.session;
-      _user = response.user;
-      _refreshMfaState();
-      notifyListeners();
-    } catch (error) {
-      _failure = _mapGoogleError(error);
-      notifyListeners();
-      rethrow;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  /// Upgrades a guest by attaching their Google account to it: same user id,
-  /// so every record stays. If that Google account already has a Kharcha
-  /// account, signs into it instead and moves the guest's records across (see
-  /// [mergeGuestIntoAccount]). Returns the number of records moved, or 0 when
-  /// linked in place.
-  ///
-  /// Callers must flush pending writes first, as for [mergeGuestIntoAccount].
-  Future<int> upgradeGuestWithGoogle() async {
-    _setLoading(true);
-    _clearError();
-    try {
-      final client = _requireClient();
-      final tokens = await _googleTokens();
-      try {
-        final response = await client.auth.linkIdentityWithIdToken(
-          provider: OAuthProvider.google,
-          idToken: tokens.idToken,
-          accessToken: tokens.accessToken,
-        );
-        _session = response.session ?? client.auth.currentSession;
-        _user = response.user ?? client.auth.currentUser;
-        notifyListeners();
-        return 0;
-      } on AuthException catch (error) {
-        final code = error.code ?? '';
-        final taken = code == 'identity_already_exists' ||
-            error.message.toLowerCase().contains('already');
-        if (!taken) rethrow;
-      }
-      // The Google account belongs to an existing Kharcha account: prove we
-      // own the guest data, sign in, and have the server move it.
-      final token = await client.rpc<dynamic>('create_guest_claim') as String;
-      final response = await client.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: tokens.idToken,
-        accessToken: tokens.accessToken,
-      );
-      _session = response.session;
-      _user = response.user;
-      _refreshMfaState();
-      final result = await client.rpc<dynamic>(
-        'claim_guest_data',
-        params: <String, dynamic>{'p_token': token},
-      );
-      notifyListeners();
-      final moved = result is Map ? result['moved'] : null;
-      return moved is num ? moved.toInt() : 0;
-    } catch (error) {
-      _failure = _mapGoogleError(error);
-      notifyListeners();
-      rethrow;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  /// True when the signed-in account can sign in with Google.
-  bool get usesGoogle =>
-      _user?.appMetadata['providers'] is List &&
-      (_user!.appMetadata['providers'] as List).contains('google');
 
   /// Verified authenticator-app factors (empty when two-factor auth is off).
   List<Factor> get verifiedFactors => _verifiedFactors;
@@ -537,9 +413,6 @@ class AuthProvider extends ChangeNotifier {
       final client = _requireClient();
       await _runSignOutCleanups();
       await client.auth.signOut();
-      // So the next "Continue with Google" shows the account picker instead
-      // of silently reusing the previous Google account.
-      await GoogleAccount.signOut();
 
       _session = null;
       _user = null;

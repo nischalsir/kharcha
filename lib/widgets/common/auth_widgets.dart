@@ -1,8 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-
-import '../../core/l10n/app_l10n.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/errors/app_failure.dart';
@@ -315,24 +313,6 @@ class AuthSwitchRow extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// "Continue with Google", styled like the other secondary auth buttons.
-class AuthGoogleButton extends StatelessWidget {
-  const AuthGoogleButton({super.key, required this.onPressed, this.label});
-
-  final VoidCallback? onPressed;
-  final String? label;
-
-  @override
-  Widget build(BuildContext context) {
-    return AuthGhostButton(
-      label: label ?? context.t('Continue with Google', 'Google बाट जारी राख्नुहोस्'),
-      icon: Icons.g_mobiledata_rounded,
-      tint: Theme.of(context).colorScheme.onSurface,
-      onPressed: onPressed,
     );
   }
 }

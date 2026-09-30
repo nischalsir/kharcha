@@ -133,22 +133,6 @@ class _SignupScreenState extends State<SignupScreen> {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
-  /// Google needs no separate sign-up: the first sign-in creates the account.
-  Future<void> _handleGoogle() async {
-    final auth = context.read<AuthProvider>();
-    setState(() => _isLoading = true);
-    try {
-      await auth.signInWithGoogle();
-      if (!mounted) return;
-      _returnToShell();
-      unawaited(UpdateService().maybeShowUpdateDialog(context));
-    } catch (_) {
-      // The failure is already exposed through AuthProvider.
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
   void _showVerificationDialog() {
     showDialog<void>(
       context: context,
@@ -375,11 +359,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     icon: Icons.check_rounded,
                     onPressed: _handleSignup,
                     isLoading: _isLoading,
-                  ),
-                  const SizedBox(height: 12),
-                  AuthGoogleButton(
-                    label: context.t('Sign up with Google', 'Google बाट साइन अप'),
-                    onPressed: _isLoading ? null : _handleGoogle,
                   ),
                 ],
               ),

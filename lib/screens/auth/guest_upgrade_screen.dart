@@ -68,37 +68,6 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
     }
   }
 
-  /// Attaches the guest's Google account in place, or - if that Google
-  /// account already uses Kharcha - signs into it and moves the guest data.
-  Future<void> _upgradeWithGoogle() async {
-    final auth = context.read<AuthProvider>();
-    final sync = context.read<SyncService>();
-    setState(() => _busy = true);
-    try {
-      await sync.flushBeforeSignOut();
-      final moved = await auth.upgradeGuestWithGoogle();
-      if (moved > 0) await sync.refresh();
-      if (!mounted) return;
-      showMessage(
-        context,
-        moved > 0
-            ? context.t(
-                'Signed in with Google. Moved $moved records from guest mode.',
-                'Google बाट साइन इन भयो। पाहुना मोडबाट $moved वटा रेकर्ड सारियो।',
-              )
-            : context.t(
-                'Google account linked. All your data is saved.',
-                'Google खाता जोडियो। सबै डाटा सुरक्षित छ।',
-              ),
-      );
-      Navigator.of(context).pop();
-    } catch (_) {
-      // Surfaced through AuthErrorBanner.
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   Future<void> _verify() async {
     if (_code.text.trim().length < 6) {
       showMessage(context, context.t('Enter the 6-digit code', '६ अंकको कोड लेख्नुहोस्'));
@@ -310,8 +279,6 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
         onPressed: _continue,
         isLoading: _busy,
       ),
-      const SizedBox(height: 12),
-      AuthGoogleButton(onPressed: _busy ? null : _upgradeWithGoogle),
     ];
   }
 
