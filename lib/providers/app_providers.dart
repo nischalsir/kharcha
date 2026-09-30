@@ -12,6 +12,7 @@ import '../services/cache_service.dart';
 import '../services/festival_service.dart';
 import '../services/financial_summary_service.dart';
 import '../services/nepali_date_service.dart';
+import '../services/reaction_notifier.dart';
 import '../services/supabase_service.dart';
 import '../services/sync_service.dart';
 import '../services/weather_service.dart';
@@ -165,6 +166,9 @@ class AppProviders {
       insightService: AiInsightService(),
       weatherService: WeatherService(),
       cache: env.cache,
+      // The flame's reaction arrives as an FCM push notification instead of
+      // a speech bubble inside the balance card.
+      onReaction: ReactionNotifier.deliver,
     );
   }
 }

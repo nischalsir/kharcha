@@ -33,7 +33,12 @@ class AiInsightProvider extends ChangeNotifier {
     required this._insightService,
     required this._weatherService,
     required this._cache,
+    this.onReaction,
   });
+
+  /// Delivers a transaction reaction outside the widget tree - in the app,
+  /// as a device notification. Optional so tests and previews need no plugin.
+  final Future<void> Function(AiMood reaction)? onReaction;
 
   final FinancialSummaryService _summaryService;
   final AiMoodService _moodService;
@@ -164,6 +169,15 @@ class AiInsightProvider extends ChangeNotifier {
       summary: summary,
       categoryName: categoryName,
     );
+    final reaction = _reaction!;
+    final deliver = onReaction;
+    if (deliver != null) {
+      unawaited(
+        deliver(reaction).catchError((Object error) {
+          debugPrint('AI: could not post the reaction ($error)');
+        }),
+      );
+    }
     _reactionTimer?.cancel();
     _reactionTimer = Timer(reactionDuration, () {
       _reaction = null;

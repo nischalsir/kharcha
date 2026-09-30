@@ -85,6 +85,45 @@ class SyncService extends ChangeNotifier {
     await syncIfNeeded(force: true);
   }
 
+  static const String _ownerKey = 'cache.owner';
+
+  /// The account the local cache belongs to.
+  String? get cacheOwner => _cache.readSetting(_ownerKey);
+
+  /// Binds the offline cache to the signed-in account.
+  ///
+  /// The cache and the pending-write queue are not keyed by user. Without
+  /// this, signing in as someone else on the same phone showed the previous
+  /// account's transactions, and pushed that account's unsynced writes into
+  /// the new one (the server stamps `user_id` from the session). A different
+  /// account now starts from an empty cache and pulls its own data.
+  ///
+  /// The first call on an existing install adopts the current user without
+  /// clearing anything: the data on the device is theirs.
+  Future<void> adoptUser(String? userId) async {
+    if (userId == null || userId.isEmpty) return;
+    final owner = cacheOwner;
+    if (owner == userId) return;
+    if (owner != null) {
+      await _cache.clearDataCache(keepPending: false);
+      _refreshCounts();
+      _notify();
+    }
+    await _cache.writeSetting(_ownerKey, userId);
+    if (owner != null) await syncIfNeeded(force: true);
+  }
+
+  /// Pushes queued writes while the current session is still valid. Run
+  /// before signing out, so switching accounts does not strand them.
+  Future<void> flushBeforeSignOut() async {
+    try {
+      await flushPending().timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Offline or slow: the queue stays on disk, and [adoptUser] drops it
+      // only if a *different* account signs in next.
+    }
+  }
+
   Future<void> recordWrite(SyncEntity entity, Map<String, dynamic> row) async {
     await _cache.putRow(entity, row);
     await _cache.enqueue(entity, entity.recordId(row), row);

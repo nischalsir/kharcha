@@ -91,6 +91,16 @@ enum PushCategory {
     defaultEnabled: true,
     channel: PushChannel.insights,
     importance: PushImportance.defaultImportance,
+  ),
+
+  /// The flame reacting to a transaction the user just saved ("Hmmm…
+  /// money!"). Local only, never sent by the server. Posted as a heads-up
+  /// banner so it reads like a real device notification.
+  moodReaction(
+    id: 'mood_reaction',
+    defaultEnabled: true,
+    channel: PushChannel.buddy,
+    importance: PushImportance.high,
   );
 
   const PushCategory({
@@ -137,6 +147,9 @@ enum PushChannel {
 
   /// AI insights and recaps.
   insights(id: 'kharcha_insights', name: 'Insights'),
+
+  /// The flame's reactions to transactions. High importance so they pop up.
+  buddy(id: 'kharcha_buddy', name: 'Flame reactions'),
 
   /// Fallback when a message carries no category.
   fallback(id: 'kharcha_default', name: 'General');

@@ -12,15 +12,8 @@ import '../../services/nepali_date_service.dart';
 class L10n {
   const L10n._();
 
-  /// Reads the language through [LanguageScope] so the calling widget is
-  /// rebuilt when it changes. A plain `context.read` never subscribes, which is
-  /// why switching language used to leave most of the screen in the old one
-  /// until something unrelated rebuilt it.
-  static bool isNepali(BuildContext context) {
-    final scope = context
-        .dependOnInheritedWidgetOfExactType<_LanguageInherited>();
-    return scope?.nepali ?? context.read<NepaliDateService>().devanagari;
-  }
+  static bool isNepali(BuildContext context) =>
+      context.read<NepaliDateService>().devanagari;
 
   static String t(BuildContext context, String en, String ne) =>
       isNepali(context) ? ne : en;
@@ -68,60 +61,3 @@ extension L10nContext on BuildContext {
   String t(String en, String ne) => L10n.t(this, en, ne);
 }
 
-/// Publishes the active language (and calendar) to the whole app and makes a
-/// switch take effect on the very next frame.
-///
-/// Two mechanisms, because the app reads these settings two ways:
-///  * `context.t(...)` depends on the inherited widget below, so those texts
-///    rebuild through normal inheritance;
-///  * dates are formatted by [NepaliDateService], which ~17 widgets read with
-///    `context.read` and which cannot notify. For those, a change marks every
-///    element below dirty once. It happens only when the user flips the
-///    setting, and it keeps all state (tabs, scroll, open routes).
-class LanguageScope extends StatefulWidget {
-  const LanguageScope({
-    super.key,
-    required this.nepali,
-    this.calendar = '',
-    required this.child,
-  });
-
-  final bool nepali;
-
-  /// Any value identifying the calendar system; a change triggers a refresh.
-  final Object calendar;
-  final Widget child;
-
-  @override
-  State<LanguageScope> createState() => _LanguageScopeState();
-}
-
-class _LanguageScopeState extends State<LanguageScope> {
-  @override
-  void didUpdateWidget(LanguageScope oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.nepali != widget.nepali ||
-        oldWidget.calendar != widget.calendar) {
-      void markAll(Element element) {
-        element.markNeedsBuild();
-        element.visitChildren(markAll);
-      }
-
-      (context as Element).visitChildren(markAll);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) =>
-      _LanguageInherited(nepali: widget.nepali, child: widget.child);
-}
-
-class _LanguageInherited extends InheritedWidget {
-  const _LanguageInherited({required this.nepali, required super.child});
-
-  final bool nepali;
-
-  @override
-  bool updateShouldNotify(_LanguageInherited oldWidget) =>
-      oldWidget.nepali != nepali;
-}

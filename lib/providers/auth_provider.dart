@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/config/env.dart';
 import '../core/errors/app_failure.dart';
 import '../models/app_settings_model.dart';
+import '../services/cloudinary_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthProvider();
@@ -54,6 +56,96 @@ class AuthProvider extends ChangeNotifier {
   bool get isOffline => _failure?.isOffline ?? false;
   String? get userId => _user?.id;
   String? get userEmail => _user?.email;
+
+  /// Signed in through "Explore as guest": the data lives under an anonymous
+  /// account that is lost if the app is removed, until it is upgraded.
+  bool get isGuest => _user?.isAnonymous ?? false;
+
+  /// Step 1 of keeping a guest's data: attach an email to the guest account
+  /// itself, so the user id - and every record - stays the same.
+  ///
+  /// Returns [GuestUpgrade.codeSent] when Supabase has emailed a 6-digit code,
+  /// or [GuestUpgrade.emailTaken] when the email already has an account, in
+  /// which case [mergeGuestIntoAccount] is the way forward.
+  Future<GuestUpgrade> startGuestUpgrade({
+    required String email,
+    String? fullName,
+  }) async {
+    _clearError();
+    final client = _requireClient();
+    try {
+      await client.auth.updateUser(
+        UserAttributes(
+          email: email,
+          data: fullName == null ? null : <String, dynamic>{'full_name': fullName},
+        ),
+      );
+      return GuestUpgrade.codeSent;
+    } on AuthException catch (error) {
+      final code = error.code ?? '';
+      final message = error.message.toLowerCase();
+      if (code == 'email_exists' ||
+          message.contains('already') ||
+          message.contains('registered')) {
+        return GuestUpgrade.emailTaken;
+      }
+      _failure = _mapAuthError(error);
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Step 2: confirm the emailed code, then set the password. The password can
+  /// only be added once the email is verified.
+  Future<void> finishGuestUpgrade({
+    required String email,
+    required String code,
+    required String password,
+  }) async {
+    _setLoading(true);
+    _clearError();
+    try {
+      final client = _requireClient();
+      await client.auth.verifyOTP(
+        type: OtpType.emailChange,
+        email: email,
+        token: code.trim(),
+      );
+      await client.auth.updateUser(UserAttributes(password: password));
+      _user = client.auth.currentUser;
+      _session = client.auth.currentSession;
+      notifyListeners();
+    } catch (error) {
+      _failure = _mapAuthError(error);
+      notifyListeners();
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// The guest's email already belongs to an account: prove ownership of the
+  /// guest data (while still the guest), sign in, then have the server move
+  /// it. Records keep their ids, and duplicate categories, budgets and
+  /// payment methods are folded into the account's own. See
+  /// supabase/migrations/*_guest_claims.sql. Returns the number moved.
+  ///
+  /// Callers must flush pending writes first: anything still queued locally
+  /// belongs to the guest and would otherwise be dropped.
+  Future<int> mergeGuestIntoAccount({
+    required String email,
+    required String password,
+  }) async {
+    final client = _requireClient();
+    final token = await client.rpc<dynamic>('create_guest_claim') as String;
+    await signIn(email: email, password: password);
+    final result = await client.rpc<dynamic>(
+      'claim_guest_data',
+      params: <String, dynamic>{'p_token': token},
+    );
+    final moved = result is Map ? result['moved'] : null;
+    return moved is num ? moved.toInt() : 0;
+  }
 
   /// Verified authenticator-app factors (empty when two-factor auth is off).
   List<Factor> get verifiedFactors => _verifiedFactors;
@@ -481,7 +573,17 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Uploads the current user's avatar image and returns its storage path.
+  /// Where the avatar lives now: a Cloudinary URL in the user's metadata.
+  /// Avatars uploaded before the move are still read from Supabase Storage
+  /// until the user picks a new photo.
+  static const String _avatarUrlKey = 'avatar_url';
+
+  String? get _cloudAvatarUrl {
+    final value = _user?.userMetadata?[_avatarUrlKey];
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  /// Uploads the current user's avatar to Cloudinary and returns its URL.
   Future<String> uploadAvatar(
     Uint8List bytes, {
     required String contentType,
@@ -498,31 +600,18 @@ class AuthProvider extends ChangeNotifier {
           'You are not signed in.',
         );
       }
-      final path = avatarPath(uid, contentType);
-      final storage = client.storage.from(avatarBucket);
-      // A new crop may use a different extension than the previous avatar, so
-      // drop any older file first to keep exactly one avatar per user.
-      try {
-        final existing = await storage.list(path: uid);
-        if (existing.isNotEmpty) {
-          await storage.remove(<String>[
-            for (final file in existing) '$uid/${file.name}',
-          ]);
-        }
-      } catch (_) {
-        // Listing is best-effort; the upsert below still replaces same-name files.
-      }
-      await storage.uploadBinary(
-        path,
+      final url = await CloudinaryService(client: client).uploadAvatar(
         bytes,
-        fileOptions: FileOptions(
-          upsert: true,
-          cacheControl: '31536000',
-          contentType: contentType,
-        ),
+        filename: 'avatar.${_avatarExtension(contentType)}',
       );
+      await client.auth.updateUser(
+        UserAttributes(data: <String, dynamic>{_avatarUrlKey: url}),
+      );
+      _user = client.auth.currentUser;
+      // The old Supabase copy is now stale; drop it so it can never reappear.
+      unawaited(_removeLegacyAvatar(client, uid));
       notifyListeners();
-      return path;
+      return url;
     } catch (error) {
       _failure = AppFailure.from(error);
       notifyListeners();
@@ -532,9 +621,11 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Returns a signed URL for the current user's avatar, or null when there
-  /// is no avatar yet or the backend is not reachable.
+  /// A display URL for the current user's avatar, or null when there is none
+  /// or the backend is not reachable.
   Future<String?> signedAvatarUrl({int expiresIn = 604800}) async {
+    final cloud = _cloudAvatarUrl;
+    if (cloud != null) return CloudinaryService.avatarUrl(cloud);
     if (!Env.hasSupabase) return null;
     final uid = _user?.id;
     if (uid == null) return null;
@@ -559,11 +650,14 @@ class AuthProvider extends ChangeNotifier {
       final client = _requireClient();
       final uid = _user?.id;
       if (uid == null) return;
-      final files = await client.storage.from(avatarBucket).list(path: uid);
-      if (files.isEmpty) return;
-      await client.storage.from(avatarBucket).remove([
-        for (final file in files) '$uid/${file.name}',
-      ]);
+      if (_cloudAvatarUrl != null) {
+        await CloudinaryService(client: client).deleteAvatar();
+        await client.auth.updateUser(
+          UserAttributes(data: <String, dynamic>{_avatarUrlKey: null}),
+        );
+        _user = client.auth.currentUser;
+      }
+      await _removeLegacyAvatar(client, uid);
       notifyListeners();
     } catch (error) {
       _failure = AppFailure.from(error);
@@ -571,6 +665,19 @@ class AuthProvider extends ChangeNotifier {
       rethrow;
     } finally {
       _setLoading(false);
+    }
+  }
+
+  Future<void> _removeLegacyAvatar(SupabaseClient client, String uid) async {
+    try {
+      final files = await client.storage.from(avatarBucket).list(path: uid);
+      if (files.isEmpty) return;
+      await client.storage.from(avatarBucket).remove([
+        for (final file in files) '$uid/${file.name}',
+      ]);
+    } catch (_) {
+      // Best effort: a leftover legacy file is ignored once a Cloudinary
+      // avatar exists.
     }
   }
 
@@ -753,3 +860,6 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+/// Outcome of [AuthProvider.startGuestUpgrade].
+enum GuestUpgrade { codeSent, emailTaken }

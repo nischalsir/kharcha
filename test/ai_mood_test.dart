@@ -124,6 +124,34 @@ void main() {
     });
   });
 
+  group('suggestions', () {
+    test('tips use the user’s own numbers', () {
+      final seen = <String>{};
+      for (var seed = 0; seed < 40; seed++) {
+        final mood = AiMoodService(random: math.Random(seed)).buildMood(
+          summary: _summary(income: 1100, monthExpense: 1000),
+          now: _at(14),
+        );
+        seen.add(mood.message);
+      }
+      expect(seen.any((m) => m.contains('Food')), isTrue);
+      expect(seen.length, greaterThan(4), reason: 'lines should vary');
+    });
+
+    test('a steady day can show the thinking face while it advises', () {
+      final faces = <MoodFace>{
+        for (var seed = 0; seed < 40; seed++)
+          AiMoodService(random: math.Random(seed))
+              .buildMood(
+                summary: _summary(income: 1100, monthExpense: 1000),
+                now: _at(14),
+              )
+              .face,
+      };
+      expect(faces, containsAll(<MoodFace>[MoodFace.calm, MoodFace.thinking]));
+    });
+  });
+
   group('weather', () {
     test('a storm never leaves an excited face', () {
       final mood = service.buildMood(
@@ -204,9 +232,10 @@ void main() {
   group('add expense / add income reaction', () {
     test('adding income lights the flame up and talks about money', () {
       final before = service.energyFor(_summary());
+      // A modest top-up; salary-sized income gets the Jackpot reaction.
       final mood = service.buildReaction(
         isIncome: true,
-        amount: 5000,
+        amount: 500,
         summary: _summary(),
         categoryName: 'Salary',
       );
@@ -214,7 +243,7 @@ void main() {
       expect(mood.tone, MoodTone.good);
       expect(mood.label, 'Money in');
       expect(mood.energy, greaterThan(before));
-      expect(mood.message.toLowerCase(), anyOf(contains('money'), contains('5,000')));
+      expect(mood.message.toLowerCase(), anyOf(contains('money'), contains('500')));
     });
 
     test('a small expense stays calm rather than scolding', () {
@@ -224,12 +253,12 @@ void main() {
         summary: _summary(),
         categoryName: 'Food',
       );
-      expect(mood.face, MoodFace.calm);
+      expect(mood.face, MoodFace.wink);
       expect(mood.tone, MoodTone.neutral);
       expect(mood.label, 'Logged');
     });
 
-    test('a huge expense makes the flame sad and ask to save money', () {
+    test('a huge expense shocks the flame and drains it', () {
       final before = service.energyFor(_summary());
       final mood = service.buildReaction(
         isIncome: false,
@@ -237,10 +266,21 @@ void main() {
         summary: _summary(),
         categoryName: 'Shopping',
       );
-      expect(mood.face, MoodFace.sad);
+      expect(mood.face, MoodFace.shocked);
       expect(mood.tone, MoodTone.bad);
       expect(mood.label, 'Big spend');
       expect(mood.energy, lessThan(before));
+    });
+
+    test('a very large income gets heart eyes', () {
+      final mood = service.buildReaction(
+        isIncome: true,
+        amount: 50000,
+        summary: _summary(),
+      );
+      expect(mood.face, MoodFace.love);
+      expect(mood.label, 'Jackpot');
+      expect(mood.energy, 1.0);
     });
 
     test('an above-pace expense is a warning', () {

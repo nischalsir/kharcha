@@ -83,6 +83,16 @@ export const PUSH_TYPES: Record<string, PushType> = {
     ttl: '3600s',
     channel: 'kharcha_insights',
   },
+  // The flame reacting to a transaction the user just saved. Sent by the app
+  // to its own devices through send-push, so it arrives as a real FCM
+  // notification; high priority so it shows as a heads-up banner.
+  mood_reaction: {
+    prefKey: 'mood_reaction',
+    title: 'Kharcha',
+    priority: 'high',
+    ttl: '300s',
+    channel: 'kharcha_buddy',
+  },
   daily_buddy: {
     prefKey: 'daily_buddy',
     title: 'Kharcha',

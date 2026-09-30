@@ -136,6 +136,46 @@ class FestivalService {
       icon: 'sun',
     ),
     FestivalEntry(
+      id: 'dahi-chiura-khane-din',
+      name: 'Dahi Chiura Khane Din',
+      nameNe: 'दहीचिउरा खाने दिन',
+      bsMonth: 3,
+      bsDay: 15,
+      category: FestivalCategory.seasonal,
+      tithi: 'असार १५',
+      description:
+          'National Paddy Day. Farmers plant rice in the monsoon mud, sing '
+          'Asare songs and share curd with beaten rice in the fields.',
+      icon: 'water',
+    ),
+    FestivalEntry(
+      id: 'bhanu-jayanti',
+      name: 'Bhanu Jayanti',
+      nameNe: 'भानु जयन्ती',
+      bsMonth: 3,
+      bsDay: 29,
+      category: FestivalCategory.cultural,
+      tithi: 'असार २९',
+      description:
+          'Birth anniversary of Bhanubhakta Acharya, the Adikavi who '
+          'brought the Ramayana into Nepali. Poetry readings and programmes '
+          'celebrate the Nepali language.',
+      icon: 'book',
+    ),
+    FestivalEntry(
+      id: 'kheer-khane-din',
+      name: 'Kheer Khane Din',
+      nameNe: 'खीर खाने दिन',
+      bsMonth: 4,
+      bsDay: 15,
+      category: FestivalCategory.seasonal,
+      tithi: 'साउन १५',
+      description:
+          'Mid-Shrawan tradition of cooking and sharing kheer, sweet rice '
+          'pudding, believed to keep the body strong through the monsoon.',
+      icon: 'celebration',
+    ),
+    FestivalEntry(
       id: 'constitution-day',
       name: 'Constitution Day',
       nameNe: 'राष्ट्रिय संविधान दिवस',
@@ -856,6 +896,202 @@ class FestivalService {
         isPublicHoliday: true,
         holidayNote: 'Kathmandu Valley only',
         icon: 'temple',
+      ),
+      FestivalEntry(
+        id: 'mata-tirtha-aunsi',
+        dateBasis: DateBasis.panchang,
+        name: 'Mata Tirtha Aunsi',
+        nameNe: 'माता तीर्थ औंसी',
+        bsYear: 2083,
+        bsMonth: 1,
+        bsDay: 4,
+        category: FestivalCategory.cultural,
+        tithi: 'वैशाख कृष्ण औंसी',
+        description:
+            'Mother’s Day. Children honour their mothers with gifts and '
+            'sweets, and those who have lost their mothers make offerings at '
+            'Mata Tirtha.',
+        icon: 'hands',
+      ),
+      FestivalEntry(
+        id: 'parshuram-jayanti',
+        dateBasis: DateBasis.panchang,
+        name: 'Parshuram Jayanti',
+        nameNe: 'परशुराम जयन्ती',
+        bsYear: 2083,
+        bsMonth: 1,
+        bsDay: 6,
+        category: FestivalCategory.religious,
+        tithi: 'वैशाख शुक्ल तृतीया',
+        description:
+            'Akshaya Tritiya, the birth anniversary of Lord Parshuram. A day '
+            'considered auspicious for new beginnings and giving.',
+        icon: 'axe',
+      ),
+      FestivalEntry(
+        id: 'hari-shayani-ekadashi',
+        dateBasis: DateBasis.panchang,
+        name: 'Hari Shayani Ekadashi',
+        nameNe: 'हरिशयनी एकादशी',
+        bsYear: 2083,
+        bsMonth: 4,
+        bsDay: 9,
+        category: FestivalCategory.religious,
+        tithi: 'असार शुक्ल एकादशी',
+        description:
+            'Lord Vishnu begins his four-month sleep. Devotees fast and plant '
+            'tulsi, the holy basil, in their courtyards.',
+        icon: 'flower',
+      ),
+      FestivalEntry(
+        id: 'guru-purnima',
+        dateBasis: DateBasis.panchang,
+        name: 'Guru Purnima',
+        nameNe: 'गुरु पूर्णिमा',
+        bsYear: 2083,
+        bsMonth: 4,
+        bsDay: 13,
+        category: FestivalCategory.religious,
+        tithi: 'असार शुक्ल पूर्णिमा',
+        description:
+            'Day of honouring teachers and gurus, also Vyasa Jayanti. '
+            'Students offer respect and gifts to their teachers.',
+        icon: 'school',
+      ),
+      FestivalEntry(
+        id: 'nag-panchami',
+        dateBasis: DateBasis.panchang,
+        name: 'Nag Panchami',
+        nameNe: 'नाग पञ्चमी',
+        bsYear: 2083,
+        bsMonth: 5,
+        bsDay: 1,
+        category: FestivalCategory.religious,
+        tithi: 'साउन शुक्ल पञ्चमी',
+        description:
+            'Serpent deities are worshipped. Pictures of nagas are pasted '
+            'above doorways to protect the home through the year.',
+        icon: 'temple',
+      ),
+      FestivalEntry(
+        id: 'kushe-aunsi',
+        dateBasis: DateBasis.panchang,
+        name: 'Kushe Aunsi',
+        nameNe: 'कुशे औंसी',
+        bsYear: 2083,
+        bsMonth: 5,
+        bsDay: 26,
+        category: FestivalCategory.cultural,
+        tithi: 'भदौ कृष्ण औंसी',
+        description:
+            'Father’s Day, Gokarna Aunsi. Children honour their fathers, and '
+            'those who have lost them offer prayers at Gokarneshwar.',
+        icon: 'hands',
+      ),
+      FestivalEntry(
+        id: 'rishi-panchami',
+        dateBasis: DateBasis.panchang,
+        name: 'Rishi Panchami',
+        nameNe: 'ऋषि पञ्चमी',
+        bsYear: 2083,
+        bsMonth: 5,
+        bsDay: 30,
+        category: FestivalCategory.religious,
+        tithi: 'भदौ शुक्ल पञ्चमी',
+        description:
+            'Closing day of Teej. Women bathe in rivers and worship the seven '
+            'sages, the Saptarishi.',
+        icon: 'water',
+      ),
+      FestivalEntry(
+        id: 'dhanteras',
+        dateBasis: DateBasis.panchang,
+        name: 'Dhanteras',
+        nameNe: 'धनतेरस',
+        bsYear: 2083,
+        bsMonth: 7,
+        bsDay: 20,
+        category: FestivalCategory.religious,
+        tithi: 'कात्तिक कृष्ण त्रयोदशी',
+        description:
+            'Dhan Trayodashi opens the Tihar season. Families buy gold, '
+            'silver or new utensils as a sign of prosperity.',
+        icon: 'lamp',
+      ),
+      FestivalEntry(
+        id: 'haribodhini-ekadashi',
+        dateBasis: DateBasis.panchang,
+        name: 'Haribodhini Ekadashi',
+        nameNe: 'हरिबोधिनी एकादशी',
+        bsYear: 2083,
+        bsMonth: 8,
+        bsDay: 4,
+        category: FestivalCategory.religious,
+        tithi: 'कात्तिक शुक्ल एकादशी',
+        description:
+            'Lord Vishnu wakes from his four-month sleep. Devotees fast and '
+            'celebrate Tulsi Bibaha, the wedding of tulsi and Vishnu.',
+        icon: 'flower',
+      ),
+      FestivalEntry(
+        id: 'guru-nanak-jayanti',
+        dateBasis: DateBasis.panchang,
+        name: 'Guru Nanak Jayanti',
+        nameNe: 'गुरु नानक जयन्ती',
+        bsYear: 2083,
+        bsMonth: 8,
+        bsDay: 8,
+        category: FestivalCategory.religious,
+        tithi: 'कात्तिक शुक्ल पूर्णिमा',
+        description:
+            'Birth anniversary of Guru Nanak, founder of Sikhism, marked with '
+            'prayers and langar at gurdwaras.',
+        icon: 'star',
+      ),
+      FestivalEntry(
+        id: 'bibaha-panchami',
+        dateBasis: DateBasis.panchang,
+        name: 'Bibaha Panchami',
+        nameNe: 'विवाह पञ्चमी',
+        bsYear: 2083,
+        bsMonth: 8,
+        bsDay: 28,
+        category: FestivalCategory.religious,
+        tithi: 'मंसिर शुक्ल पञ्चमी',
+        description:
+            'Celebrates the wedding of Ram and Sita, with the grandest '
+            'festivities at the Janaki Temple in Janakpur.',
+        icon: 'people',
+      ),
+      FestivalEntry(
+        id: 'swasthani-start',
+        dateBasis: DateBasis.panchang,
+        name: 'Swasthani Brata Begins',
+        nameNe: 'स्वस्थानी व्रत प्रारम्भ',
+        bsYear: 2083,
+        bsMonth: 10,
+        bsDay: 8,
+        category: FestivalCategory.religious,
+        tithi: 'पुस शुक्ल पूर्णिमा',
+        description:
+            'Start of the month-long Swasthani Brata. Families read one '
+            'chapter of the Swasthani Brata Katha each evening.',
+        icon: 'book',
+      ),
+      FestivalEntry(
+        id: 'swasthani-end',
+        dateBasis: DateBasis.panchang,
+        name: 'Swasthani Brata Ends',
+        nameNe: 'स्वस्थानी व्रत समाप्ति',
+        bsYear: 2083,
+        bsMonth: 11,
+        bsDay: 8,
+        category: FestivalCategory.religious,
+        tithi: 'माघ शुक्ल पूर्णिमा',
+        description:
+            'The Swasthani Brata Katha is completed and the month of fasting '
+            'and reading comes to a close.',
+        icon: 'book',
       ),
     ],
   };

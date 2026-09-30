@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/sync_models.dart';
@@ -76,73 +75,14 @@ class CacheService {
     });
   }
 
-  // --- write coalescing ----------------------------------------------------
-  //
-  // Each table is stored as ONE JSON string, so every save used to re-encode
-  // the whole table on the UI isolate and make SharedPreferences rewrite its
-  // entire backing file - once per row during a sync pull, and before the UI
-  // was even told about the change. With a few thousand transactions that is
-  // several frames of jank per write.
-  //
-  // Memory is still the source of truth and listeners are still notified at
-  // once; only the disk write is deferred and merged, so a burst of writes
-  // costs one encode per table. [flush] runs when the app is backgrounded.
-
-  static const Duration _flushDelay = Duration(milliseconds: 250);
-  final Set<SyncEntity> _dirtyTables = <SyncEntity>{};
-  bool _pendingDirty = false;
-  Timer? _flushTimer;
-  Future<void>? _flushing;
-
   Future<void> _persistRows(SyncEntity entity) async {
-    _dirtyTables.add(entity);
-    _scheduleFlush();
+    final values = _table(entity).values.toList();
+    await _prefs.setString('$_rowsPrefix${entity.table}', jsonEncode(values));
   }
 
   Future<void> _persistPending() async {
-    _pendingDirty = true;
-    _scheduleFlush();
-  }
-
-  void _scheduleFlush() {
-    _flushTimer ??= Timer(_flushDelay, () => unawaited(flush()));
-  }
-
-  /// Writes every table changed since the last flush. Safe to call at any
-  /// time; concurrent calls share one write.
-  Future<void> flush() {
-    _flushTimer?.cancel();
-    _flushTimer = null;
-    return _flushing ??= _writeDirty().whenComplete(() {
-      _flushing = null;
-      // Writes that landed while this flush was running.
-      if (_dirtyTables.isNotEmpty || _pendingDirty) _scheduleFlush();
-    });
-  }
-
-  Future<void> _writeDirty() async {
-    final tables = _dirtyTables.toList();
-    _dirtyTables.clear();
-    final pending = _pendingDirty;
-    _pendingDirty = false;
-    try {
-      for (final entity in tables) {
-        final values = _table(entity).values.toList();
-        await _prefs.setString(
-          '$_rowsPrefix${entity.table}',
-          jsonEncode(values),
-        );
-      }
-      if (pending) {
-        final values = _pending.values.map((op) => op.toJson()).toList();
-        await _prefs.setString(_pendingKey, jsonEncode(values));
-      }
-    } catch (error) {
-      // Keep them dirty so the next flush retries instead of losing them.
-      _dirtyTables.addAll(tables);
-      _pendingDirty = _pendingDirty || pending;
-      debugPrint('Cache: could not persist ($error)');
-    }
+    final values = _pending.values.map((op) => op.toJson()).toList();
+    await _prefs.setString(_pendingKey, jsonEncode(values));
   }
 
   void _emit(Set<SyncEntity> entities) {
@@ -355,12 +295,6 @@ class CacheService {
   }
 
   Future<void> clearDataCache({bool keepPending = true}) async {
-    // A deferred write scheduled before the clear must not resurrect the old
-    // tables afterwards.
-    _flushTimer?.cancel();
-    _flushTimer = null;
-    await _flushing;
-    _dirtyTables.clear();
     for (final entity in SyncEntity.values) {
       await _prefs.remove('$_rowsPrefix${entity.table}');
       await _prefs.remove('$_cursorPrefix${entity.table}');
@@ -385,15 +319,12 @@ class CacheService {
       }
     } else {
       _pending.clear();
-      _pendingDirty = false;
       await _prefs.remove(_pendingKey);
     }
     _emit(SyncEntity.values.toSet());
-    await flush();
   }
 
   Future<void> dispose() async {
-    await flush();
     await _changes.close();
   }
 }

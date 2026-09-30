@@ -55,7 +55,7 @@ class AiMoodService {
 
   /// The flame's "energy", 0..1, from how this month's money is going.
   ///
-  /// The backbone is the savings rate: keeping all of this month's income is
+  /// The backbone is the savings rate: keeping all of this month’s income is
   /// 1.0, breaking even is 0.5, spending double your income is 0. Weekly trend,
   /// budget pressure and today's pace then nudge it, so a single good or bad
   /// day is visible without swamping the month.
@@ -125,17 +125,84 @@ class AiMoodService {
         ? 'Good evening! '
         : '';
 
+    // About half the time the flame offers a concrete tip built from the
+    // user's own numbers instead of a one-liner. On a steady day it "thinks"
+    // while doing so; happy and worried moods keep their own face.
+    final suggestion = _rng.nextBool() ? _suggestionFor(summary, level) : null;
+    final face = suggestion != null && level == _MoodLevel.steady
+        ? MoodFace.thinking
+        : level.face;
+
     return AiMood(
-      emoji: level.emoji,
+      emoji: suggestion != null && level == _MoodLevel.steady ? '🤔' : level.emoji,
       label: level.label,
       message:
-          '$greeting${_pick(level.lines)}${_weatherSuffix(weather)}',
+          '$greeting${suggestion ?? _pick(level.lines)}${_weatherSuffix(weather)}',
       tone: level.tone,
-      face: _faceFor(level.face, weather),
+      face: _faceFor(face, weather),
       weatherLabel: weather?.label,
       energy: energy,
     );
   }
+
+  /// A practical, number-backed tip for the current mood, or a general money
+  /// habit when there is nothing specific to say.
+  String _suggestionFor(FinancialSummary summary, _MoodLevel level) {
+    final tips = <String>[];
+    final top = summary.topCategory;
+    if (top != null && summary.topCategoryAmount > 0) {
+      tips.add(
+        'Most of your money went to $top '
+        '(${CurrencyFormatter.format(summary.topCategoryAmount)}). '
+        'Try a small limit on it this week 🎯',
+      );
+    }
+    final used = summary.budgetUsedPct;
+    if (used != null && used >= 60 && used < 100) {
+      final left = summary.budgetTotal - summary.expenseThisMonth;
+      tips.add(
+        '${used.round()}% of your budget is used. '
+        '${CurrencyFormatter.format(left)} left — plan it before it plans you 📋',
+      );
+    }
+    final change = summary.weeklyChangePct;
+    if (change != null && change >= 15) {
+      tips.add(
+        'Spending is up ${change.round()}% on last week. Skip one treat to '
+        'balance it out 🍩➡️💰',
+      );
+    }
+    if (summary.incomeThisMonth <= 0) {
+      tips.add(
+        'Add this month’s income so I can tell how you’re really doing 💼',
+      );
+    } else if (summary.incomeThisMonth > summary.expenseThisMonth) {
+      final saved = summary.incomeThisMonth - summary.expenseThisMonth;
+      tips.add(
+        'You’re ${CurrencyFormatter.format(saved)} ahead this month. Move '
+        'some into savings now, before it quietly gets spent 🏦',
+      );
+    }
+    if (level == _MoodLevel.careful || level == _MoodLevel.low) {
+      tips.addAll(const <String>[
+        'Cash-only for small buys this week makes every rupee feel real 💵',
+        'Cook at home twice this week — easy savings 🍛',
+      ]);
+    }
+    tips.addAll(_generalTips);
+    return _pick(tips);
+  }
+
+  static const List<String> _generalTips = <String>[
+    'Wait 24 hours before any non-essential buy. Still want it? Go ahead 🕐',
+    'Check your subscriptions — one forgotten one is pure savings 📺',
+    'Pay yourself first: move a little to savings the day income lands 🐷',
+    'Split shared bills in Friends so nobody forgets who owes what 🤝',
+    'A monthly budget makes me much better at warning you early 📊',
+    'Log spends right away — tiny amounts add up faster than you think 📝',
+    'Before a festival, set aside a fixed amount for gifts and food 🪔',
+    'Compare prices at two shops before any big purchase 🛒',
+  ];
 
   /// A short-lived reaction to a transaction the user just added.
   ///
@@ -155,6 +222,25 @@ class AiMoodService {
     final before = energyFor(summary);
 
     if (isIncome) {
+      final average = summary.dailyAverage;
+      final jackpot = average > 0
+          ? amount >= average * 10
+          : amount >= summary.incomeThisMonth && amount > 0;
+      if (jackpot) {
+        return AiMood(
+          emoji: '😍',
+          label: 'Jackpot',
+          message: _pick(<String>[
+            'Hmmmm… MONEY! 😍 $money$into?! I’m in love.',
+            'Whoa, $money! My heart eyes can’t handle this 💖',
+            '$money landed! Save a slice before anything else, promise? 🥰',
+            'Jackpot! $money in. Future you says thank you 💰',
+          ]),
+          tone: MoodTone.good,
+          face: MoodFace.love,
+          energy: 1.0,
+        );
+      }
       return AiMood(
         emoji: '🤑',
         label: 'Money in',
@@ -177,7 +263,7 @@ class AiMoodService {
 
     if (veryHeavy) {
       return AiMood(
-        emoji: '😢',
+        emoji: '😱',
         label: 'Big spend',
         message: _pick(<String>[
           'Noooo… $money$on?! Save money, please! 😢',
@@ -186,7 +272,7 @@ class AiMoodService {
           '$money$on… that\'s a lot. Save money, save me! 😰',
         ]),
         tone: MoodTone.bad,
-        face: MoodFace.sad,
+        face: MoodFace.shocked,
         energy: math.max(0.0, before - 0.3),
       );
     }
@@ -217,7 +303,7 @@ class AiMoodService {
         'Done! $money recorded$on. You\'re in control 💪',
       ]),
       tone: MoodTone.neutral,
-      face: MoodFace.calm,
+      face: MoodFace.wink,
       energy: math.max(0.0, before - 0.05),
     );
   }

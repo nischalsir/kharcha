@@ -8,6 +8,7 @@ import '../../core/utils/currency_formatter.dart';
 import '../../providers/ai_insight_provider.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../auth/guest_upgrade_screen.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../widgets/common/ai_mood_badge.dart';
 import '../../widgets/common/animated_number.dart';
@@ -138,6 +139,11 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             sliver: SliverToBoxAdapter(child: const AiBirthdayBanner()),
           ),
+          if (auth.isGuest)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              sliver: SliverToBoxAdapter(child: const _GuestBanner()),
+            ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             sliver: SliverToBoxAdapter(
@@ -168,7 +174,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       value: data.totalBalance,
                       style: theme.textTheme.displaySmall,
                     ),
-                    const _MoodReactionBubble(),
                     const SizedBox(height: 18),
                     Row(
                       children: <Widget>[
@@ -444,63 +449,6 @@ class _FriendsSummaryCard extends StatelessWidget {
   }
 }
 
-/// A short-lived speech bubble under the balance, shown only while the mascot
-/// is reacting to a transaction the user just added.
-///
-/// Reads `reaction` rather than `mood` on purpose: the standing time/weather
-/// mood is always present and would keep this bubble on screen permanently.
-class _MoodReactionBubble extends StatelessWidget {
-  const _MoodReactionBubble();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final reaction = context.watch<AiInsightProvider>().reaction;
-
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topLeft,
-      child: reaction == null
-          ? const SizedBox(width: double.infinity)
-          : Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: reaction.color(context).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: reaction.color(context).withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(reaction.emoji, style: const TextStyle(fontSize: 16)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        reaction.message,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: reaction.color(context),
-                          fontWeight: FontWeight.w600,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-    );
-  }
-}
-
 class _MiniStat extends StatelessWidget {
   const _MiniStat({
     required this.label,
@@ -545,6 +493,43 @@ class _MiniStat extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A quiet reminder that a guest's data only lives on this phone until they
+/// create an account.
+class _GuestBanner extends StatelessWidget {
+  const _GuestBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    return GlassCard(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const GuestUpgradeScreen()),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.cloud_off_rounded, color: glass.warning, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              context.t(
+                'Guest mode: your data is only on this phone. Create an '
+                    'account to keep it.',
+                'पाहुना मोड: डाटा यो फोनमा मात्र छ। राख्न खाता बनाउनुहोस्।',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: glass.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(Icons.chevron_right_rounded, color: glass.textTertiary),
+        ],
+      ),
     );
   }
 }

@@ -86,7 +86,26 @@ enum MoodTone { good, neutral, warn, bad }
 /// Kept separate from [MoodTone] because the face is a *presentation* concern:
 /// two moods of the same tone ("Doing great" and "On track") should not look
 /// identical, and a single mood ("Steady") reads differently at night.
-enum MoodFace { happy, calm, worried, sleepy, excited, sad }
+enum MoodFace {
+  happy,
+  calm,
+  worried,
+  sleepy,
+  excited,
+  sad,
+
+  /// Heart eyes: a big income.
+  love,
+
+  /// Wide eyes and an "O" mouth: a huge expense.
+  shocked,
+
+  /// One eye closed: a small expense logged, "got it".
+  wink,
+
+  /// Eyes glancing up, crooked mouth: offering a saving tip.
+  thinking,
+}
 
 /// The time/weather/habit aware mood shown next to the streak.
 class AiMood {

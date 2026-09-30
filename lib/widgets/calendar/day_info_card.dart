@@ -5,6 +5,8 @@ import '../../core/theme/app_theme.dart';
 import '../../models/festival_model.dart';
 import '../../providers/festival_provider.dart';
 import '../../services/nepali_date_service.dart';
+import '../../services/tithi_service.dart';
+import '../common/festival_image.dart';
 import '../common/glass_card.dart';
 
 /// Everything the app knows about one Bikram Sambat day.
@@ -148,6 +150,8 @@ class _Header extends StatelessWidget {
                   color: glass.textSecondary,
                 ),
               ),
+              const SizedBox(height: 6),
+              _TithiLine(gregorian: gregorian, devanagari: devanagari),
             ],
           ),
         ),
@@ -378,24 +382,13 @@ class _Hero extends StatelessWidget {
     final theme = Theme.of(context);
     final asset = entry.imageAsset;
     if (asset != null) {
-      // Decode at the rendered size instead of the full photograph resolution,
-      // so tapping through festival days does not decode a megabyte-scale JPEG
-      // every time a day card for that festival is opened.
-      final cacheWidth =
-          (MediaQuery.sizeOf(context).width *
-                  MediaQuery.devicePixelRatioOf(context))
-              .round();
       return SizedBox(
         height: _height,
         width: double.infinity,
-        child: Image.asset(
-          asset,
+        child: FestivalImage(
+          assetPath: asset,
           height: _height,
-          width: double.infinity,
-          fit: BoxFit.cover,
-          cacheWidth: cacheWidth,
-          errorBuilder: (context, error, stackTrace) =>
-              _Fallback(theme: theme, icon: entry.iconData),
+          fallback: _Fallback(theme: theme, icon: entry.iconData),
         ),
       );
     }
@@ -467,6 +460,70 @@ class _Pill extends StatelessWidget {
             label,
             style: Theme.of(context).textTheme.labelSmall
                 ?.copyWith(color: foreground, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The day's tithi, computed from the Sun and Moon at Kathmandu sunrise.
+///
+/// Shown for every day, not only festival days. Ekadashi, Purnima and Aunsi
+/// are highlighted because they are the days most people fast or observe.
+/// Labelled as computed: festivals kept by an evening or midnight tithi (Laxmi
+/// Puja, Shivaratri) can fall on a day whose sunrise tithi is the one before.
+class _TithiLine extends StatelessWidget {
+  const _TithiLine({required this.gregorian, required this.devanagari});
+
+  final DateTime gregorian;
+  final bool devanagari;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    final tithi = TithiService.instance.forDate(gregorian);
+    final special = tithi.isPurnima || tithi.isAunsi || tithi.isEkadashi;
+    final accent = tithi.isPurnima
+        ? const Color(0xFFFFB020)
+        : tithi.isAunsi
+        ? const Color(0xFF7D7AFF)
+        : theme.colorScheme.primary;
+
+    return Semantics(
+      label: devanagari
+          ? 'तिथि ${tithi.label(nepali: true)}'
+          : 'Tithi ${tithi.label()}',
+      child: Row(
+        children: <Widget>[
+          Icon(
+            tithi.isShukla
+                ? Icons.brightness_5_rounded
+                : Icons.brightness_3_rounded,
+            size: 14,
+            color: special ? accent : glass.textSecondary,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              devanagari
+                  ? '${tithi.label(nepali: true)} • ${tithi.paksha(nepali: true)}'
+                  : '${tithi.label()} • ${tithi.paksha()}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: special ? accent : glass.textSecondary,
+                fontWeight: special ? FontWeight.w700 : FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            devanagari ? '(गणना)' : '(computed)',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: glass.textTertiary,
+            ),
           ),
         ],
       ),

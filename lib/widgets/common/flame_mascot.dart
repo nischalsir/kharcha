@@ -404,6 +404,107 @@ class _FlamePainter extends CustomPainter {
           ),
           Paint()..color = const Color(0xcc4fc3f7),
         );
+      case MoodFace.love:
+        // Heart eyes and a wide grin.
+        final heart = Paint()
+          ..color = const Color(0xffe0245e)
+          ..style = PaintingStyle.fill
+          ..isAntiAlias = true;
+        for (final dx in <double>[-eyeDx, eyeDx]) {
+          canvas.drawPath(_heartPath(cx + dx, eyeY, eyeR * 1.35), heart);
+        }
+        canvas.drawPath(
+          Path()
+            ..moveTo(cx - w * 0.14, mouthY - h * 0.01)
+            ..quadraticBezierTo(
+              cx,
+              mouthY + h * 0.09,
+              cx + w * 0.14,
+              mouthY - h * 0.01,
+            ),
+          lineInk..strokeWidth = stroke * 1.1,
+        );
+      case MoodFace.shocked:
+        // Wide eyes with a highlight, raised brows, and a small "O".
+        final shine = Paint()..color = const Color(0xccffffff);
+        for (final dx in <double>[-eyeDx, eyeDx]) {
+          canvas.drawCircle(Offset(cx + dx, eyeY), eyeR * 1.25, fillInk);
+          canvas.drawCircle(
+            Offset(cx + dx + eyeR * 0.35, eyeY - eyeR * 0.35),
+            eyeR * 0.35,
+            shine,
+          );
+          canvas.drawArc(
+            Rect.fromCenter(
+              center: Offset(cx + dx, eyeY - eyeR * 2.1),
+              width: eyeR * 2.4,
+              height: eyeR * 1.2,
+            ),
+            math.pi * 1.1,
+            math.pi * 0.8,
+            false,
+            lineInk..strokeWidth = stroke * 0.8,
+          );
+        }
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(cx, mouthY + h * 0.02),
+            width: w * 0.09,
+            height: h * 0.075,
+          ),
+          lineInk..strokeWidth = stroke,
+        );
+      case MoodFace.wink:
+        // Left eye closed in a smile, right eye open.
+        canvas.drawPath(
+          Path()
+            ..moveTo(cx - eyeDx - eyeR, eyeY + eyeR * 0.3)
+            ..quadraticBezierTo(
+              cx - eyeDx,
+              eyeY - eyeR * 0.7,
+              cx - eyeDx + eyeR,
+              eyeY + eyeR * 0.3,
+            ),
+          lineInk,
+        );
+        canvas.drawCircle(Offset(cx + eyeDx, eyeY), eyeR * 0.9, fillInk);
+        canvas.drawPath(
+          Path()
+            ..moveTo(cx - w * 0.11, mouthY - h * 0.005)
+            ..quadraticBezierTo(
+              cx + w * 0.02,
+              mouthY + h * 0.06,
+              cx + w * 0.12,
+              mouthY - h * 0.02,
+            ),
+          lineInk..strokeWidth = stroke * 1.05,
+        );
+      case MoodFace.thinking:
+        // Pupils glancing up and aside, one raised brow, a crooked mouth.
+        for (final dx in <double>[-eyeDx, eyeDx]) {
+          canvas.drawCircle(
+            Offset(cx + dx + eyeR * 0.45, eyeY - eyeR * 0.45),
+            eyeR * 0.8,
+            fillInk,
+          );
+        }
+        canvas.drawPath(
+          Path()
+            ..moveTo(cx + eyeDx - eyeR, eyeY - eyeR * 2.0)
+            ..quadraticBezierTo(
+              cx + eyeDx,
+              eyeY - eyeR * 2.8,
+              cx + eyeDx + eyeR * 1.1,
+              eyeY - eyeR * 2.1,
+            ),
+          lineInk..strokeWidth = stroke * 0.8,
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(cx - w * 0.08, mouthY + h * 0.012)
+            ..lineTo(cx + w * 0.07, mouthY - h * 0.012),
+          lineInk..strokeWidth = stroke,
+        );
       case MoodFace.calm:
         _openEyes(
           canvas,
@@ -422,6 +523,30 @@ class _FlamePainter extends CustomPainter {
           lineInk,
         );
     }
+  }
+
+  /// A small heart centred on (x, y), [size] wide.
+  Path _heartPath(double x, double y, double size) {
+    final s = size / 2;
+    return Path()
+      ..moveTo(x, y + s * 0.9)
+      ..cubicTo(
+        x - s * 1.6,
+        y - s * 0.1,
+        x - s * 0.7,
+        y - s * 1.3,
+        x,
+        y - s * 0.45,
+      )
+      ..cubicTo(
+        x + s * 0.7,
+        y - s * 1.3,
+        x + s * 1.6,
+        y - s * 0.1,
+        x,
+        y + s * 0.9,
+      )
+      ..close();
   }
 
   void _openEyes(

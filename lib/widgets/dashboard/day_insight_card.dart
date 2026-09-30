@@ -11,6 +11,7 @@ import '../../providers/ai_insight_provider.dart';
 import '../../providers/festival_provider.dart';
 import '../../screens/ai/ai_chat_sheet.dart';
 import '../../services/nepali_date_service.dart';
+import '../common/festival_image.dart';
 import '../common/flame_mascot.dart';
 import '../common/glass_card.dart';
 
@@ -254,10 +255,11 @@ class _FestivalPhoto extends StatelessWidget {
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: Image.asset(
-                assetPath,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
+              child: FestivalImage(
+                assetPath: assetPath,
+                width: 54,
+                height: 54,
+                fallback: Container(
                   color: theme.colorScheme.primary.withValues(alpha: 0.16),
                   alignment: Alignment.center,
                   child: Icon(

@@ -279,7 +279,8 @@ class PushNotificationService {
     // Per-category importance is honoured by passing it in the per-message
     // details, so channels themselves all use default importance except the
     // budget alerts, which should interrupt.
-    final importance = channel == PushChannel.budget
+    final importance =
+        channel == PushChannel.budget || channel == PushChannel.buddy
         ? Importance.high
         : Importance.defaultImportance;
     return AndroidNotificationChannel(

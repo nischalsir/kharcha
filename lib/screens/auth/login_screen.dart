@@ -63,8 +63,11 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  bool get _canUseBiometrics =>
-      _capability.available && _biometricEnabled && !_isLoading;
+  /// Whether to *show* the biometric button. Deliberately independent of
+  /// [_isLoading]: tying visibility to it removed the button the instant it
+  /// was tapped, while the fingerprint prompt was still on screen. Loading now
+  /// only disables it.
+  bool get _canUseBiometrics => _capability.available && _biometricEnabled;
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
@@ -356,7 +359,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         '${_capability.kind.label} बाट साइन इन',
                       ),
                       icon: _capability.kind.icon,
-                      onPressed: _handleBiometricSignIn,
+                      onPressed: _isLoading ? null : _handleBiometricSignIn,
                     ),
                   ],
                 ],

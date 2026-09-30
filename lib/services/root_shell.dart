@@ -20,7 +20,7 @@ class RootShell extends StatefulWidget {
 }
 
 class _RootShellState extends State<RootShell>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   int _index = 0;
   final AppNavController _nav = AppNavController();
   bool _keyboardVisible = false;
@@ -31,12 +31,22 @@ class _RootShellState extends State<RootShell>
   void initState() {
     super.initState();
     AppNavRouteObserver.bind(_nav);
+    WidgetsBinding.instance.addObserver(this);
   }
 
+  /// Watches the keyboard through window metrics instead of
+  /// `MediaQuery.viewInsetsOf` in `didChangeDependencies`.
+  ///
+  /// That dependency made the whole shell - scaffold, five tab pages, the
+  /// blurred bottom bar and a friend-summary pass over every credit - rebuild
+  /// on every frame of the keyboard animation, from *any* screen, because the
+  /// shell stays mounted underneath pushed routes. Reading the metrics here
+  /// costs nothing per frame and never rebuilds.
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _syncKeyboard(MediaQuery.viewInsetsOf(context).bottom);
+  void didChangeMetrics() {
+    final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+    if (view == null) return;
+    _syncKeyboard(view.viewInsets.bottom / view.devicePixelRatio);
   }
 
   void _syncKeyboard(double inset) {
@@ -49,6 +59,7 @@ class _RootShellState extends State<RootShell>
 
 @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     AppNavRouteObserver.unbind(_nav);
     _pageController.dispose();
     _nav.dispose();

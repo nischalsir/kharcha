@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/config/env.dart';
-import 'core/l10n/app_l10n.dart';
 import 'core/router/route_paths.dart';
 import 'core/theme/app_theme.dart';
 import 'models/transaction_model.dart';
@@ -126,25 +125,10 @@ class KharchaApp extends StatelessWidget {
       ],
       child: Consumer<AppSettingsProvider>(
         builder: (context, settings, _) {
-          return LanguageScope(
-            nepali: settings.devanagariDates,
-            calendar: settings.calendarType,
-            child: _buildApp(settings),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildApp(AppSettingsProvider settings) {
           return MaterialApp(
             title: 'Kharcha',
             debugShowCheckedModeBanner: false,
             themeMode: settings.themeMode,
-            // Switch instantly. The default 200ms cross-fade lerps the whole
-            // ThemeData every frame and rebuilds every Theme.of dependent,
-            // which over glass/blur surfaces reads as lag, not polish.
-            themeAnimationDuration: Duration.zero,
             theme: AppTheme.light(),
             darkTheme: AppTheme.dark(),
             navigatorObservers: <NavigatorObserver>[AppNavRouteObserver()],
@@ -159,6 +143,9 @@ class KharchaApp extends StatelessWidget {
             onGenerateRoute: _generateRoute,
             home: const _AuthWrapper(),
           );
+        },
+      ),
+    );
   }
 
   Route<dynamic>? _generateRoute(RouteSettings settings) {
@@ -246,6 +233,7 @@ class _AuthWrapperState extends State<_AuthWrapper>
   /// part of the tree knows about.
   void _installPushWiring(AuthProvider auth) {
     final push = context.read<PushProvider>();
+    final sync = context.read<SyncService>();
 
     // Installed once: a pending tap from a cold start is delivered as soon as a
     // handler exists, so nothing is lost by being early or late here.
@@ -257,6 +245,8 @@ class _AuthWrapperState extends State<_AuthWrapper>
       unawaited(
         push.sync(authenticated: auth.isAuthenticated, userId: auth.userId),
       );
+      // Ties the offline cache to this account before anything syncs.
+      if (auth.isAuthenticated) unawaited(sync.adoptUser(auth.userId));
     }
 
     _registrationListener = syncRegistration;
@@ -264,7 +254,12 @@ class _AuthWrapperState extends State<_AuthWrapper>
     // Runs inside signOut, while the session is still valid. Without this the
     // token delete happens after the JWT is gone, RLS rejects it, and the
     // previous account keeps sending this device its notifications.
-    _signOutCleanup = push.unregisterForSignOut;
+    // Queued writes are pushed first, for the same reason: after sign-out
+    // they could only ever be uploaded by whichever account signs in next.
+    _signOutCleanup = () async {
+      await sync.flushBeforeSignOut();
+      await push.unregisterForSignOut();
+    };
     auth.addSignOutCleanup(_signOutCleanup!);
     // Covers the already-signed-in case at startup.
     WidgetsBinding.instance.addPostFrameCallback((_) {

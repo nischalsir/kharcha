@@ -20,6 +20,9 @@ verify_jwt = false
 [functions.ai-daily-buddy]
 verify_jwt = false
 
+[functions.media-sign]
+verify_jwt = true
+
 [functions.send-push]
 verify_jwt = false
 

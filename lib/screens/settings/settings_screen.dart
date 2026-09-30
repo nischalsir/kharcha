@@ -24,6 +24,7 @@ import 'avatar_crop_screen.dart';
 import 'backup_restore_screen.dart';
 import 'change_password_screen.dart';
 import 'help_support_screen.dart';
+import '../auth/guest_upgrade_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'profile_edit_screen.dart';
 import 'two_factor_screen.dart';
@@ -1260,6 +1261,20 @@ class _ProfileCardState extends State<_ProfileCard> {
                       color: glass.textSecondary,
                     ),
                   ),
+                  if (auth.isGuest) ...<Widget>[
+                    const SizedBox(height: 8),
+                    FilledButton.tonalIcon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const GuestUpgradeScreen(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                      label: Text(
+                        context.t('Save your data', 'डाटा सुरक्षित गर्नुहोस्'),
+                      ),
+                    ),
+                  ],
                   if (gender != null || age != null || birthDate != null) ...<Widget>[
                     const SizedBox(height: 8),
                     Wrap(

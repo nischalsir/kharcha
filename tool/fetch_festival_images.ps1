@@ -30,6 +30,10 @@ $map = [ordered]@{
   'gai-tihar'        = 'File:The Cow Worship.jpg'
   'basanta-panchami' = 'File:Saraswati Puja.jpg'
   'tamu-lhosar'      = 'File:Tamu Lhosar.jpg'
+  'nag-panchami'     = 'File:Nag Panchami at Nag Pokhari, Naxal Kathmandu Nepal-070A0773.jpg'
+  'maha-shivaratri'  = 'File:Maha Shivaratri Celebrations at Pashupatinath Temple, Kathmandu, Nepal-070A6802.jpg'
+  'bibaha-panchami'  = 'File:Shri ram Janaki temple.jpg'
+  'bhanu-jayanti'    = 'File:Statue of Bhanubhakta Acharya at Chundi Ramgha Cropped.jpg'
 }
 
 $rows = @()
