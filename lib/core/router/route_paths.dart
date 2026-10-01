@@ -47,6 +47,12 @@ class RoutePaths {
   /// Settings → About Kharcha: version, update status and what's new.
   static const String about = '/settings/about';
 
+  /// Backup & restore: cloud, Google Drive and backup files.
+  static const String backup = '/settings/backup';
+
+  /// Help & Support: guides and answers.
+  static const String help = '/settings/help';
+
   static const String addExpense = '/transactions/expense/add';
   static const String addIncome = '/transactions/income/add';
 
@@ -78,6 +84,8 @@ class RoutePaths {
     festivals,
     settings,
     about,
+    backup,
+    help,
     addExpense,
     addIncome,
   };

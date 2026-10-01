@@ -31,6 +31,7 @@ $acceptsDefines = $command -in @('run', 'test', 'drive') -or
 $clientSafeKeys = @(
   'SUPABASE_URL',
   'SUPABASE_ANON_KEY',
+  'GOOGLE_SERVER_CLIENT_ID',
   'WEATHER_LAT',
   'WEATHER_LON'
 )

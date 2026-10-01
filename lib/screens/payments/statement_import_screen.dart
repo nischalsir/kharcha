@@ -1,53 +1,93 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/errors/app_failure.dart';
 import '../../core/l10n/app_l10n.dart';
+import '../../core/router/route_paths.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/statement_entry.dart';
 import '../../providers/transaction_provider.dart';
+import '../../services/flamey_controller.dart';
+import '../../services/incoming_file_service.dart';
 import '../../services/statement_import_service.dart';
+import '../../services/statement_importer.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
 import 'statement_guide_screen.dart';
 
-/// Bring transactions in from a bank or eSewa statement:
-/// choose the source, see how to download it, pick the file, review what was
-/// read, then confirm. Nothing is saved before the confirmation.
+/// Bring transactions in from a bank or wallet statement:
+/// choose the source, see how to download it, pick the file (or share it into
+/// the app from the bank's own app), review what was read, then confirm.
+/// Nothing is saved before the confirmation.
+///
+/// This screen only shows things. Reading, duplicate detection and saving
+/// are [StatementImporter]'s.
 class StatementImportScreen extends StatefulWidget {
-  const StatementImportScreen({super.key, this.service, this.initialResult});
+  const StatementImportScreen({
+    super.key,
+    this.service,
+    this.initialResult,
+    this.incoming,
+    this.incomingFiles,
+  });
 
   /// Replaces the server call in tests.
   final StatementImportService? service;
 
   /// Opens straight on the review of an already-parsed statement. Used by
-  /// tests; the app always starts from the file picker.
+  /// tests; the app always starts from a file.
   final StatementParseResult? initialResult;
+
+  /// A file another app shared into Kharcha. It is read as soon as the screen
+  /// opens, exactly as if it had been chosen here.
+  final IncomingFile? incoming;
+
+  /// Reads [incoming]. Only needed together with it.
+  final IncomingFileService? incomingFiles;
 
   @override
   State<StatementImportScreen> createState() => _StatementImportScreenState();
 }
 
 class _StatementImportScreenState extends State<StatementImportScreen> {
-  late final StatementImportService _service =
-      widget.service ?? StatementImportService();
+  late final StatementImporter _importer = StatementImporter(
+    transactions: context.read<TransactionProvider>(),
+    service: widget.service,
+  );
 
+  StatementSource _source = StatementSource.bank;
   bool _busy = false;
   bool _importing = false;
+  String? _fileName;
   String? _error;
+  StatementReadProblem? _problem;
+  List<int> _unreadPages = const <int>[];
   StatementParseResult? _result;
 
   static const List<String> _extensions = <String>['pdf', 'xls', 'xlsx', 'csv'];
+
+  @override
+  void initState() {
+    super.initState();
+    final incoming = widget.incoming;
+    if (incoming != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _readShared(incoming),
+      );
+    }
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final initial = widget.initialResult;
     if (initial != null && _result == null) {
-      _markAlreadyImported(initial.entries);
+      _importer.markAlreadyImported(initial.entries);
       _result = initial;
     }
   }
@@ -67,50 +107,84 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
       type: FileType.custom,
       allowedExtensions: _extensions,
     );
-    if (file == null) return;
+    // Backing out of the picker changes nothing.
+    if (file == null || !mounted) return;
+    await _read(file.name, file.readAsBytes);
+  }
 
+  /// A file shared into the app from somewhere else.
+  Future<void> _readShared(IncomingFile file) async {
+    if (!mounted) return;
+    final service = widget.incomingFiles;
+    if (file.error != null || file.path == null || service == null) {
+      setState(() {
+        _fileName = file.name;
+        _problem = file.error == 'too_large'
+            ? StatementReadProblem.tooLarge
+            : StatementReadProblem.unreadable;
+        _error = file.error == 'too_large'
+            ? 'That file is too large. Statements up to 5 MB are supported. '
+                  'Download a shorter period and import it in parts.'
+            : 'Kharcha could not open the shared file. Save it to your phone '
+                  'and choose it here instead.';
+      });
+      return;
+    }
+    if (!file.looksSupported) {
+      await service.discard(file);
+      if (!mounted) return;
+      setState(() {
+        _fileName = file.name;
+        _problem = StatementReadProblem.unsupported;
+        _error =
+            'This is not a statement file Kharcha can read. Share a PDF, '
+            'Excel (.xls, .xlsx) or CSV statement.';
+      });
+      return;
+    }
+    await _read(file.name, () => service.read(file));
+  }
+
+  Future<void> _read(String name, Future<Uint8List> Function() bytes) async {
+    final flamey = FlameyController.maybeOf(context);
     setState(() {
       _busy = true;
+      _fileName = name;
       _error = null;
+      _problem = null;
+      _unreadPages = const <int>[];
       _result = null;
     });
+    flamey?.send(FlameyEvent.loading);
     try {
-      final bytes = await file.readAsBytes();
-      final result = await _service.parseStatement(bytes);
+      final result = await _importer.read(await bytes(), hint: _source);
       if (!mounted) return;
-      _markAlreadyImported(result.entries);
+      flamey?.send(FlameyEvent.suggestion);
       setState(() {
         _busy = false;
         _result = result;
       });
     } catch (error) {
       if (!mounted) return;
+      flamey?.send(FlameyEvent.error);
+      final failure = AppFailure.from(error);
       setState(() {
         _busy = false;
-        _error = AppFailure.from(error).message;
+        _error = failure.message;
+        if (failure is StatementReadFailure) {
+          _problem = failure.problem;
+          _unreadPages = failure.unreadPages;
+        } else {
+          _problem = null;
+        }
       });
-    }
-  }
-
-  /// Flags rows that are already in the app and leaves them unticked, so
-  /// importing a statement a second time adds nothing by default.
-  void _markAlreadyImported(List<StatementEntry> entries) {
-    final transactions = context.read<TransactionProvider>();
-    // Rows brought in before imports had stable ids are matched by content.
-    final known = transactions.statementMatchKeys();
-    for (final entry in entries) {
-      final imported =
-          transactions.exists(entry.importId) || known.contains(entry.matchKey);
-      entry.alreadyImported = imported;
-      if (imported) entry.selected = false;
     }
   }
 
   Future<void> _import() async {
     final result = _result;
     if (result == null || _importing) return;
-    final selected = result.entries.where((e) => e.selected).toList();
-    if (selected.isEmpty) {
+    if (!result.entries.any((e) => e.selected)) {
       showMessage(
         context,
         context.t(
@@ -121,29 +195,14 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
       return;
     }
 
-    final transactions = context.read<TransactionProvider>();
+    final flamey = FlameyController.maybeOf(context);
     setState(() => _importing = true);
-    var imported = 0;
-    var failed = 0;
-    for (final entry in selected) {
-      final ok = await transactions.create(
-        // The same row always gets the same id, so it can only ever be one
-        // record however many times the statement is imported.
-        id: entry.importId,
-        title: entry.title,
-        amount: entry.amount,
-        type: entry.type,
-        occurredAt: entry.occurredAt,
-        paymentMethod: entry.paymentMethod,
-      );
-      if (ok) {
-        imported++;
-      } else {
-        failed++;
-      }
-    }
+    final outcome = await _importer.import(result.entries);
     if (!mounted) return;
     setState(() => _importing = false);
+    final imported = outcome.imported;
+    final failed = outcome.failed;
+    flamey?.send(failed == 0 ? FlameyEvent.imported : FlameyEvent.error);
     showMessage(
       context,
       failed == 0
@@ -192,7 +251,14 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                         children: <Widget>[
-                          _SummaryCard(result: result),
+                          _SummaryCard(result: result, fileName: _fileName),
+                          if (result.unreadPages.isNotEmpty) ...<Widget>[
+                            const SizedBox(height: 12),
+                            _UnreadPagesCard(
+                              pages: result.unreadPages,
+                              pageCount: result.pageCount,
+                            ),
+                          ],
                           if (result.skipped.isNotEmpty) ...<Widget>[
                             const SizedBox(height: 12),
                             _SkippedCard(rows: result.skipped),
@@ -260,17 +326,65 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
     );
   }
 
+  static const Map<StatementSource, (IconData, Color)> _sourceLook =
+      <StatementSource, (IconData, Color)>{
+        StatementSource.bank: (
+          Icons.account_balance_rounded,
+          Color(0xFF0A84FF),
+        ),
+        StatementSource.esewa: (
+          Icons.account_balance_wallet_rounded,
+          Color(0xFF30D158),
+        ),
+        StatementSource.khalti: (Icons.wallet_rounded, Color(0xFF7D3CBF)),
+        StatementSource.other: (Icons.description_rounded, Color(0xFFFF9F0A)),
+      };
+
+  (String, String) _sourceText(BuildContext context, StatementSource source) =>
+      switch (source) {
+        StatementSource.bank => (
+          context.t('Bank statement', 'बैंक स्टेटमेन्ट'),
+          context.t(
+            'Any bank. PDF, Excel or CSV, read by its column headings.',
+            'जुनसुकै बैंक। PDF, Excel वा CSV, स्तम्भका नामबाट पढिन्छ।',
+          ),
+        ),
+        StatementSource.esewa => (
+          context.t('eSewa statement', 'eSewa स्टेटमेन्ट'),
+          context.t(
+            'The Excel (.xls) statement exported from eSewa.',
+            'eSewa बाट निकालिएको Excel (.xls) स्टेटमेन्ट।',
+          ),
+        ),
+        StatementSource.khalti => (
+          context.t('Khalti statement', 'Khalti स्टेटमेन्ट'),
+          context.t(
+            'The Excel export of your transaction history from khalti.com.',
+            'khalti.com बाट निकालिएको कारोबार विवरणको Excel फाइल।',
+          ),
+        ),
+        StatementSource.other => (
+          context.t('Another wallet or app', 'अर्को वालेट वा एप'),
+          context.t(
+            'Any statement with a date and amount columns: PDF, Excel or CSV.',
+            'मिति र रकम भएको जुनसुकै स्टेटमेन्ट: PDF, Excel वा CSV।',
+          ),
+        ),
+      };
+
   Widget _intro(BuildContext context) {
     final theme = Theme.of(context);
     final glass = context.glass;
+    final (title, subtitle) = _sourceText(context, _source);
+    final (icon, color) = _sourceLook[_source]!;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 48),
       children: <Widget>[
         Text(
           context.t(
-            'Download a statement from your bank or eSewa, then import the '
+            'Download a statement from your bank or wallet, then import the '
                 'file here. You review every row before anything is added.',
-            'आफ्नो बैंक वा eSewa बाट स्टेटमेन्ट डाउनलोड गरी यहाँ फाइल आयात '
+            'आफ्नो बैंक वा वालेटबाट स्टेटमेन्ट डाउनलोड गरी यहाँ फाइल आयात '
                 'गर्नुहोस्। केही थपिनुअघि हरेक पङ्क्ति तपाईंले जाँच्नुहुन्छ।',
           ),
           style: theme.textTheme.bodyMedium?.copyWith(
@@ -279,26 +393,41 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        _SourceCard(
-          icon: Icons.account_balance_rounded,
-          color: const Color(0xFF0A84FF),
-          title: context.t('Bank statement', 'बैंक स्टेटमेन्ट'),
-          subtitle: context.t(
-            'Any bank. Excel, CSV or PDF.',
-            'जुनसुकै बैंक। Excel, CSV वा PDF।',
+        Text(
+          context.t('Where is it from?', 'यो कहाँबाट हो?'),
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
           ),
-          onGuide: _busy ? null : () => _openGuide(StatementSource.bank),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: <Widget>[
+            for (final source in StatementSource.values)
+              ChoiceChip(
+                key: ValueKey<String>('source-${source.id}'),
+                label: Text(source.label),
+                avatar: Icon(
+                  _sourceLook[source]!.$1,
+                  size: 18,
+                  color: _sourceLook[source]!.$2,
+                ),
+                selected: _source == source,
+                showCheckmark: false,
+                onSelected: _busy
+                    ? null
+                    : (_) => setState(() => _source = source),
+              ),
+          ],
         ),
         const SizedBox(height: 12),
         _SourceCard(
-          icon: Icons.account_balance_wallet_rounded,
-          color: const Color(0xFF30D158),
-          title: context.t('eSewa statement', 'eSewa स्टेटमेन्ट'),
-          subtitle: context.t(
-            'The Excel (.xls) export from eSewa.',
-            'eSewa बाट निकालिएको Excel (.xls) फाइल।',
-          ),
-          onGuide: _busy ? null : () => _openGuide(StatementSource.esewa),
+          icon: icon,
+          color: color,
+          title: title,
+          subtitle: subtitle,
+          onGuide: _busy ? null : () => _openGuide(_source),
         ),
         const SizedBox(height: 20),
         PrimaryButton(
@@ -307,13 +436,23 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
           onPressed: _busy ? null : _pickAndParse,
           isLoading: _busy,
         ),
+        if (_busy && _fileName != null) ...<Widget>[
+          const SizedBox(height: 10),
+          Text(
+            context.t('Reading $_fileName …', '$_fileName पढ्दै …'),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: glass.textSecondary,
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         Text(
           context.t(
             'Supported: PDF, Excel (.xls, .xlsx) and CSV, up to 5 MB. The '
-                'file type and source are worked out from the file itself.',
+                'file type and layout are worked out from the file itself.',
             'समर्थित: PDF, Excel (.xls, .xlsx) र CSV, ५ MB सम्म। फाइलको '
-                'प्रकार र स्रोत फाइलबाटै पत्ता लगाइन्छ।',
+                'प्रकार र ढाँचा फाइलबाटै पत्ता लगाइन्छ।',
           ),
           textAlign: TextAlign.center,
           style: theme.textTheme.labelSmall?.copyWith(
@@ -321,26 +460,184 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
             height: 1.4,
           ),
         ),
+        const SizedBox(height: 14),
+        GlassCard(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(
+                Icons.ios_share_rounded,
+                size: 20,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  context.t(
+                    'Quicker: in your bank app or Files, tap Share on the '
+                        'statement and choose Kharcha. It opens right here.',
+                    'छिटो तरिका: बैंक एप वा Files मा स्टेटमेन्टको Share '
+                        'थिचेर Kharcha छान्नुहोस्। यहीँ खुल्छ।',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        ),
         if (_error != null) ...<Widget>[
           const SizedBox(height: 16),
-          GlassCard(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Icon(
-                  Icons.error_outline_rounded,
-                  size: 20,
-                  color: glass.danger,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(_error!, style: theme.textTheme.bodySmall),
-                ),
-              ],
-            ),
+          _FailureCard(
+            fileName: _fileName,
+            message: _error!,
+            problem: _problem,
+            unreadPages: _unreadPages,
+            onGuide: () => _openGuide(_source),
+            onAddManually: () =>
+                Navigator.of(context).pushNamed(RoutePaths.addExpense),
           ),
         ],
       ],
+    );
+  }
+}
+
+/// What went wrong with a file, and what can be done instead.
+class _FailureCard extends StatelessWidget {
+  const _FailureCard({
+    required this.fileName,
+    required this.message,
+    required this.problem,
+    required this.unreadPages,
+    required this.onGuide,
+    required this.onAddManually,
+  });
+
+  final String? fileName;
+  final String message;
+  final StatementReadProblem? problem;
+  final List<int> unreadPages;
+  final VoidCallback onGuide;
+  final VoidCallback onAddManually;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(Icons.error_outline_rounded, size: 20, color: glass.danger),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    if (fileName != null)
+                      Text(
+                        fileName!,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    Text(message, style: theme.textTheme.bodySmall),
+                    if (unreadPages.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          context.t(
+                            'Pages looked at with no transactions found: '
+                                '${unreadPages.join(', ')}.',
+                            'कारोबार नभेटिएका पृष्ठ: '
+                                '${unreadPages.join(', ')}।',
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: glass.textSecondary,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            context.t(
+              'Nothing was imported. You can choose another file above, or:',
+              'केही आयात भएको छैन। माथिबाट अर्को फाइल छान्न सक्नुहुन्छ, वा:',
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: glass.textSecondary,
+            ),
+          ),
+          Wrap(
+            spacing: 4,
+            children: <Widget>[
+              TextButton.icon(
+                onPressed: onGuide,
+                icon: const Icon(Icons.help_outline_rounded, size: 18),
+                label: Text(
+                  context.t('How to get the file', 'फाइल कसरी पाउने'),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: onAddManually,
+                icon: const Icon(Icons.edit_note_rounded, size: 18),
+                label: Text(context.t('Add by hand', 'हातैले थप्नुहोस्')),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pages of the PDF that had text but no transaction that could be read.
+class _UnreadPagesCard extends StatelessWidget {
+  const _UnreadPagesCard({required this.pages, required this.pageCount});
+
+  final List<int> pages;
+  final int? pageCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    final list = pages.join(', ');
+    return GlassCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(Icons.find_in_page_rounded, size: 20, color: glass.warning),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              context.t(
+                pages.length == 1
+                    ? 'No transactions were found on page $list'
+                          '${pageCount == null ? '' : ' of $pageCount'}. If '
+                          'that page has some, check them against your '
+                          'statement and add them by hand.'
+                    : 'No transactions were found on pages $list'
+                          '${pageCount == null ? '' : ' of $pageCount'}. If '
+                          'those pages have some, check them against your '
+                          'statement and add them by hand.',
+                'पृष्ठ $list मा कारोबार भेटिएन। त्यहाँ कारोबार भए '
+                'स्टेटमेन्टसँग मिलाएर हातैले थप्नुहोस्।',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -410,9 +707,10 @@ class _SourceCard extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.result});
+  const _SummaryCard({required this.result, this.fileName});
 
   final StatementParseResult result;
+  final String? fileName;
 
   @override
   Widget build(BuildContext context) {
@@ -428,6 +726,10 @@ class _SummaryCard extends StatelessWidget {
     final expenseCount = entries.where((e) => !e.isIncome).length;
     final incomeCount = entries.where((e) => e.isIncome).length;
     final already = entries.where((e) => e.alreadyImported).length;
+    final warnings = result.warningCount;
+    // The bank the statement names itself, when it does; otherwise the kind
+    // of source it was read as.
+    final from = result.provider ?? result.source.label;
 
     Widget stat(String label, String value, Color color) => Expanded(
       child: Column(
@@ -455,12 +757,19 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          if (fileName != null)
+            Text(
+              fileName!,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: glass.textTertiary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           Text(
             context.t(
-              '${result.source.label} statement · ${entries.length} '
-                  'transactions found',
-              '${result.source.label} स्टेटमेन्ट · ${entries.length} '
-                  'कारोबार भेटियो',
+              '$from statement · ${entries.length} transactions found',
+              '$from स्टेटमेन्ट · ${entries.length} कारोबार भेटियो',
             ),
             style: theme.textTheme.labelMedium?.copyWith(
               color: glass.textSecondary,
@@ -482,6 +791,33 @@ class _SummaryCard extends StatelessWidget {
               ),
             ],
           ),
+          if (result.balanceChecked && warnings == 0) ...<Widget>[
+            const SizedBox(height: 10),
+            _Note(
+              icon: Icons.fact_check_rounded,
+              color: glass.success,
+              text: context.t(
+                'Every amount agrees with the running balance printed on '
+                    'the statement.',
+                'हरेक रकम स्टेटमेन्टमा छापिएको ब्यालेन्ससँग मिल्छ।',
+              ),
+            ),
+          ],
+          if (warnings > 0) ...<Widget>[
+            const SizedBox(height: 10),
+            _Note(
+              icon: Icons.warning_amber_rounded,
+              color: glass.warning,
+              text: context.t(
+                '$warnings marked to check: they do not agree with the '
+                    'statement\'s running balance. They are left unticked; '
+                    'tick one only after comparing it with your statement.',
+                '$warnings वटा जाँच्नुपर्ने: ती स्टेटमेन्टको ब्यालेन्ससँग '
+                    'मिल्दैनन्। ती छानिएका छैनन्; स्टेटमेन्टसँग दाँजेर मात्र '
+                    'छान्नुहोस्।',
+              ),
+            ),
+          ],
           if (already > 0) ...<Widget>[
             const SizedBox(height: 10),
             Row(
@@ -515,6 +851,34 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
+class _Note extends StatelessWidget {
+  const _Note({required this.icon, required this.color, required this.text});
+
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: context.glass.textSecondary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Rows the statement had that could not be read with confidence.
 class _SkippedCard extends StatelessWidget {
   const _SkippedCard({required this.rows});
@@ -540,7 +904,9 @@ class _SkippedCard extends StatelessWidget {
             leading: Icon(Icons.warning_amber_rounded, color: glass.warning),
             title: Text(
               context.t(
-                '${rows.length} rows could not be read',
+                rows.length == 1
+                    ? '1 row could not be read'
+                    : '${rows.length} rows could not be read',
                 '${rows.length} पङ्क्ति पढ्न सकिएन',
               ),
               style: theme.textTheme.titleSmall?.copyWith(
@@ -549,7 +915,10 @@ class _SkippedCard extends StatelessWidget {
             ),
             subtitle: Text(
               context.t(
-                'They are left out, not guessed. Add them by hand if needed.',
+                rows.length == 1
+                    ? 'It is left out, not guessed. Add it by hand if needed.'
+                    : 'They are left out, not guessed. Add them by hand if '
+                          'needed.',
                 'ती छोडिएका छन्, अनुमान गरिएको छैन। चाहिए हातैले थप्नुहोस्।',
               ),
               style: theme.textTheme.bodySmall?.copyWith(
@@ -568,6 +937,11 @@ class _SkippedCard extends StatelessWidget {
                             ? context.t(
                                 'Row ${row.row}: ${row.reason}',
                                 'पङ्क्ति ${row.row}: ${row.reason}',
+                              )
+                            : row.page > 0
+                            ? context.t(
+                                'Page ${row.page}: ${row.reason}',
+                                'पृष्ठ ${row.page}: ${row.reason}',
                               )
                             : row.reason,
                         style: theme.textTheme.labelMedium?.copyWith(
@@ -644,7 +1018,7 @@ class _EntryRow extends StatelessWidget {
         : '';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      padding: const EdgeInsets.fromLTRB(4, 6, 14, 6),
       child: Row(
         children: <Widget>[
           Checkbox(
@@ -677,6 +1051,30 @@ class _EntryRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (entry.warning != null && !entry.alreadyImported)
+                  Row(
+                    children: <Widget>[
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 13,
+                        color: glass.warning,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          context.t(
+                            'Check: ${entry.warning}',
+                            'जाँच्नुहोस्: स्टेटमेन्टको ब्यालेन्ससँग मिलेन',
+                          ),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: glass.warning,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),

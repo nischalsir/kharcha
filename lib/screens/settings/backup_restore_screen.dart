@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/backup_service.dart';
 import '../../services/cache_service.dart';
 import '../../services/google_drive_backup_service.dart';
@@ -33,7 +34,15 @@ class BackupRestoreScreen extends StatefulWidget {
 class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   late final BackupService _backup;
   late final SupabaseBackupService _cloud;
-  final GoogleDriveBackupService _drive = GoogleDriveBackupService();
+
+  /// Drive, for the account that is signed in and no other.
+  late final GoogleDriveBackupService _drive = GoogleDriveBackupService(
+    userId: context.read<AuthProvider>().userId,
+  );
+
+  /// Null until known. False when this build carries no Google sign-in
+  /// client, in which case Drive is explained instead of offered.
+  bool? _driveConfigured;
 
   bool _busy = false;
   bool _loadingCloud = false;
@@ -56,8 +65,13 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
   // --- Google Drive ------------------------------------------------------------
 
-  /// Reconnects silently if Drive was connected before; never shows UI.
+  /// Reconnects silently if this account connected Drive before; never shows
+  /// UI.
   Future<void> _restoreDrive() async {
+    final configured = await _drive.isConfigured();
+    if (!mounted) return;
+    setState(() => _driveConfigured = configured);
+    if (!configured) return;
     if (await _drive.restore()) await _loadDrive();
     if (mounted) setState(() {});
   }
@@ -115,7 +129,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       if (!mounted) return;
       showMessage(
         context,
-        context.t('Backed up to Google Drive.', 'Google Drive मा ब्याकअप गरियो।'),
+        context.t(
+          'Backed up to Google Drive.',
+          'Google Drive मा ब्याकअप गरियो।',
+        ),
       );
       await _loadDrive();
     } catch (error) {
@@ -164,8 +181,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       await _drive.delete(file);
       if (!mounted) return;
       setState(
-        () => _driveFiles =
-            _driveFiles.where((item) => item.path != file.path).toList(),
+        () => _driveFiles = _driveFiles
+            .where((item) => item.path != file.path)
+            .toList(),
       );
     } catch (error) {
       if (mounted) {
@@ -349,23 +367,26 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       if (mounted) {
         showMessage(
           context,
-          context.t('This backup contains no data.', 'यो ब्याकअपमा कुनै डाटा छैन।'),
+          context.t(
+            'This backup contains no data.',
+            'यो ब्याकअपमा कुनै डाटा छैन।',
+          ),
         );
       }
       return;
     }
     final confirmed = await _confirm(
-      title: context.t('Restore this backup?', 'यो ब्याकअप रिस्टोर गर्नुहुन्छ?'),
+      title: context.t(
+        'Restore this backup?',
+        'यो ब्याकअप रिस्टोर गर्नुहुन्छ?',
+      ),
       message:
           '$label\n\n'
-          '${context.t(
-            'This will import ${summary.records} records '
-                '(${summary.tables} kinds of data) and overwrite any records '
-                'with the same id. This cannot be undone.',
-            'यसले ${summary.records} रेकर्ड (${summary.tables} प्रकारका डाटा) '
-                'आयात गरी उही id का रेकर्डहरू अधिलेखन गर्नेछ। यो फिर्ता गर्न '
-                'सकिँदैन।',
-          )}',
+          '${context.t('This will import ${summary.records} records '
+              '(${summary.tables} kinds of data) and overwrite any records '
+              'with the same id. This cannot be undone.', 'यसले ${summary.records} रेकर्ड (${summary.tables} प्रकारका डाटा) '
+              'आयात गरी उही id का रेकर्डहरू अधिलेखन गर्नेछ। यो फिर्ता गर्न '
+              'सकिँदैन।')}',
       confirmLabel: context.t('Restore', 'रिस्टोर'),
     );
     if (confirmed != true || !mounted) return;
@@ -469,7 +490,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                 _ActionCard(
                   icon: Icons.cloud_upload_rounded,
                   color: const Color(0xFF0A84FF),
-                  title: context.t('Back up to cloud', 'क्लाउडमा ब्याकअप गर्नुहोस्'),
+                  title: context.t(
+                    'Back up to cloud',
+                    'क्लाउडमा ब्याकअप गर्नुहोस्',
+                  ),
                   subtitle: context.t(
                     'Upload a fresh backup to your secure cloud storage',
                     'तपाईंको cloud स्टोरेजमा नयाँ ब्याकअप अपलोड गर्नुहोस्',
@@ -525,25 +549,63 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
               const SizedBox(height: 26),
               const _SectionLabel('Google Drive'),
               const SizedBox(height: 8),
-              if (!_drive.isConnected)
+              if (_driveConfigured == false)
+                GlassCard(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 20,
+                        color: glass.warning,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          context.t(
+                            'Google Drive backup is not available in this '
+                                'build yet. Kharcha has not been registered '
+                                'for Google sign-in, which Drive needs. Cloud '
+                                'backup and backup files work as usual.',
+                            'यो संस्करणमा Google Drive ब्याकअप अझै उपलब्ध '
+                                'छैन। Drive लाई चाहिने Google साइन इनका लागि '
+                                'खर्चा दर्ता भएको छैन। क्लाउड ब्याकअप र फाइल '
+                                'ब्याकअप सधैंझैं चल्छन्।',
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: glass.textSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (!_drive.isConnected)
                 _ActionCard(
                   icon: Icons.add_to_drive_rounded,
                   color: const Color(0xFF34A853),
-                  title: context.t('Connect Google Drive', 'Google Drive जोड्नुहोस्'),
+                  title: context.t(
+                    'Connect Google Drive',
+                    'Google Drive जोड्नुहोस्',
+                  ),
                   subtitle: context.t(
                     'Keep backups in your own Drive. Kharcha only sees its '
                         'own backup files.',
                     'आफ्नै Drive मा ब्याकअप राख्नुहोस्। खर्चाले आफ्नै ब्याकअप '
                         'फाइल मात्र देख्छ।',
                   ),
-                  enabled: !_busy,
+                  enabled: !_busy && _driveConfigured == true,
                   onTap: _connectDrive,
                 )
               else ...<Widget>[
                 _ActionCard(
                   icon: Icons.backup_rounded,
                   color: const Color(0xFF34A853),
-                  title: context.t('Back up to Google Drive', 'Google Drive मा ब्याकअप'),
+                  title: context.t(
+                    'Back up to Google Drive',
+                    'Google Drive मा ब्याकअप',
+                  ),
                   subtitle: _drive.accountEmail ?? '',
                   enabled: !_busy,
                   onTap: _uploadDrive,

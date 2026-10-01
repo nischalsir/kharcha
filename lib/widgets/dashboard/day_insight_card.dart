@@ -20,7 +20,8 @@ import '../common/glass_card.dart';
 /// One compact dashboard card that combines:
 ///  * the Bikram Sambat day (day number + month),
 ///  * the next festival / public holiday with its days-remaining countdown,
-///  * the AI insight (with a manual refresh and an "Ask AI" entry point).
+///  * Flamey's current suggestion, which arrives on its own as the day goes
+///    on and as the user's records change, with an "Ask Flamey" entry point.
 ///
 /// Replaces the separate calendar, festival and AI cards so the home dashboard
 /// stays short. Tapping the card opens the full calendar.
@@ -114,8 +115,14 @@ class DayInsightCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              // The face that goes with what is being said, and a thinking
+              // one while the AI is writing its version.
               FlameMascot(
-                face: mood?.face ?? MoodFace.calm,
+                face: ai.isLoading
+                    ? MoodFace.thinking
+                    : insight == null
+                    ? (mood?.face ?? MoodFace.calm)
+                    : ai.insightExpression.face,
                 tone: mood?.tone ?? MoodTone.neutral,
                 energy: mood?.energy,
                 size: 34,
@@ -130,7 +137,18 @@ class DayInsightCard extends StatelessWidget {
                       _openChat(context, initialPrompt: action),
                 ),
               ),
-              _RefreshButton(loading: ai.isLoading, onTap: ai.regenerate),
+              if (ai.isLoading)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8, top: 2),
+                  child: SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.8,
+                      color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
             ],
           ),
           Row(
@@ -387,8 +405,8 @@ class _InsightText extends StatelessWidget {
         children: <Widget>[
           Text(
             context.t(
-              'Tap refresh to generate your first insight.',
-              'पहिलो सुझावका लागि refresh थिच्नुहोस्।',
+              'Getting your suggestion ready…',
+              'तपाईंको सुझाव तयार हुँदैछ…',
             ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: glass.textSecondary,
@@ -450,63 +468,6 @@ class _InsightText extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _RefreshButton extends StatefulWidget {
-  const _RefreshButton({required this.loading, required this.onTap});
-
-  final bool loading;
-  final VoidCallback onTap;
-
-  @override
-  State<_RefreshButton> createState() => _RefreshButtonState();
-}
-
-class _RefreshButtonState extends State<_RefreshButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.loading) _controller.repeat();
-  }
-
-  @override
-  void didUpdateWidget(_RefreshButton oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.loading && !_controller.isAnimating) {
-      _controller.repeat();
-    } else if (!widget.loading && _controller.isAnimating) {
-      _controller.stop();
-      _controller.value = 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: widget.loading ? null : widget.onTap,
-      tooltip: 'Regenerate',
-      visualDensity: VisualDensity.compact,
-      icon: RotationTransition(
-        turns: _controller,
-        child: Icon(
-          Icons.refresh_rounded,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-      ),
     );
   }
 }

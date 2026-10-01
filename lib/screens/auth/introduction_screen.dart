@@ -248,74 +248,87 @@ class _OnboardingPageContent extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Illustration
-          Transform.translate(
-            offset: Offset(offset * -60, 0),
-            child: Transform.scale(
-              scale: 1 - offset.abs() * 0.12,
-              child: SizedBox(
-                width: 260,
-                height: 260,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: <Widget>[
-                    Container(
-                      width: 220,
-                      height: 220,
-                      decoration: BoxDecoration(
-                        color: page.color.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
+    // On a small phone the illustration gives way, and if the words still do
+    // not fit they scroll, rather than running off the bottom of the page.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final art = (constraints.maxHeight * 0.42).clamp(120.0, 260.0);
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Illustration
+                Transform.translate(
+                  offset: Offset(offset * -60, 0),
+                  child: Transform.scale(
+                    scale: 1 - offset.abs() * 0.12,
+                    child: SizedBox(
+                      width: art,
+                      height: art,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: <Widget>[
+                          Container(
+                            width: art * 0.85,
+                            height: art * 0.85,
+                            decoration: BoxDecoration(
+                              color: page.color.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          Image(
+                            image: AppImages.provider(page.imageUrl),
+                            width: art,
+                            height: art,
+                            fit: BoxFit.contain,
+                            semanticLabel: page.title,
+                            frameBuilder: (context, child, frame, sync) =>
+                                AnimatedOpacity(
+                                  opacity: sync || frame != null ? 1 : 0,
+                                  duration: const Duration(milliseconds: 250),
+                                  child: child,
+                                ),
+                            // First launch can be offline: show the icon instead.
+                            errorBuilder: (_, _, _) => Icon(
+                              page.illustration,
+                              size: 72,
+                              color: page.color,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Image(
-                      image: AppImages.provider(page.imageUrl),
-                      width: 260,
-                      height: 260,
-                      fit: BoxFit.contain,
-                      semanticLabel: page.title,
-                      frameBuilder: (context, child, frame, sync) =>
-                          AnimatedOpacity(
-                            opacity: sync || frame != null ? 1 : 0,
-                            duration: const Duration(milliseconds: 250),
-                            child: child,
-                          ),
-                      // First launch can be offline: show the icon instead.
-                      errorBuilder: (_, _, _) =>
-                          Icon(page.illustration, size: 72, color: page.color),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                SizedBox(height: art < 200 ? 18 : 32),
+                // Title
+                Text(
+                  page.title,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Description
+                Text(
+                  page.description,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 32),
-          // Title
-          Text(
-            page.title,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurface,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Description
-          Text(
-            page.description,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

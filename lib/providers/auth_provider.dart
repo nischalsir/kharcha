@@ -405,8 +405,6 @@ class AuthProvider extends ChangeNotifier {
     required String password,
     bool trustedDevice = false,
   }) async {
-    _signingIn = true;
-    _signingInEmail = email.trim();
     _setLoading(true);
     _clearError();
     _forgetTrust();
@@ -419,6 +417,11 @@ class AuthProvider extends ChangeNotifier {
         password: password,
       );
 
+      // Only now is the account known to be this person's. Until the server
+      // accepts the password nothing says "Signing in as ...": a wrong
+      // password is answered on the form, not announced as a sign-in.
+      _signingIn = true;
+      _signingInEmail = email.trim();
       _session = response.session;
       _user = response.user;
       if (trustedDevice) await _trust(response.user?.id);
@@ -451,7 +454,11 @@ class AuthProvider extends ChangeNotifier {
       error is AuthException && _isWrongPassword(error);
 
   /// Maps Supabase auth errors to user-friendly messages.
-  AppFailure _mapAuthError(Object error) {
+  AppFailure _mapAuthError(Object error) => describeAuthError(error);
+
+  /// What an authentication error means for the user.
+  @visibleForTesting
+  static AppFailure describeAuthError(Object error) {
     if (error is AuthException) {
       final message = error.message.toLowerCase();
       if (message.contains('invalid login') ||
@@ -462,6 +469,15 @@ class AuthProvider extends ChangeNotifier {
         return const AppFailure(
           FailureKind.syncFailed,
           'Wrong email or password. Please try again.',
+        );
+      }
+      // Guest mode needs "anonymous sign-ins" switched on for the project.
+      if (error.code == 'anonymous_provider_disabled' ||
+          message.contains('anonymous sign-ins are disabled')) {
+        return const AppFailure(
+          FailureKind.syncFailed,
+          'Guest mode is not switched on for Kharcha yet. Create an account '
+          'or sign in instead.',
         );
       }
       if (message.contains('signup_disabled')) {
@@ -506,8 +522,6 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> signInAnonymously() async {
-    _signingIn = true;
-    _signingInEmail = null;
     _setLoading(true);
     _clearError();
 
@@ -515,6 +529,8 @@ class AuthProvider extends ChangeNotifier {
       final client = _requireClient();
       final response = await client.auth.signInAnonymously();
 
+      _signingIn = true;
+      _signingInEmail = null;
       _session = response.session;
       _user = response.user;
       notifyListeners();

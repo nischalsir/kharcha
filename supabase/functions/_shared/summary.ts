@@ -5,6 +5,8 @@
 // This module is intentionally framework-free so the same aggregation can be
 // reused by future notification workers (e.g. an FCM sender) without change.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { buildHabits, type HabitRow, type Habits } from "./habits.ts";
+import { toBs } from "./bs_calendar.ts";
 
 export interface CategorySpend {
   name: string;
@@ -33,6 +35,12 @@ export interface FinancialSummary {
   dailyExpense: { date: string; amount: number }[];
   streak: { activeDays: number; lastExpenseAt: string | null };
   hasEnoughData: boolean;
+  /**
+   * Time-aware figures and the habits that stand out, in the user's own
+   * calendar days. Only present when the caller says what time it is for
+   * the user (`utcOffsetMinutes`).
+   */
+  habits?: Habits;
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -60,7 +68,12 @@ function round(value: number): number {
  */
 export async function buildFinancialSummary(
   supabase: SupabaseClient,
-  options: { windowDays?: number; userId?: string } = {},
+  options: {
+    windowDays?: number;
+    userId?: string;
+    /** The user's clock, in minutes ahead of UTC. Adds `habits`. */
+    utcOffsetMinutes?: number;
+  } = {},
 ): Promise<FinancialSummary> {
   const windowDays = options.windowDays ?? 30;
   const now = new Date();
@@ -94,10 +107,10 @@ export async function buildFinancialSummary(
       options.userId,
     ),
     scoped(
-      supabase.from("budgets").select("amount,category_id").is(
-        "deleted_at",
-        null,
-      ),
+      supabase
+        .from("budgets")
+        .select("amount,category_id,period,bs_year,bs_month")
+        .is("deleted_at", null),
       options.userId,
     ),
     scoped(
@@ -175,10 +188,26 @@ export async function buildFinancialSummary(
     }
   }
 
-  const budgetTotal = budgetRows.reduce(
-    (sum, row) => sum + (Number(row.amount) || 0),
-    0,
+  // This Bikram Sambat month's monthly budgets only: the table keeps every
+  // month's, and adding them all up made the budget look many times larger.
+  // The month is the one it is in Nepal, where the app's calendar runs.
+  const nepalToday = new Date(now.getTime() + (options.utcOffsetMinutes ?? 345) * 60_000)
+    .toISOString()
+    .slice(0, 10);
+  const bsToday = toBs(nepalToday);
+  const monthBudgets = budgetRows.filter((row) =>
+    (row.period ?? "monthly") === "monthly" &&
+    bsToday !== null &&
+    Number(row.bs_year) === bsToday.year &&
+    Number(row.bs_month) === bsToday.month
   );
+  // The overall budget (no category) when there is one, as the app shows it;
+  // otherwise the category budgets added up. Adding both would count the same
+  // money twice.
+  const overall = monthBudgets.find((row) => row.category_id == null);
+  const budgetTotal = overall
+    ? Number(overall.amount) || 0
+    : monthBudgets.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
 
   const toSorted = (map: Map<string, number>): CategorySpend[] =>
     [...map.entries()]
@@ -227,5 +256,25 @@ export async function buildFinancialSummary(
     dailyExpense,
     streak: { activeDays: activeDays.size, lastExpenseAt },
     hasEnoughData: rows.length >= 5,
+    ...(options.utcOffsetMinutes === undefined ? {} : {
+      habits: buildHabits(
+        rows.map((row): HabitRow => {
+          const catId = typeof row.category_id === "string"
+            ? row.category_id
+            : "";
+          return {
+            amount: Number(row.amount) || 0,
+            type: String(row.type ?? "expense"),
+            occurred_at: String(row.occurred_at ?? ""),
+            title: String(row.title ?? ""),
+            category: catId
+              ? categoryName.get(catId) ?? "Uncategorised"
+              : "Uncategorised",
+          };
+        }),
+        now,
+        options.utcOffsetMinutes,
+      ),
+    }),
   };
 }

@@ -11,6 +11,7 @@ import '../services/ai_mood_service.dart';
 import '../services/cache_service.dart';
 import '../services/festival_service.dart';
 import '../services/financial_summary_service.dart';
+import '../services/flamey_controller.dart';
 import '../services/nepali_date_service.dart';
 import '../services/reaction_notifier.dart';
 import '../services/supabase_service.dart';
@@ -154,13 +155,18 @@ class AppProviders {
     );
   }
 
-  static AiInsightProvider aiInsight(AppEnvironment env) {
+  static AiInsightProvider aiInsight(
+    AppEnvironment env, {
+    FlameyController? flamey,
+  }) {
     return AiInsightProvider(
+      flamey: flamey,
       summaryService: FinancialSummaryService(
         transactions: env.transactionRepository,
         budgets: env.budgetRepository,
         settings: env.settingsRepository,
         dates: env.dates,
+        pasals: env.pasalRepository,
       ),
       moodService: const AiMoodService(),
       insightService: AiInsightService(),

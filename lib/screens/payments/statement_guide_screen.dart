@@ -10,7 +10,7 @@ import '../../widgets/common/primary_button.dart';
 /// One step of a "how to download your statement" guide.
 class GuideStep {
   const GuideStep({
-    required this.image,
+    this.image,
     required this.icon,
     required this.title,
     required this.titleNe,
@@ -20,8 +20,9 @@ class GuideStep {
 
   /// Cloudinary public id of the step's picture, under `kharcha/help/`.
   /// Replacing the image on Cloudinary under the same id changes the slide
-  /// without an app update.
-  final String image;
+  /// without an app update. Null for a step with no picture, which shows
+  /// [icon] instead.
+  final String? image;
 
   /// Shown in place of the picture while it loads or when offline.
   final IconData icon;
@@ -39,8 +40,9 @@ class GuideStep {
       (((logicalWidth * devicePixelRatio) / 200).ceil() * 200).clamp(400, 1600);
 
   /// The slide picture, sized for the screen it is shown on.
-  String urlFor(int pixelWidth) =>
-      '$_base/f_auto,q_auto,c_limit,w_$pixelWidth/kharcha/help/$image';
+  String? urlFor(int pixelWidth) => image == null
+      ? null
+      : '$_base/f_auto,q_auto,c_limit,w_$pixelWidth/kharcha/help/$image';
 }
 
 /// The steps for each kind of statement.
@@ -107,8 +109,8 @@ class StatementGuides {
       title: 'Import it into Kharcha',
       titleNe: 'खर्चामा आयात गर्नुहोस्',
       body:
-          'Go back to the import page, tap Choose file and pick the file you '
-          'saved, then check the list of '
+          'Tap Share on the file and choose Kharcha, or go back to the import '
+          'page and tap Choose file. Then check the list of '
           'transactions and confirm. Importing the same statement twice does '
           'not create duplicates.',
       bodyNe:
@@ -180,8 +182,117 @@ class StatementGuides {
     ),
   ];
 
-  static List<GuideStep> forSource(StatementSource source) =>
-      source == StatementSource.esewa ? esewa : bank;
+  // Khalti's own guide puts the export on its website, under Transaction
+  // History. No pictures: the steps name what to look for.
+  static const List<GuideStep> khalti = <GuideStep>[
+    GuideStep(
+      icon: Icons.language_rounded,
+      title: 'Open khalti.com in a browser',
+      titleNe: 'ब्राउजरमा khalti.com खोल्नुहोस्',
+      body:
+          'Sign in to your Khalti account on the website. Khalti\'s export '
+          'is on the website; the app shows your transactions but may not '
+          'offer a file.',
+      bodyNe:
+          'वेबसाइटमा आफ्नो Khalti खातामा साइन इन गर्नुहोस्। Khalti को '
+          'एक्सपोर्ट वेबसाइटमा हुन्छ; एपले कारोबार देखाउँछ तर फाइल नदिन सक्छ।',
+    ),
+    GuideStep(
+      icon: Icons.history_rounded,
+      title: 'Open Transaction History',
+      titleNe: 'Transaction History खोल्नुहोस्',
+      body:
+          'Go to Transaction History, the list of everything you paid and '
+          'received with Khalti.',
+      bodyNe:
+          'Transaction History मा जानुहोस्, जहाँ Khalti बाट तिरेको र पाएको '
+          'सबै सूची हुन्छ।',
+    ),
+    GuideStep(
+      icon: Icons.date_range_rounded,
+      title: 'Filter the dates',
+      titleNe: 'मिति छान्नुहोस्',
+      body:
+          'Set the period you want to bring into Kharcha. A month or two at '
+          'a time is easiest to review.',
+      bodyNe:
+          'खर्चामा ल्याउन चाहेको अवधि राख्नुहोस्। एक-दुई महिना जाँच्न सजिलो '
+          'हुन्छ।',
+    ),
+    GuideStep(
+      icon: Icons.table_view_rounded,
+      title: 'Tap Export',
+      titleNe: 'Export थिच्नुहोस्',
+      body:
+          'Tap Export at the top right of Transaction History. Khalti saves '
+          'the list as an Excel file.',
+      bodyNe:
+          'Transaction History को माथि दायाँको Export थिच्नुहोस्। Khalti ले '
+          'सूची Excel फाइलमा सुरक्षित गर्छ।',
+    ),
+    GuideStep(
+      icon: Icons.upload_file_rounded,
+      title: 'Import it into Kharcha',
+      titleNe: 'खर्चामा आयात गर्नुहोस्',
+      body:
+          'Go back to the import page with Khalti selected and tap Choose '
+          'file, or share the file to Kharcha. Payments that failed are left '
+          'out, and you choose which rows to keep.',
+      bodyNe:
+          'आयात पृष्ठमा Khalti छानेर Choose file थिच्नुहोस्, वा फाइल Kharcha '
+          'मा Share गर्नुहोस्। असफल भुक्तानी छुट्छन्, र कुन पङ्क्ति राख्ने '
+          'तपाईंले छान्नुहुन्छ।',
+    ),
+  ];
+
+  static const List<GuideStep> other = <GuideStep>[
+    GuideStep(
+      icon: Icons.download_rounded,
+      title: 'Download a statement',
+      titleNe: 'स्टेटमेन्ट डाउनलोड गर्नुहोस्',
+      body:
+          'In the wallet or banking app, look for Statement, Transaction '
+          'history or Export, and save it as PDF, Excel or CSV. Kharcha has '
+          'no way to fetch it for you: these apps offer a file, not a '
+          'connection.',
+      bodyNe:
+          'वालेट वा बैंकिङ एपमा Statement, Transaction history वा Export '
+          'खोजी PDF, Excel वा CSV मा सुरक्षित गर्नुहोस्। खर्चाले आफैं ल्याउन '
+          'सक्दैन: यी एपले फाइल दिन्छन्, जडान होइन।',
+    ),
+    GuideStep(
+      icon: Icons.table_rows_rounded,
+      title: 'What the file needs',
+      titleNe: 'फाइलमा के हुनुपर्छ',
+      body:
+          'A table with a date column and either debit and credit columns or '
+          'one amount column. A photo or a scan of a statement cannot be '
+          'read.',
+      bodyNe:
+          'मितिको स्तम्भ र डेबिट-क्रेडिट वा रकमको स्तम्भ भएको तालिका। '
+          'स्टेटमेन्टको फोटो वा स्क्यान पढ्न सकिँदैन।',
+    ),
+    GuideStep(
+      icon: Icons.ios_share_rounded,
+      title: 'Share it to Kharcha',
+      titleNe: 'Kharcha मा Share गर्नुहोस्',
+      body:
+          'Tap Share on the file and choose Kharcha, or go back to the import '
+          'page and tap Choose file. Rows that cannot be read are listed, '
+          'never guessed.',
+      bodyNe:
+          'फाइलको Share थिचेर Kharcha छान्नुहोस्, वा आयात पृष्ठमा फर्केर '
+          'Choose file थिच्नुहोस्। पढ्न नसकिएका पङ्क्ति सूचीमा देखिन्छन्, '
+          'अनुमान गरिँदैन।',
+    ),
+  ];
+
+  static List<GuideStep> forSource(StatementSource source) => switch (source) {
+    StatementSource.bank => bank,
+    StatementSource.esewa => esewa,
+    StatementSource.khalti => khalti,
+    StatementSource.other => other,
+  };
 }
 
 /// Step-by-step slides showing how to get a statement file to import.
@@ -228,7 +339,18 @@ class _StatementGuideScreenState extends State<StatementGuideScreen> {
     final glass = context.glass;
     final steps = _steps;
     final last = _index == steps.length - 1;
-    final isEsewa = widget.source == StatementSource.esewa;
+    final title = switch (widget.source) {
+      StatementSource.bank => context.t('Bank statement', 'बैंक स्टेटमेन्ट'),
+      StatementSource.esewa => context.t('eSewa statement', 'eSewa स्टेटमेन्ट'),
+      StatementSource.khalti => context.t(
+        'Khalti statement',
+        'Khalti स्टेटमेन्ट',
+      ),
+      StatementSource.other => context.t(
+        'Another wallet or app',
+        'अर्को वालेट वा एप',
+      ),
+    };
 
     return GlassBackground(
       child: Scaffold(
@@ -241,12 +363,7 @@ class _StatementGuideScreenState extends State<StatementGuideScreen> {
             icon: Icon(Icons.close_rounded, color: theme.colorScheme.onSurface),
             onPressed: () => Navigator.pop(context),
           ),
-          title: Text(
-            isEsewa
-                ? context.t('eSewa statement', 'eSewa स्टेटमेन्ट')
-                : context.t('Bank statement', 'बैंक स्टेटमेन्ट'),
-            style: theme.textTheme.titleLarge,
-          ),
+          title: Text(title, style: theme.textTheme.titleLarge),
         ),
         body: SafeArea(
           child: Column(
@@ -328,6 +445,7 @@ class _Slide extends StatelessWidget {
           constraints.maxWidth,
           MediaQuery.devicePixelRatioOf(context),
         );
+        final url = step.urlFor(pixels);
         final placeholder = ColoredBox(
           color: theme.colorScheme.primary.withValues(alpha: 0.10),
           child: Center(
@@ -348,15 +466,17 @@ class _Slide extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
                 child: AspectRatio(
                   aspectRatio: 16 / 11,
-                  child: Image(
-                    image: AppImages.provider(step.urlFor(pixels)),
-                    fit: BoxFit.cover,
-                    // The picture only illustrates the text beside it.
-                    excludeFromSemantics: true,
-                    frameBuilder: (_, child, frame, sync) =>
-                        sync || frame != null ? child : placeholder,
-                    errorBuilder: (_, _, _) => placeholder,
-                  ),
+                  child: url == null
+                      ? placeholder
+                      : Image(
+                          image: AppImages.provider(url),
+                          fit: BoxFit.cover,
+                          // The picture only illustrates the text beside it.
+                          excludeFromSemantics: true,
+                          frameBuilder: (_, child, frame, sync) =>
+                              sync || frame != null ? child : placeholder,
+                          errorBuilder: (_, _, _) => placeholder,
+                        ),
                 ),
               ),
               const SizedBox(height: 20),

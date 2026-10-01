@@ -21,6 +21,16 @@ class Env {
     return value.isEmpty ? defaultSupabaseUrl : value;
   }
 
+  /// The Google Cloud project's *Web application* OAuth client id, which
+  /// Google Sign-In on Android needs as its server client id. Public, like
+  /// every OAuth client id. Normally it arrives through
+  /// `android/app/google-services.json`; this setting is for a project whose
+  /// file does not carry one. Null when not set.
+  static String? get googleServerClientId {
+    const value = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+    return value.isEmpty ? null : value;
+  }
+
   static String get supabaseAnonKey {
     const value = String.fromEnvironment('SUPABASE_ANON_KEY');
     return value.isEmpty ? defaultSupabaseAnonKey : value;

@@ -18,6 +18,7 @@ import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/page_refresh.dart';
+import '../../services/flamey_controller.dart';
 
 class BudgetsScreen extends StatelessWidget {
   const BudgetsScreen({super.key});
@@ -428,6 +429,8 @@ class _BudgetFormState extends State<_BudgetForm> {
         : await provider.update(existing.copyWith(amount: amount));
     if (!mounted) return;
     if (ok) {
+      // A budget set: Flamey nods along.
+      FlameyController.maybeOf(context)?.send(FlameyEvent.taskCompleted);
       navigator.pop();
     } else {
       setState(() => _saving = false);

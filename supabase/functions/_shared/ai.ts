@@ -3,30 +3,26 @@
 // The API key lives ONLY here, as a Supabase Edge Function secret. It is never
 // bundled into the Flutter client.
 import OpenAI from "npm:openai@4";
+import {
+  type AiInsight,
+  CATEGORIES,
+  clamp,
+  type InsightTone,
+  MAX_MESSAGE,
+  parseJsonObject,
+  pick,
+  PRIORITIES,
+  validateInsight,
+} from "./insight_validation.ts";
 
-export interface AiInsight {
-  title: string;
-  message: string;
-  category: "spending" | "saving" | "budget" | "income" | "general";
-  priority: "low" | "normal" | "high";
-  action: string;
-  mood: "happy" | "neutral" | "sad" | "sleepy";
-  promptVersion: string;
-}
-
-const CATEGORIES = [
-  "spending",
-  "saving",
-  "budget",
-  "income",
-  "general",
-] as const;
-const PRIORITIES = ["low", "normal", "high"] as const;
-const MOODS = ["happy", "neutral", "sad", "sleepy"] as const;
-
-const MAX_TITLE = 60;
-const MAX_MESSAGE = 280;
-const MAX_ACTION = 80;
+export {
+  type AiInsight,
+  INSIGHT_KINDS,
+  type InsightTone,
+  MOODS,
+  TONES,
+  validateInsight,
+} from "./insight_validation.ts";
 
 function client(): OpenAI {
   const apiKey = Deno.env.get("NVIDIA_API_KEY") ?? Deno.env.get("AI_API_KEY");
@@ -52,49 +48,6 @@ const DEFAULT_MODEL = "moonshotai/kimi-k3";
 
 function model(): string {
   return Deno.env.get("AI_MODEL") ?? DEFAULT_MODEL;
-}
-
-function clamp(value: unknown, max: number, fallback = ""): string {
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim().replace(/\s+/g, " ");
-  return trimmed.length > max ? `${trimmed.slice(0, max - 1)}…` : trimmed;
-}
-
-function pick<T extends readonly string[]>(
-  value: unknown,
-  allowed: T,
-  fallback: T[number],
-): T[number] {
-  return typeof value === "string" &&
-      (allowed as readonly string[]).includes(value)
-    ? (value as T[number])
-    : fallback;
-}
-
-function parseJsonObject(content: string): Record<string, unknown> | null {
-  const cleaned = content
-    .trim()
-    .replace(/^```(?:json)?/i, "")
-    .replace(/```$/i, "")
-    .trim();
-  try {
-    const parsed = JSON.parse(cleaned);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : null;
-  } catch {
-    // Fall back to the first {...} block if the model added prose.
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    try {
-      const parsed = JSON.parse(match[0]);
-      return parsed && typeof parsed === "object"
-        ? (parsed as Record<string, unknown>)
-        : null;
-    } catch {
-      return null;
-    }
-  }
 }
 
 export interface AiProbe {
@@ -206,27 +159,14 @@ export async function generateInsight(
   systemPrompt: string,
   userPrompt: string,
   promptVersion: string,
+  options: {
+    allowedTone?: InsightTone;
+    grounding?: unknown[];
+    kind?: string;
+  } = {},
 ): Promise<AiInsight> {
   const raw = await complete(systemPrompt, userPrompt, 400);
-  const parsed = parseJsonObject(raw);
-  if (!parsed) {
-    throw new Error("AI returned malformed JSON.");
-  }
-
-  const message = clamp(parsed.message, MAX_MESSAGE);
-  if (!message) {
-    throw new Error("AI returned an empty message.");
-  }
-
-  return {
-    title: clamp(parsed.title, MAX_TITLE, "Smart Insight"),
-    message,
-    category: pick(parsed.category, CATEGORIES, "general"),
-    priority: pick(parsed.priority, PRIORITIES, "low"),
-    action: clamp(parsed.action ?? "", MAX_ACTION),
-    mood: pick(parsed.mood, MOODS, "neutral"),
-    promptVersion,
-  };
+  return validateInsight(raw, promptVersion, options);
 }
 
 /** Generates and validates a chat reply. Throws on unrecoverable failure. */

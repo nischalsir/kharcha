@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import '../core/utils/currency_formatter.dart';
-import '../models/ai_insight_model.dart';
 import '../models/financial_summary.dart';
 import 'weather_service.dart';
 
@@ -866,88 +865,6 @@ class AiMoodService {
       return base == MoodFace.worried ? base : MoodFace.calm;
     }
     return base;
-  }
-
-  /// Deterministic offline insight built from real numbers only.
-  AiInsight localInsight(FinancialSummary summary) {
-    if (!summary.hasEnoughData) {
-      return AiInsight(
-        title: 'Smart Tip',
-        message: 'Keep tracking your expenses to unlock personalised insights.',
-        category: 'general',
-        priority: 'low',
-        action: '',
-        mood: 'neutral',
-        source: InsightSource.placeholder,
-        generatedAt: DateTime.now(),
-      );
-    }
-
-    final change = summary.weeklyChangePct;
-    if (change != null && change >= 15) {
-      return _local(
-        title: 'Spending is rising',
-        message:
-            'This week you spent ${change.round()}% more than last week.${_topSuffix(summary)}',
-        category: 'spending',
-        priority: 'high',
-        action: 'Review this week\'s expenses',
-      );
-    }
-    final usedPct = summary.budgetUsedPct;
-    if (usedPct != null && usedPct >= 85) {
-      return _local(
-        title: 'Budget nearly used',
-        message:
-            'You have used ${usedPct.round()}% of your monthly budget. Consider easing off.',
-        category: 'budget',
-        priority: 'high',
-        action: 'Check your budget',
-      );
-    }
-    if (change != null && change <= -10) {
-      return _local(
-        title: 'Spending is down',
-        message:
-            'Nicely done — spending is ${change.abs().round()}% lower than last week.',
-        category: 'saving',
-        priority: 'normal',
-        action: '',
-      );
-    }
-    return _local(
-      title: 'Stay on track',
-      message:
-          'You have logged ${summary.activeDays} active days this month. Keep the momentum going.',
-      category: 'general',
-      priority: 'low',
-      action: '',
-    );
-  }
-
-  AiInsight _local({
-    required String title,
-    required String message,
-    required String category,
-    required String priority,
-    required String action,
-  }) {
-    return AiInsight(
-      title: title,
-      message: message,
-      category: category,
-      priority: priority,
-      action: action,
-      mood: 'neutral',
-      source: InsightSource.local,
-      generatedAt: DateTime.now(),
-    );
-  }
-
-  String _topSuffix(FinancialSummary summary) {
-    final top = summary.topCategory;
-    if (top == null || summary.topCategoryAmount <= 0) return '';
-    return ' Biggest category: $top.';
   }
 
   String _weatherSuffix(AiWeather? weather) {

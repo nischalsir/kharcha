@@ -11,6 +11,7 @@ import '../screens/home/home_screen.dart';
 import '../screens/more/more_screen.dart';
 import '../screens/pasal/pasal_screen.dart';
 import '../screens/payments/payments_screen.dart';
+import 'flamey_controller.dart';
 
 class RootShell extends StatefulWidget {
   const RootShell({super.key});
@@ -57,7 +58,7 @@ class _RootShellState extends State<RootShell>
     _keyboardVisible = visible;
   }
 
-@override
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     AppNavRouteObserver.unbind(_nav);
@@ -87,6 +88,10 @@ class _RootShellState extends State<RootShell>
     if (index == _index) return;
     _nav.expand();
     setState(() => _index = index);
+    // Opening Home is something Flamey notices; it lives there.
+    if (index == 0) {
+      FlameyController.maybeOf(context)?.send(FlameyEvent.pageOpened);
+    }
     if (!_pageController.hasClients) return;
     _pageController.animateToPage(
       index,
@@ -154,10 +159,7 @@ class _RootShellState extends State<RootShell>
             physics: const NeverScrollableScrollPhysics(),
             children: <Widget>[
               for (int i = 0; i < 5; i++)
-                _KeepAlivePage(
-                  key: ValueKey(i),
-                  child: _buildPage(i),
-                ),
+                _KeepAlivePage(key: ValueKey(i), child: _buildPage(i)),
             ],
           ),
         ),

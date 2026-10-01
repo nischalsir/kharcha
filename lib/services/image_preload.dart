@@ -32,7 +32,7 @@ class ImagePreload {
     return <String>{
       for (final source in StatementSource.values)
         for (final step in StatementGuides.forSource(source))
-          step.urlFor(guideWidth),
+          ?step.urlFor(guideWidth),
       for (final width in _festivalWidths)
         for (final path in paths)
           FestivalImage.urlFor(

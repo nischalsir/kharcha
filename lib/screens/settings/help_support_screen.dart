@@ -98,12 +98,21 @@ class HelpSupportScreen extends StatelessWidget {
       (
         context.t('How does Flamey work?', 'Flamey ले कसरी काम गर्छ?'),
         context.t(
-          'A secure server makes a small summary of your own spending and '
-              'asks the AI for a suggestion. Flamey’s mood comes from '
-              'how much of this month’s income you have kept.',
-          'सुरक्षित सर्भरले तपाईंको खर्चको सानो सारांश बनाएर AI सँग सुझाव '
-              'माग्छ। ज्वालाको मुड यस महिनाको आम्दानीबाट कति बचत भयो भन्नेमा '
-              'भर पर्छ।',
+          'Suggestions arrive on their own: in the morning (yesterday), at '
+              'midday (today against a typical day), in the evening and at '
+              'the end of the day, with a weekly look on Saturday evening and '
+              'a monthly one three times a month. They also update when you '
+              'add, edit or delete a transaction or change a budget. Every '
+              'figure comes from your own records. Flamey writes one on the '
+              'phone straight away; when online, the AI writes a version '
+              'from a private summary, and anything quoting a figure that is '
+              'not in your records is thrown away. Pull the Home page down '
+              'to ask again. Flamey’s face follows what is being said.',
+          'सुझाव आफैं आउँछन्: बिहान (हिजोको), दिउँसो (सामान्य दिनसँग '
+              'तुलना), साँझ र दिनको अन्त्यमा, शनिबार साँझ हप्ताको र महिनामा तीन '
+              'पटक महिनाको। कारोबार थप्दा, बदल्दा वा मेटाउँदा र बजेट बदल्दा पनि '
+              'सुझाव फेरिन्छ। हरेक अङ्क तपाईंकै रेकर्डबाट आउँछ। ताजा गर्न '
+              'गृह पृष्ठ तल तान्नुहोस्।',
         ),
       ),
       (
@@ -461,6 +470,32 @@ class _StatementImportHelp extends StatelessWidget {
                   label: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(context.t('eSewa steps', 'eSewa चरण')),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _guide(context, StatementSource.khalti),
+                  icon: const Icon(Icons.wallet_rounded, size: 18),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(context.t('Khalti steps', 'Khalti चरण')),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _guide(context, StatementSource.other),
+                  icon: const Icon(Icons.description_rounded, size: 18),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(context.t('Other apps', 'अन्य एप')),
                   ),
                 ),
               ),

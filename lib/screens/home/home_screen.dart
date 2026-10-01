@@ -11,6 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../auth/guest_upgrade_screen.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../services/app_images.dart';
+import '../../services/sync_service.dart';
 import '../../widgets/common/ai_mood_badge.dart';
 import '../../widgets/common/animated_number.dart';
 import '../../widgets/common/glass_card.dart';
@@ -147,6 +148,16 @@ class _HomeScreenState extends State<HomeScreen> {
       child: PageRefresh(
         pageName: 'Home',
         pageNameNe: 'गृह',
+        // Pulling the page down is also the one manual way to ask for a new
+        // suggestion; normally they arrive on their own.
+        onRefresh: () async {
+          final ai = context.read<AiInsightProvider>();
+          final outcome = await PageRefresh.fromServer(
+            context.read<SyncService>(),
+          );
+          await ai.refresh(force: true);
+          return outcome;
+        },
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: <Widget>[

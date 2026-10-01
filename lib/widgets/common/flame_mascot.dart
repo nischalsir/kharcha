@@ -20,11 +20,16 @@ class FlameMascot extends StatefulWidget {
     this.size = 46,
     this.tone = MoodTone.neutral,
     this.energy,
+    this.gaze = 0,
   });
 
   final MoodFace face;
   final double size;
   final MoodTone tone;
+
+  /// Where the eyes look, from -1 (left) through 0 (ahead) to 1 (right).
+  /// Faces drawn with open eyes follow it; the rest ignore it.
+  final double gaze;
 
   /// 0..1 "how fed" the flame is. Low energy shrinks it and cools it to blue;
   /// high energy makes it tall, golden and glowing. Falls back to a value
@@ -105,18 +110,27 @@ class _FlameMascotState extends State<FlameMascot>
               ? const Duration(milliseconds: 900)
               : Duration.zero,
           curve: Curves.easeOutCubic,
-          builder: (context, energy, _) => AnimatedBuilder(
-            animation: Listenable.merge(<Listenable>[_flicker, _blink]),
-            builder: (context, _) {
-              return CustomPaint(
-                painter: _FlamePainter(
-                  face: widget.face,
-                  energy: energy,
-                  flicker: _animate ? _flicker.value : 0.0,
-                  eyeOpenness: _animate ? _eyeOpenness(_blink.value) : 1.0,
-                ),
-              );
-            },
+          // The eyes travel to where they look rather than jumping there.
+          builder: (context, energy, _) => TweenAnimationBuilder<double>(
+            tween: Tween<double>(end: widget.gaze.clamp(-1.0, 1.0)),
+            duration: _animate
+                ? const Duration(milliseconds: 260)
+                : Duration.zero,
+            curve: Curves.easeOutCubic,
+            builder: (context, gaze, _) => AnimatedBuilder(
+              animation: Listenable.merge(<Listenable>[_flicker, _blink]),
+              builder: (context, _) {
+                return CustomPaint(
+                  painter: _FlamePainter(
+                    face: widget.face,
+                    energy: energy,
+                    gaze: gaze,
+                    flicker: _animate ? _flicker.value : 0.0,
+                    eyeOpenness: _animate ? _eyeOpenness(_blink.value) : 1.0,
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -139,12 +153,14 @@ class _FlamePainter extends CustomPainter {
     required this.energy,
     required this.flicker,
     required this.eyeOpenness,
+    this.gaze = 0,
   });
 
   final MoodFace face;
   final double energy;
   final double flicker;
   final double eyeOpenness;
+  final double gaze;
 
   // Three palettes the flame blends between as its energy moves: a cold,
   // starving blue; the ordinary orange; and a rich, glowing gold.
@@ -365,7 +381,203 @@ class _FlamePainter extends CustomPainter {
       );
     }
 
+    // How far the eyes are turned, for the faces that look around.
+    final look = gaze * eyeR * 0.8;
+
+    /// A raised brow over one eye; [side] is -1 for the left eye, 1 for the
+    /// right.
+    void brow(double side, {double lift = 2.0, double tilt = 0}) {
+      final x = cx + side * eyeDx;
+      canvas.drawPath(
+        Path()
+          ..moveTo(x - eyeR * 1.05, eyeY - eyeR * (lift - tilt))
+          ..quadraticBezierTo(
+            x,
+            eyeY - eyeR * (lift + 0.75),
+            x + eyeR * 1.05,
+            eyeY - eyeR * (lift + tilt),
+          ),
+        lineInk..strokeWidth = stroke * 0.8,
+      );
+    }
+
+    /// Eyes under a heavy lid: the lower half of a circle with a flat top.
+    void liddedEyes({double shift = 0}) {
+      for (final dx in <double>[-eyeDx, eyeDx]) {
+        final centre = Offset(cx + dx + shift, eyeY);
+        canvas.drawArc(
+          Rect.fromCircle(center: centre, radius: eyeR),
+          0,
+          math.pi,
+          true,
+          fillInk,
+        );
+        canvas.drawLine(
+          Offset(centre.dx - eyeR * 1.2, eyeY),
+          Offset(centre.dx + eyeR * 1.2, eyeY),
+          lineInk..strokeWidth = stroke * 0.9,
+        );
+      }
+    }
+
     switch (face) {
+      case MoodFace.curious:
+        // One eye wider than the other, the brow above it lifted.
+        canvas.drawCircle(Offset(cx - eyeDx + look, eyeY), eyeR * 0.8, fillInk);
+        canvas.drawCircle(
+          Offset(cx + eyeDx + look, eyeY - eyeR * 0.1),
+          eyeR * 1.15,
+          fillInk,
+        );
+        brow(1, lift: 2.3);
+        canvas.drawPath(
+          Path()
+            ..moveTo(cx - w * 0.05, mouthY + h * 0.012)
+            ..quadraticBezierTo(
+              cx + w * 0.03,
+              mouthY + h * 0.035,
+              cx + w * 0.085,
+              mouthY - h * 0.005,
+            ),
+          lineInk..strokeWidth = stroke,
+        );
+      case MoodFace.confused:
+        // One round eye, one squinting, and a mouth that cannot decide.
+        canvas.drawCircle(Offset(cx - eyeDx, eyeY), eyeR * 1.05, fillInk);
+        canvas.drawLine(
+          Offset(cx + eyeDx - eyeR, eyeY + eyeR * 0.1),
+          Offset(cx + eyeDx + eyeR, eyeY - eyeR * 0.25),
+          lineInk..strokeWidth = stroke,
+        );
+        brow(-1, lift: 2.2, tilt: -0.5);
+        canvas.drawPath(
+          Path()
+            ..moveTo(cx - w * 0.11, mouthY + h * 0.01)
+            ..cubicTo(
+              cx - w * 0.06,
+              mouthY - h * 0.035,
+              cx - w * 0.02,
+              mouthY + h * 0.05,
+              cx + w * 0.03,
+              mouthY + h * 0.008,
+            )
+            ..cubicTo(
+              cx + w * 0.06,
+              mouthY - h * 0.03,
+              cx + w * 0.09,
+              mouthY + h * 0.03,
+              cx + w * 0.11,
+              mouthY + h * 0.005,
+            ),
+          lineInk..strokeWidth = stroke * 0.9,
+        );
+      case MoodFace.surprised:
+        // Wide eyes with a glint, brows up, a small round mouth.
+        for (final dx in <double>[-eyeDx, eyeDx]) {
+          canvas.drawCircle(Offset(cx + dx + look, eyeY), eyeR * 1.2, fillInk);
+          canvas.drawCircle(
+            Offset(cx + dx + look + eyeR * 0.35, eyeY - eyeR * 0.4),
+            eyeR * 0.35,
+            Paint()..color = const Color(0xffffffff),
+          );
+        }
+        brow(-1, lift: 2.5);
+        brow(1, lift: 2.5);
+        canvas.drawCircle(
+          Offset(cx, mouthY + h * 0.02),
+          w * 0.035,
+          lineInk..strokeWidth = stroke * 0.9,
+        );
+      case MoodFace.proud:
+        // Eyes shut in contentment, a wide smile, cheeks glowing.
+        smilingEyes();
+        canvas.drawPath(
+          Path()
+            ..moveTo(cx - w * 0.15, mouthY - h * 0.015)
+            ..quadraticBezierTo(
+              cx,
+              mouthY + h * 0.085,
+              cx + w * 0.15,
+              mouthY - h * 0.015,
+            ),
+          lineInk..strokeWidth = stroke * 1.15,
+        );
+        for (final dx in <double>[-eyeDx, eyeDx]) {
+          canvas.drawOval(
+            Rect.fromCenter(
+              center: Offset(cx + dx * 1.75, eyeY + eyeR * 1.7),
+              width: eyeR * 1.7,
+              height: eyeR * 0.9,
+            ),
+            Paint()..color = const Color(0x55ff5a5a),
+          );
+        }
+      case MoodFace.bored:
+        // Heavy lids, eyes drifting off to one side, a flat mouth.
+        liddedEyes(shift: look == 0 ? eyeR * 0.3 : look);
+        canvas.drawLine(
+          Offset(cx - w * 0.07, mouthY + h * 0.012),
+          Offset(cx + w * 0.09, mouthY + h * 0.012),
+          lineInk..strokeWidth = stroke,
+        );
+      case MoodFace.teasing:
+        // A sideways look from under the lids, one brow up, a smirk.
+        liddedEyes(shift: look == 0 ? eyeR * 0.5 : look);
+        brow(1, lift: 1.5, tilt: -0.45);
+        canvas.drawPath(
+          Path()
+            ..moveTo(cx - w * 0.09, mouthY + h * 0.02)
+            ..quadraticBezierTo(
+              cx + w * 0.06,
+              mouthY + h * 0.05,
+              cx + w * 0.14,
+              mouthY - h * 0.035,
+            ),
+          lineInk..strokeWidth = stroke * 1.1,
+        );
+      case MoodFace.roasting:
+        // Brows drawn down in mischief over a grin full of teeth.
+        for (final dx in <double>[-eyeDx, eyeDx]) {
+          canvas.drawCircle(Offset(cx + dx, eyeY), eyeR * 0.85, fillInk);
+          final inner = dx < 0 ? 1.0 : -1.0;
+          canvas.drawLine(
+            Offset(cx + dx - inner * eyeR * 1.3, eyeY - eyeR * 2.0),
+            Offset(cx + dx + inner * eyeR * 1.2, eyeY - eyeR * 1.05),
+            lineInk..strokeWidth = stroke * 0.95,
+          );
+        }
+        openGrin(w * 0.16, h * 0.11);
+        canvas.drawPath(
+          Path()
+            ..moveTo(cx - w * 0.125, mouthY + h * 0.012)
+            ..lineTo(cx + w * 0.125, mouthY + h * 0.012),
+          Paint()
+            ..color = const Color(0xffffffff)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = stroke * 0.85
+            ..strokeCap = StrokeCap.round,
+        );
+      case MoodFace.loading:
+        // Ring eyes with pupils going round, and a patient little mouth.
+        final turn = flicker * 2 * math.pi;
+        for (final dx in <double>[-eyeDx, eyeDx]) {
+          final centre = Offset(cx + dx, eyeY);
+          canvas.drawCircle(
+            centre,
+            eyeR * 1.1,
+            lineInk..strokeWidth = stroke * 0.7,
+          );
+          canvas.drawCircle(
+            centre + Offset(math.cos(turn), math.sin(turn)) * (eyeR * 0.5),
+            eyeR * 0.45,
+            fillInk,
+          );
+        }
+        canvas.drawLine(
+          Offset(cx - w * 0.045, mouthY + h * 0.015),
+          Offset(cx + w * 0.045, mouthY + h * 0.015),
+          lineInk..strokeWidth = stroke,
+        );
       case MoodFace.sleepy:
         // Closed lids: a shallow downward curve each.
         for (final dx in <double>[-eyeDx, eyeDx]) {
@@ -716,7 +928,7 @@ class _FlamePainter extends CustomPainter {
       case MoodFace.calm:
         _openEyes(
           canvas,
-          cx,
+          cx + look,
           eyeY,
           eyeDx,
           eyeR,
@@ -808,6 +1020,67 @@ class _FlamePainter extends CustomPainter {
             ..close(),
           Paint()..color = const Color(0xee7fd4ff),
         );
+      case MoodFace.confused:
+        // A question mark floating beside the tip.
+        final ink = Paint()
+          ..color = const Color(0xff5b8cf0)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(1.2, w * 0.035)
+          ..strokeCap = StrokeCap.round;
+        final x = cx + w * 0.3;
+        final y = top + h * 0.2 - h * 0.02 * wave;
+        final r = w * 0.055;
+        canvas.drawPath(
+          Path()
+            ..moveTo(x - r, y - r * 0.4)
+            ..cubicTo(
+              x - r,
+              y - r * 2.0,
+              x + r * 1.3,
+              y - r * 1.9,
+              x + r,
+              y - r * 0.5,
+            )
+            ..quadraticBezierTo(x + r * 0.7, y + r * 0.3, x, y + r * 0.7),
+          ink,
+        );
+        canvas.drawCircle(
+          Offset(x, y + r * 1.7),
+          w * 0.02,
+          Paint()..color = const Color(0xff5b8cf0),
+        );
+      case MoodFace.loading:
+        // Three dots taking turns.
+        for (var i = 0; i < 3; i++) {
+          final phase = ((drift * 3) - i) % 3;
+          final lit = phase >= 0 && phase < 1 ? 1.0 : 0.35;
+          canvas.drawCircle(
+            Offset(cx + w * (0.2 + 0.075 * i), top + h * 0.22),
+            w * 0.024,
+            Paint()..color = const Color(0xff8a9cc9).withValues(alpha: lit),
+          );
+        }
+      case MoodFace.proud:
+        // A sparkle that twinkles.
+        canvas.drawPath(
+          _starPath(cx + w * 0.3, top + h * 0.24, w * (0.05 + 0.012 * wave)),
+          Paint()..color = const Color(0xffffe066),
+        );
+      case MoodFace.roasting || MoodFace.teasing:
+        // Sparks flying off: this one is feeling spicy.
+        for (var i = 0; i < 3; i++) {
+          final rise = (drift + i / 3) % 1.0;
+          canvas.drawCircle(
+            Offset(
+              cx + w * (-0.3 + 0.3 * i) + w * 0.04 * wave,
+              top + h * (0.26 - 0.22 * rise),
+            ),
+            w * 0.026 * (1 - rise * 0.6),
+            Paint()
+              ..color = const Color(0xffff7043)
+                  .withValues(alpha: 0.9 * (1 - rise)),
+          );
+        }
       case MoodFace.grumpy:
         // Two little puffs of smoke.
         final smoke = Paint()..color = const Color(0x998d8d99);
@@ -927,5 +1200,6 @@ class _FlamePainter extends CustomPainter {
       old.face != face ||
       old.energy != energy ||
       old.flicker != flicker ||
+      old.gaze != gaze ||
       old.eyeOpenness != eyeOpenness;
 }

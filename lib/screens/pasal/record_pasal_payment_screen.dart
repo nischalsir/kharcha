@@ -9,6 +9,7 @@ import '../../services/nepali_date_service.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/form_helpers.dart';
+import '../../services/flamey_controller.dart';
 
 class RecordPasalPaymentScreen extends StatefulWidget {
   const RecordPasalPaymentScreen({
@@ -85,6 +86,8 @@ class _RecordPasalPaymentScreenState extends State<RecordPasalPaymentScreen> {
     if (!mounted) return;
     setState(() => _saving = false);
     if (ok) {
+      // Paying off a tab is a job done; Flamey notices.
+      FlameyController.maybeOf(context)?.send(FlameyEvent.taskCompleted);
       Navigator.pop(context, true);
     } else {
       final message = provider.errorMessage ?? 'Could not record payment.';

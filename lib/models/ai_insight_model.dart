@@ -10,8 +10,28 @@ enum InsightSource {
   placeholder,
 }
 
-/// Structured, validated AI insight returned by the backend (or a local
-/// equivalent). The backend validates the raw model output before this is built.
+/// How a suggestion is worded.
+enum InsightTone {
+  /// Plain and factual.
+  normal,
+
+  /// Light, a little cheeky.
+  playful,
+
+  /// A friendly roast of a spending habit the numbers actually show.
+  roast;
+
+  static InsightTone fromName(Object? name) {
+    for (final tone in InsightTone.values) {
+      if (tone.name == name) return tone;
+    }
+    return InsightTone.normal;
+  }
+}
+
+/// Structured, validated suggestion: from the AI backend (which validates the
+/// raw model output before this is built) or worked out on the device from
+/// the user's own records.
 class AiInsight {
   const AiInsight({
     required this.title,
@@ -23,6 +43,10 @@ class AiInsight {
     required this.source,
     required this.generatedAt,
     this.promptVersion,
+    this.tone = InsightTone.normal,
+    this.kind,
+    this.variant,
+    this.basis,
   });
 
   final String title;
@@ -31,13 +55,28 @@ class AiInsight {
   final String priority;
   final String action;
 
-  /// happy | neutral | sad | sleepy
+  /// The expression that goes with what is being said: `happy`, `proud`,
+  /// `teasing`, `roasting`, `surprised`, `thinking`, ... See
+  /// `FlameyExpression.forInsight`.
   final String mood;
   final InsightSource source;
   final DateTime generatedAt;
   final String? promptVersion;
+  final InsightTone tone;
 
-  factory AiInsight.fromJson(Map<String, dynamic> json, {InsightSource? source}) {
+  /// The time window it was made for: `morning`, `weekly`, ...
+  final String? kind;
+
+  /// Which wording this is, so the same line is not shown twice running.
+  final String? variant;
+
+  /// For a suggestion worked out on the device: how its figure was reached.
+  final String? basis;
+
+  factory AiInsight.fromJson(
+    Map<String, dynamic> json, {
+    InsightSource? source,
+  }) {
     return AiInsight(
       title: (json['title'] as String?)?.trim().isNotEmpty == true
           ? (json['title'] as String).trim()
@@ -47,11 +86,20 @@ class AiInsight {
       priority: (json['priority'] as String?) ?? 'low',
       action: (json['action'] as String?) ?? '',
       mood: (json['mood'] as String?) ?? 'neutral',
-      source: source ?? InsightSource.ai,
+      source:
+          source ??
+          InsightSource.values.firstWhere(
+            (value) => value.name == json['source'],
+            orElse: () => InsightSource.ai,
+          ),
       generatedAt:
           DateTime.tryParse((json['generatedAt'] as String?) ?? '') ??
           DateTime.now(),
       promptVersion: json['promptVersion'] as String?,
+      tone: InsightTone.fromName(json['tone']),
+      kind: json['kind'] as String?,
+      variant: json['variant'] as String?,
+      basis: json['basis'] as String?,
     );
   }
 
@@ -66,10 +114,18 @@ class AiInsight {
       'source': source.name,
       'generatedAt': generatedAt.toIso8601String(),
       'promptVersion': promptVersion,
+      'tone': tone.name,
+      'kind': kind,
+      'variant': variant,
+      'basis': basis,
     };
   }
 
-  AiInsight copyWith({InsightSource? source, DateTime? generatedAt}) {
+  AiInsight copyWith({
+    InsightSource? source,
+    DateTime? generatedAt,
+    String? kind,
+  }) {
     return AiInsight(
       title: title,
       message: message,
@@ -80,6 +136,10 @@ class AiInsight {
       source: source ?? this.source,
       generatedAt: generatedAt ?? this.generatedAt,
       promptVersion: promptVersion,
+      tone: tone,
+      kind: kind ?? this.kind,
+      variant: variant,
+      basis: basis,
     );
   }
 }

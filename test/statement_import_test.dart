@@ -182,19 +182,30 @@ void main() {
       await _open(tester, transactions, review: review);
     }
 
-    testWidgets('the start offers both sources and says what is supported', (
+    testWidgets('the start offers every source and says what is supported', (
       tester,
     ) async {
       await pump(tester, review: false);
 
+      // One chip per source, Bank picked to begin with.
+      for (final label in <String>['Bank', 'eSewa', 'Khalti', 'Other']) {
+        expect(find.widgetWithText(ChoiceChip, label), findsOneWidget);
+      }
       expect(find.text('Bank statement'), findsOneWidget);
-      expect(find.text('eSewa statement'), findsOneWidget);
-      expect(find.text('How to get it'), findsNWidgets(2));
+      expect(find.text('How to get it'), findsOneWidget);
       expect(find.text('Choose file'), findsOneWidget);
       expect(
         find.textContaining('PDF, Excel (.xls, .xlsx) and CSV'),
         findsOneWidget,
       );
+      // Sharing a file in is offered as the quicker way.
+      expect(find.textContaining('tap Share on the'), findsOneWidget);
+
+      // Picking a wallet changes what the card describes.
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Khalti'));
+      await tester.pump();
+      expect(find.text('Khalti statement'), findsOneWidget);
+      expect(find.textContaining('khalti.com'), findsOneWidget);
     });
 
     testWidgets('the review shows date, description, amount and direction', (
@@ -217,8 +228,8 @@ void main() {
     ) async {
       await pump(tester);
 
-      expect(find.text('1 rows could not be read'), findsOneWidget);
-      await tester.tap(find.text('1 rows could not be read'));
+      expect(find.text('1 row could not be read'), findsOneWidget);
+      await tester.tap(find.text('1 row could not be read'));
       await tester.pumpAndSettle();
       expect(find.text('Row 12: No amount'), findsOneWidget);
       expect(find.textContaining('1SAAAAA'), findsOneWidget);
@@ -381,8 +392,29 @@ void main() {
       expect(find.byType(StatementGuideScreen), findsNothing);
     });
 
-    test('every slide has a picture id, a title and an explanation', () {
+    test('every source has a guide; every step says what to do', () {
       for (final source in StatementSource.values) {
+        final steps = StatementGuides.forSource(source);
+        expect(steps.length, greaterThanOrEqualTo(3), reason: source.id);
+        for (final step in steps) {
+          expect(step.title, isNotEmpty);
+          expect(step.body.length, greaterThan(40));
+          expect(step.titleNe, isNotEmpty);
+          expect(step.bodyNe, isNotEmpty);
+        }
+      }
+      // Khalti's steps follow its own guide: the export is on the website.
+      expect(
+        StatementGuides.khalti.map((s) => s.title),
+        contains('Open khalti.com in a browser'),
+      );
+    });
+
+    test('the bank and eSewa slides have their pictures on Cloudinary', () {
+      for (final source in <StatementSource>[
+        StatementSource.bank,
+        StatementSource.esewa,
+      ]) {
         final steps = StatementGuides.forSource(source);
         expect(steps, hasLength(5));
         expect(steps.map((s) => s.image).toSet(), hasLength(5));

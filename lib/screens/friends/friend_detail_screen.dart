@@ -14,6 +14,7 @@ import '../../widgets/common/primary_button.dart';
 import 'package:flutter/services.dart';
 
 import '../../widgets/common/page_refresh.dart';
+import '../../services/flamey_controller.dart';
 
 String _filterLabel(FriendCreditFilter filter) {
   switch (filter) {
@@ -618,6 +619,8 @@ class _PaymentFormState extends State<_PaymentForm> {
     );
     if (!mounted) return;
     if (ok) {
+      // A debt paid back is a job done; Flamey notices.
+      FlameyController.maybeOf(context)?.send(FlameyEvent.taskCompleted);
       navigator.pop();
     } else {
       setState(() => _saving = false);

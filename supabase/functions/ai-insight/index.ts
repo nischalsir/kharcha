@@ -19,10 +19,64 @@ import {
   INSIGHT_SYSTEM_PROMPT,
   PROMPT_VERSION,
 } from '../_shared/prompt.ts';
-import { generateChatReply, generateInsight, probeAi } from '../_shared/ai.ts';
+import {
+  generateChatReply,
+  generateInsight,
+  INSIGHT_KINDS,
+  type InsightTone,
+  probeAi,
+  TONES,
+} from '../_shared/ai.ts';
 
 const RATE_WINDOW_MS = 30_000; // per user+mode, best-effort (per isolate)
 const MAX_QUESTION_LEN = 240;
+
+/**
+ * What the app may say about the request. Everything is checked: the context
+ * is sent by a client, and it ends up in a prompt.
+ */
+function readContext(raw: unknown) {
+  const input = raw && typeof raw === 'object'
+    ? raw as Record<string, unknown>
+    : {};
+  const kind = INSIGHT_KINDS.includes(input.kind as never)
+    ? input.kind as string
+    : null;
+  const tone: InsightTone = TONES.includes(input.tone as never)
+    ? input.tone as InsightTone
+    : 'normal';
+  // Nepal's offset unless the app says otherwise; clamped to real time zones.
+  const offset = typeof input.utcOffsetMinutes === 'number' &&
+      Number.isFinite(input.utcOffsetMinutes)
+    ? Math.max(-720, Math.min(840, Math.round(input.utcOffsetMinutes)))
+    : 345;
+  const avoid = Array.isArray(input.avoid)
+    ? input.avoid
+      .filter((item) => typeof item === 'string')
+      .slice(0, 5)
+      .map((item) => (item as string).slice(0, 80))
+    : [];
+  const name = typeof input.name === 'string'
+    ? input.name.trim().split(/\s+/)[0].slice(0, 40)
+    : null;
+  return {
+    kind,
+    tone,
+    offset,
+    // Only these reach the model.
+    forModel: {
+      kind: kind ?? 'general',
+      tone,
+      avoid,
+      ...(name ? { first_name: name } : {}),
+      ...(typeof input.hour === 'number' ? { hour: input.hour } : {}),
+      ...(input.isBirthday === true ? { isBirthday: true } : {}),
+      ...(typeof input.weather === 'string'
+        ? { weather: input.weather.slice(0, 40) }
+        : {}),
+    },
+  };
+}
 const recent = new Map<string, number>();
 
 function rateLimited(key: string): boolean {
@@ -43,6 +97,7 @@ function fallbackInsight(reason: 'no_data' | 'birthday') {
       priority: 'normal',
       action: 'Enjoy your day',
       mood: 'happy',
+      tone: 'playful',
       promptVersion: PROMPT_VERSION,
     };
   }
@@ -54,6 +109,7 @@ function fallbackInsight(reason: 'no_data' | 'birthday') {
     priority: 'low',
     action: '',
     mood: 'neutral',
+    tone: 'normal',
     promptVersion: PROMPT_VERSION,
   };
 }
@@ -89,7 +145,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   const modeRaw = String(body.mode ?? '');
-  const context = body.context ?? {};
+  const context = readContext(body.context);
 
   // ?selftest (or { "mode": "selftest" }) reports the AI configuration without
   // running a completion, so the key/model can be checked from the app.
@@ -104,22 +160,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    const summary = await buildFinancialSummary(supabase);
+    // Every figure the model sees is worked out here, from the caller's own
+    // rows (RLS), in the caller's own calendar days.
+    const summary = await buildFinancialSummary(supabase, {
+      utcOffsetMinutes: context.offset,
+    });
 
     if (mode === 'chat') {
       const question = String(body.question ?? '').trim().slice(0, MAX_QUESTION_LEN);
       if (!question) return fail('Missing question', 400);
       const reply = await generateChatReply(
         CHAT_SYSTEM_PROMPT,
-        buildChatUserPrompt(summary, context, question),
+        buildChatUserPrompt(summary, context.forModel, question),
       );
       return json({ reply, promptVersion: PROMPT_VERSION });
     }
 
-    const isBirthday =
-      typeof context === 'object' &&
-      context !== null &&
-      (context as Record<string, unknown>).isBirthday === true;
+    const isBirthday = context.forModel.isBirthday === true;
 
     if (!summary.hasEnoughData) {
       return json({ insight: fallbackInsight(isBirthday ? 'birthday' : 'no_data') });
@@ -127,8 +184,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const insight = await generateInsight(
       INSIGHT_SYSTEM_PROMPT,
-      buildInsightUserPrompt(summary, context),
+      buildInsightUserPrompt(summary, context.forModel),
       PROMPT_VERSION,
+      {
+        allowedTone: context.tone,
+        // A figure the model writes must be one of these, or the reply is
+        // refused and the app keeps the suggestion it wrote itself.
+        grounding: [summary, context.forModel],
+        kind: context.kind ?? undefined,
+      },
     );
     return json({ insight });
   } catch (error) {

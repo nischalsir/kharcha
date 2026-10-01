@@ -258,7 +258,9 @@ class _LoginScreenState extends State<LoginScreen> {
       await auth.signInAnonymously();
       if (mounted) _returnToShell();
     } catch (error) {
-      if (mounted) {
+      // The provider has already worked out why (guest mode switched off,
+      // no connection, ...); only fall back to the raw error when it has not.
+      if (mounted && auth.failure == null) {
         auth.setError(FailureKind.syncFailed, AppFailure.from(error).message);
       }
     } finally {

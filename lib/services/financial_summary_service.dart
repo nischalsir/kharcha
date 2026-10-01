@@ -1,9 +1,11 @@
 import '../models/financial_summary.dart';
 import '../models/transaction_model.dart';
 import '../repositories/budget_repository.dart';
+import '../repositories/pasal_repository.dart';
 import '../repositories/settings_repository.dart';
 import '../repositories/transaction_repository.dart';
 import 'nepali_date_service.dart';
+import 'spending_habits.dart';
 
 /// Aggregates the user's own cached rows into a compact [FinancialSummary].
 ///
@@ -15,6 +17,8 @@ class FinancialSummaryService {
     required this.budgets,
     required this.settings,
     required this.dates,
+    this.pasals,
+    this.now = DateTime.now,
   });
 
   final TransactionRepository transactions;
@@ -22,14 +26,24 @@ class FinancialSummaryService {
   final SettingsRepository settings;
   final NepaliDateService dates;
 
+  /// Shop credit, for what is still owed on tabs. Optional: without it that
+  /// one habit is simply not reported.
+  final PasalRepository? pasals;
+
+  /// The clock, replaceable in tests.
+  final DateTime Function() now;
+
   static const int _historyDays = 30;
 
   FinancialSummary build() {
-    final now = DateTime.now();
+    final now = this.now();
     final today = DateTime(now.year, now.month, now.day);
     final weekStart = today.subtract(const Duration(days: 6));
     final prevWeekStart = today.subtract(const Duration(days: 13));
-    final monthRange = dates.monthRange(dates.today().year, dates.today().month);
+    final monthRange = dates.monthRange(
+      dates.today().year,
+      dates.today().month,
+    );
 
     final all = transactions.all();
     final categoryNames = <String, String>{
@@ -72,7 +86,9 @@ class FinancialSummaryService {
         expensePreviousWeek += item.amount;
       }
 
-      if (!at.isBefore(today.subtract(const Duration(days: _historyDays - 1)))) {
+      if (!at.isBefore(
+        today.subtract(const Duration(days: _historyDays - 1)),
+      )) {
         dailyExpense[at] = (dailyExpense[at] ?? 0) + item.amount;
         activeDays.add(at);
         final label = item.categoryId == null
@@ -82,9 +98,12 @@ class FinancialSummaryService {
       }
     }
 
-    final budgetTotal = budgets
-        .forMonth(dates.today().year, dates.today().month)
-        .fold<double>(0, (sum, budget) => sum + budget.amount);
+    final monthBudgets = budgets.forMonth(
+      dates.today().year,
+      dates.today().month,
+    );
+    // The overall budget when there is one; never overall plus categories.
+    final budgetTotal = SpendingHabitAnalyzer.monthlyBudgetTotal(monthBudgets);
 
     String? topCategory;
     var topCategoryAmount = 0.0;
@@ -101,7 +120,40 @@ class FinancialSummaryService {
       days.add((day: day, amount: dailyExpense[day] ?? 0));
     }
 
+    // Days in a row, ending today (or yesterday, before today's first
+    // expense), on which spending was recorded.
+    var loggingStreak = 0;
+    for (
+      var i = dailyExpense.containsKey(today) ? 0 : 1;
+      i < _historyDays;
+      i++
+    ) {
+      if (!dailyExpense.containsKey(today.subtract(Duration(days: i)))) break;
+      loggingStreak++;
+    }
+
+    var pasalDue = 0.0;
+    final shops = <String>{};
+    for (final credit in pasals?.credits() ?? const []) {
+      if (credit.remainingAmount <= 0.005) continue;
+      pasalDue += credit.remainingAmount;
+      shops.add(credit.pasalId);
+    }
+
+    final habits = const SpendingHabitAnalyzer().analyze(
+      transactions: all,
+      categoryNames: categoryNames,
+      budgets: monthBudgets,
+      now: now,
+      monthStart: monthRange.start,
+      monthEndExclusive: monthRange.endExclusive,
+      pasalDue: pasalDue,
+      pasalShops: shops.length,
+      loggingStreak: loggingStreak,
+    );
+
     return FinancialSummary(
+      habits: habits,
       expenseThisWeek: expenseThisWeek,
       expensePreviousWeek: expensePreviousWeek,
       expenseThisMonth: expenseThisMonth,

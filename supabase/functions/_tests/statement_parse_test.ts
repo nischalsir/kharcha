@@ -277,11 +277,15 @@ Deno.test('generic bank sheet: unreadable rows are reported, not invented', () =
     ['2026-03-05', 'Nothing moved', '', ''],
   ];
   const entries = parseGenericRows(rows, skipped);
-  assertEquals(entries.length, 1);
+  // The Bikram Sambat row is kept as printed and marked for the app, which
+  // has the calendar tables to convert it.
+  assertEquals(entries.map((e) => [e.occurred_at, e.calendar]), [
+    ['2026-03-02 00:00:00', undefined],
+    ['2083-06-15 00:00:00', 'bs'],
+  ]);
   assertEquals(skipped.map((s) => [s.row, s.reason]), [
     [3, 'Date not recognised'],
     [4, 'Amount not recognised'],
-    [5, 'Bikram Sambat date'],
     [6, 'No amount'],
   ]);
 });

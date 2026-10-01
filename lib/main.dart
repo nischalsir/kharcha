@@ -44,6 +44,8 @@ import 'screens/pasal/pasal_screen.dart';
 import 'screens/payments/payments_screen.dart';
 import 'screens/payments/statement_import_screen.dart';
 import 'screens/reports/reports_screen.dart';
+import 'screens/settings/backup_restore_screen.dart';
+import 'screens/settings/help_support_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/settings/version_screen.dart';
 import 'screens/transactions/add_transaction_screen.dart';
@@ -52,6 +54,10 @@ import 'services/biometric_service.dart';
 import 'services/cache_service.dart';
 import 'services/account_avatar_cache.dart';
 import 'services/app_images.dart';
+import 'services/flamey_controller.dart';
+import 'services/google_account.dart';
+import 'services/google_drive_backup_service.dart';
+import 'services/incoming_file_service.dart';
 import 'services/image_preload.dart';
 import 'services/nepali_date_service.dart';
 import 'services/pasal_image_store.dart';
@@ -139,8 +145,20 @@ class KharchaApp extends StatelessWidget {
         ChangeNotifierProvider<ReportProvider>(
           create: (_) => AppProviders.reports(env),
         ),
+        // Flamey's state machine. Above the AI provider, which tells it
+        // what the current suggestion looks like.
+        ChangeNotifierProvider<FlameyController>(
+          create: (_) => FlameyController(),
+        ),
+        Provider<IncomingFileService>(
+          create: (_) => IncomingFileService(),
+          dispose: (_, service) => service.dispose(),
+        ),
         ChangeNotifierProvider<AiInsightProvider>(
-          create: (_) => AppProviders.aiInsight(env),
+          create: (context) => AppProviders.aiInsight(
+            env,
+            flamey: context.read<FlameyController>(),
+          ),
         ),
         ChangeNotifierProvider<PushProvider>(
           create: (_) => PushProvider()..initialize(),
@@ -198,6 +216,49 @@ class KharchaApp extends StatelessWidget {
     );
   }
 
+  /// The screen for a named route, or null when [name] is not a route this
+  /// app has (or a detail route came without its id).
+  ///
+  /// Every name in `RoutePaths.all` must have a case here; a test checks it,
+  /// so a row or a notification can never lead to a route that crashes.
+  @visibleForTesting
+  static Widget? pageFor(String name, String? id) => switch (name) {
+    RoutePaths.introduction => const IntroductionScreen(),
+    RoutePaths.login => const LoginScreen(),
+    RoutePaths.signup => const SignupScreen(),
+    RoutePaths.home => const RootShell(),
+    RoutePaths.payments => const PaymentsScreen(),
+    RoutePaths.statementImport => const StatementImportScreen(),
+    RoutePaths.friends => const FriendsScreen(),
+    RoutePaths.friendDetail =>
+      id == null ? null : FriendDetailScreen(friendId: id),
+    RoutePaths.pasal => const PasalScreen(),
+    RoutePaths.addPasal => const AddPasalScreen(),
+    RoutePaths.pasalDetail =>
+      id == null ? null : PasalDetailScreen(pasalId: id),
+    RoutePaths.addPasalCredit =>
+      id == null ? null : AddPasalCreditScreen(pasalId: id),
+    RoutePaths.pasalCreditHistory =>
+      id == null ? null : PasalCreditHistoryScreen(pasalId: id),
+    RoutePaths.pasalPaymentHistory =>
+      id == null ? null : PasalPaymentHistoryScreen(pasalId: id),
+    RoutePaths.budgets => const BudgetsScreen(),
+    RoutePaths.reports => const ReportsScreen(),
+    RoutePaths.calculator => const CalculatorScreen(),
+    RoutePaths.festivals => const FestivalsScreen(),
+    RoutePaths.settings => const SettingsScreen(),
+    RoutePaths.about => const VersionScreen(),
+    RoutePaths.backup => const BackupRestoreScreen(),
+    RoutePaths.help => const HelpSupportScreen(),
+    RoutePaths.addExpense => const AddTransactionScreen(
+      initialType: TransactionType.expense,
+    ),
+    RoutePaths.addIncome => const AddTransactionScreen(
+      initialType: TransactionType.income,
+    ),
+    _ => null,
+  };
+
   Route<dynamic>? _generateRoute(RouteSettings settings) {
     final String? name = settings.name;
     if (name == null) return null;
@@ -206,40 +267,7 @@ class KharchaApp extends StatelessWidget {
         ? settings.arguments! as String
         : null;
 
-    final Widget? page = switch (name) {
-      RoutePaths.introduction => const IntroductionScreen(),
-      RoutePaths.login => const LoginScreen(),
-      RoutePaths.signup => const SignupScreen(),
-      RoutePaths.home => const RootShell(),
-      RoutePaths.payments => const PaymentsScreen(),
-      RoutePaths.statementImport => const StatementImportScreen(),
-      RoutePaths.friends => const FriendsScreen(),
-      RoutePaths.friendDetail =>
-        id == null ? null : FriendDetailScreen(friendId: id),
-      RoutePaths.pasal => const PasalScreen(),
-      RoutePaths.addPasal => const AddPasalScreen(),
-      RoutePaths.pasalDetail =>
-        id == null ? null : PasalDetailScreen(pasalId: id),
-      RoutePaths.addPasalCredit =>
-        id == null ? null : AddPasalCreditScreen(pasalId: id),
-      RoutePaths.pasalCreditHistory =>
-        id == null ? null : PasalCreditHistoryScreen(pasalId: id),
-      RoutePaths.pasalPaymentHistory =>
-        id == null ? null : PasalPaymentHistoryScreen(pasalId: id),
-      RoutePaths.budgets => const BudgetsScreen(),
-      RoutePaths.reports => const ReportsScreen(),
-      RoutePaths.calculator => const CalculatorScreen(),
-      RoutePaths.festivals => const FestivalsScreen(),
-      RoutePaths.settings => const SettingsScreen(),
-      RoutePaths.about => const VersionScreen(),
-      RoutePaths.addExpense => const AddTransactionScreen(
-        initialType: TransactionType.expense,
-      ),
-      RoutePaths.addIncome => const AddTransactionScreen(
-        initialType: TransactionType.income,
-      ),
-      _ => null,
-    };
+    final Widget? page = pageFor(name, id);
     if (page == null) return null;
     return MaterialPageRoute<dynamic>(builder: (_) => page, settings: settings);
   }
@@ -275,6 +303,17 @@ class _AuthWrapperState extends State<_AuthWrapper>
 
   UpdateProvider? _updates;
 
+  /// A statement another app shared into Kharcha, waiting for an account to
+  /// be signed in and ready before it is opened in the importer.
+  IncomingFile? _pendingFile;
+  StreamSubscription<IncomingFile>? _incomingSub;
+
+  /// When the app last went to the background, to greet a return.
+  DateTime? _leftAt;
+
+  /// Away at least this long counts as "back after some time".
+  static const Duration _awayThreshold = Duration(minutes: 30);
+
   @override
   void initState() {
     super.initState();
@@ -293,9 +332,58 @@ class _AuthWrapperState extends State<_AuthWrapper>
     _auth = auth;
     _installPushWiring(auth);
     _installUpdateCheck(auth);
+    _installIncomingFiles();
     // After the first frame, so fetching pictures never delays the app
     // appearing.
     WidgetsBinding.instance.addPostFrameCallback((_) => _preloadImages());
+  }
+
+  /// Listens for statements shared into the app: the one it may have been
+  /// opened with, and any that arrive while it is running.
+  void _installIncomingFiles() {
+    final files = context.read<IncomingFileService>();
+    _incomingSub = files.files.listen(_receiveFile);
+    files.takeInitial().then((file) {
+      if (file != null) _receiveFile(file);
+    });
+  }
+
+  void _receiveFile(IncomingFile file) {
+    if (!mounted) return;
+    // A newer share replaces one that was never opened.
+    final waiting = _pendingFile;
+    if (waiting != null) {
+      unawaited(context.read<IncomingFileService>().discard(waiting));
+    }
+    _pendingFile = file;
+    _openPendingFile();
+  }
+
+  /// Opens the shared statement in the importer, once someone is signed in
+  /// and their own data is what the app is showing. Until then the file
+  /// waits: a statement must never be imported into whichever account
+  /// happens to be on screen, or into none.
+  void _openPendingFile() {
+    final file = _pendingFile;
+    final auth = _auth;
+    if (file == null || auth == null || !mounted) return;
+    if (!auth.isAuthenticated || auth.mfaPending) return;
+    if (_readyUserId != auth.userId) return;
+    _pendingFile = null;
+    final files = context.read<IncomingFileService>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final navigator = Navigator.of(context);
+      // On top of the home screen, not of whatever was open before.
+      if (navigator.canPop()) navigator.popUntil((route) => route.isFirst);
+      navigator.push<void>(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: RoutePaths.statementImport),
+          builder: (_) =>
+              StatementImportScreen(incoming: file, incomingFiles: files),
+        ),
+      );
+    });
   }
 
   /// Fetches the app's pictures into its on-disk cache, so the pages that
@@ -425,6 +513,19 @@ class _AuthWrapperState extends State<_AuthWrapper>
       }
       await sync.flushBeforeSignOut();
       await push.unregisterForSignOut();
+      // The Google account connected for Drive backup belongs to the account
+      // signing out. Forgetting it here means whoever signs in next is never
+      // silently connected to someone else's Drive.
+      // Only when this account ever connected one: nothing is asked of
+      // Google otherwise.
+      final leaving = auth.userId;
+      if (leaving != null &&
+          await const PrefsDriveLinkStore().linkedEmail(leaving) != null) {
+        await GoogleAccount.signOut().timeout(
+          const Duration(seconds: 4),
+          onTimeout: () {},
+        );
+      }
     };
     auth.addSignOutCleanup(_signOutCleanup!);
     // Covers the already-signed-in case at startup.
@@ -477,6 +578,7 @@ class _AuthWrapperState extends State<_AuthWrapper>
         setState(() => _readyUserId = userId);
         _scheduleUpdateOffer();
         _preloadImages();
+        _openPendingFile();
       }
     }
   }
@@ -524,6 +626,7 @@ class _AuthWrapperState extends State<_AuthWrapper>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _incomingSub?.cancel();
     final auth = _auth;
     final listener = _registrationListener;
     if (auth != null && listener != null) auth.removeListener(listener);
@@ -536,6 +639,22 @@ class _AuthWrapperState extends State<_AuthWrapper>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final flamey = context.read<FlameyController>();
+    if (state == AppLifecycleState.resumed) {
+      // Back in front: Flamey's idle loop may run again, and a new time
+      // window may have begun while the app was away.
+      flamey.setForeground(true);
+      final left = _leftAt;
+      _leftAt = null;
+      if (left != null &&
+          DateTime.now().difference(left) >= _awayThreshold &&
+          (_auth?.isAuthenticated ?? false)) {
+        flamey.send(FlameyEvent.returned);
+      }
+      context.read<AiInsightProvider>().onAppResumed();
+      _openPendingFile();
+      return;
+    }
     // "Remember me" off means the session must not survive leaving the app, so
     // the next cold start lands on the login screen again.
     if (state != AppLifecycleState.paused &&
@@ -543,6 +662,9 @@ class _AuthWrapperState extends State<_AuthWrapper>
         state != AppLifecycleState.hidden) {
       return;
     }
+    // Nobody can see Flamey now: no timer needs to run.
+    flamey.setForeground(false);
+    _leftAt ??= DateTime.now();
     final BiometricService biometric = context.read<BiometricService>();
     final AuthProvider auth = context.read<AuthProvider>();
     biometric

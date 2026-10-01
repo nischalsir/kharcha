@@ -38,6 +38,32 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'Share a statement PDF straight into Kharcha',
+      'स्टेटमेन्ट PDF सिधै Kharcha मा Share गर्नुहोस्',
+    ),
+    (
+      'Statement PDFs from more banks, checked against their balance',
+      'धेरै बैंकका स्टेटमेन्ट PDF, ब्यालेन्ससँग जाँचेर',
+    ),
+    ('Khalti and other wallets as sources', 'Khalti र अन्य वालेट स्रोत'),
+    (
+      'Suggestions arrive on their own, morning to night',
+      'सुझाव आफैं आउँछन्, बिहानदेखि रातिसम्म',
+    ),
+    (
+      'Flamey knows your habits, and may roast them a little',
+      'Flamey ले बानी चिन्छ, अलिकति जिस्काउँछ पनि',
+    ),
+    (
+      'Flamey reacts when you tap, hold or swipe it',
+      'छुँदा, थिच्दा वा स्वाइप गर्दा Flamey प्रतिक्रिया दिन्छ',
+    ),
+    ('A tidier More page', 'सफा "थप" पृष्ठ'),
+    (
+      'Google Drive backup is kept to your own account',
+      'Google Drive ब्याकअप तपाईंकै खातामा मात्र',
+    ),
+    (
       'Pictures are saved on your phone, so pages open faster',
       'तस्बिरहरू फोनमै सुरक्षित हुन्छन्, पृष्ठ छिटो खुल्छन्',
     ),

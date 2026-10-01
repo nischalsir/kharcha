@@ -29,19 +29,19 @@ Future<void> _pump(WidgetTester tester) async {
   await tester.pump();
 }
 
-/// The colour of the glow around the terms tick box, or null when it has none.
+/// The colour of the outline around the terms row, or null when it has none.
 Color? _glow(WidgetTester tester) {
   final box = tester.widget<AnimatedContainer>(
-    find
-        .ancestor(
-          of: find.byType(Checkbox),
-          matching: find.byType(AnimatedContainer),
-        )
-        .first,
+    find.byKey(const ValueKey<String>('terms-row')),
   );
-  final shadows = (box.decoration! as BoxDecoration).boxShadow ?? const [];
-  return shadows.isEmpty ? null : shadows.first.color.withValues(alpha: 1);
+  final decoration = box.decoration! as BoxDecoration;
+  // Crisp edges only: the old blurred halo is gone.
+  expect(decoration.boxShadow, isNull);
+  final color = (decoration.border! as Border).top.color;
+  return color.a == 0 ? null : color.withValues(alpha: 1);
 }
+
+const String _hint = 'Tick the box to continue.';
 
 Future<void> _fillForm(WidgetTester tester) async {
   final fields = find.byType(TextFormField);
@@ -72,6 +72,7 @@ void main() {
     await tester.tap(find.byType(Checkbox));
     await tester.pump(const Duration(milliseconds: 300));
     expect(_glow(tester), isNull);
+    expect(find.text(_hint), findsNothing);
   });
 
   testWidgets('signing up without agreeing glows red, with no error card', (
@@ -82,6 +83,8 @@ void main() {
     await _submit(tester);
 
     expect(_glow(tester), _red);
+    // What to do is said inside the row itself.
+    expect(find.text(_hint), findsOneWidget);
     // The old behaviour put a banner at the top of the form.
     expect(find.textContaining('agree to the Terms of Service'), findsNothing);
     expect(find.byType(SnackBar), findsNothing);
@@ -116,6 +119,7 @@ void main() {
     await tester.tap(find.byType(Checkbox));
     await tester.pump(const Duration(milliseconds: 300));
     expect(_glow(tester), _green);
+    expect(find.text(_hint), findsNothing);
 
     // And back to red if it is unticked again.
     await tester.tap(find.byType(Checkbox));

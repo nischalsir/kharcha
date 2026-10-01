@@ -36,8 +36,8 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _agreeToTerms = false;
 
   /// Set once the user has tried to sign up without agreeing. Until then the
-  /// box is plain; after it, the box glows red while unticked and green once
-  /// ticked, so the fix is shown right where the problem is.
+  /// terms row is plain; after it, the row is outlined red while unticked and
+  /// green once ticked, so the fix is shown right where the problem is.
   bool _termsFlagged = false;
 
   @override
@@ -445,65 +445,48 @@ class _SignupScreenState extends State<SignupScreen> {
                     onFieldSubmitted: (_) => _handleSignup(),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      _TermsCheckbox(
-                        value: _agreeToTerms,
-                        flagged: _termsFlagged,
-                        onChanged: (value) =>
-                            setState(() => _agreeToTerms = value),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text.rich(
-                            TextSpan(
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: glass.textSecondary,
-                                height: 1.4,
+                  _TermsRow(
+                    value: _agreeToTerms,
+                    flagged: _termsFlagged,
+                    onChanged: (value) => setState(() => _agreeToTerms = value),
+                    label: Text.rich(
+                      TextSpan(
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: glass.textSecondary,
+                          height: 1.4,
+                        ),
+                        children: <InlineSpan>[
+                          TextSpan(text: context.t('I agree to the ', 'म ')),
+                          WidgetSpan(
+                            child: GestureDetector(
+                              onTap: () => _showTermsDialog(context),
+                              child: Text(
+                                context.t('Terms', 'शर्तहरू'),
+                                style: TextStyle(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                ),
                               ),
-                              children: <InlineSpan>[
-                                TextSpan(
-                                  text: context.t('I agree to the ', 'म '),
-                                ),
-                                WidgetSpan(
-                                  child: GestureDetector(
-                                    onTap: () => _showTermsDialog(context),
-                                    child: Text(
-                                      context.t('Terms', 'शर्तहरू'),
-                                      style: TextStyle(
-                                        color: theme.colorScheme.primary,
-                                        fontWeight: FontWeight.w600,
-                                        decoration: TextDecoration.underline,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                TextSpan(text: context.t(' and ', ' र ')),
-                                WidgetSpan(
-                                  child: GestureDetector(
-                                    onTap: () => _showPrivacyDialog(context),
-                                    child: Text(
-                                      context.t(
-                                        'Privacy Policy',
-                                        'गोपनीयता नीति',
-                                      ),
-                                      style: TextStyle(
-                                        color: theme.colorScheme.primary,
-                                        fontWeight: FontWeight.w600,
-                                        decoration: TextDecoration.underline,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
                             ),
                           ),
-                        ),
+                          TextSpan(text: context.t(' and ', ' र ')),
+                          WidgetSpan(
+                            child: GestureDetector(
+                              onTap: () => _showPrivacyDialog(context),
+                              child: Text(
+                                context.t('Privacy Policy', 'गोपनीयता नीति'),
+                                style: TextStyle(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 18),
                   PrimaryButton(
@@ -547,51 +530,113 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 }
 
-/// The terms tick box. Plain until [flagged]; then it glows red while
-/// unticked and green once ticked.
-class _TermsCheckbox extends StatelessWidget {
-  const _TermsCheckbox({
+/// The "I agree to the Terms" row.
+///
+/// Plain until [flagged], which happens when someone tries to sign up without
+/// agreeing. From then on the row carries a thin outline and a soft tint:
+/// red, with one line saying what to do, while the box is unticked, and
+/// green once it is ticked. Crisp edges rather than a glow, so it reads as
+/// part of the form and not as an error stuck on top of it.
+class _TermsRow extends StatelessWidget {
+  const _TermsRow({
     required this.value,
     required this.flagged,
     required this.onChanged,
+    required this.label,
   });
 
   final bool value;
   final bool flagged;
   final ValueChanged<bool> onChanged;
+  final Widget label;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final glass = context.glass;
-    final Color? glow = !flagged
+    final Color? accent = !flagged
         ? null
         : value
         ? glass.success
         : glass.danger;
+    final missing = flagged && !value;
 
     return AnimatedContainer(
+      key: const ValueKey<String>('terms-row'),
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
-      width: 24,
-      height: 24,
+      padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(7),
-        boxShadow: glow == null
-            ? const <BoxShadow>[]
-            : <BoxShadow>[
-                BoxShadow(
-                  color: glow.withValues(alpha: 0.55),
-                  blurRadius: 10,
-                  spreadRadius: 1.5,
-                ),
-              ],
+        color: accent?.withValues(alpha: 0.07) ?? Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: accent?.withValues(alpha: 0.85) ?? Colors.transparent,
+          width: 1.2,
+        ),
       ),
-      child: Checkbox(
-        value: value,
-        onChanged: (next) => onChanged(next ?? false),
-        activeColor: flagged ? glass.success : null,
-        side: glow == null || value ? null : BorderSide(color: glow, width: 2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: Checkbox(
+                  value: value,
+                  onChanged: (next) => onChanged(next ?? false),
+                  activeColor: flagged ? glass.success : null,
+                  side: missing
+                      ? BorderSide(color: glass.danger, width: 1.6)
+                      : null,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: label,
+                ),
+              ),
+            ],
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            alignment: Alignment.topLeft,
+            child: !missing
+                ? const SizedBox(width: double.infinity)
+                : Padding(
+                    padding: const EdgeInsets.only(left: 34, top: 6),
+                    child: Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 14,
+                          color: glass.danger,
+                        ),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            context.t(
+                              'Tick the box to continue.',
+                              'अगाडि बढ्न बाकसमा चिनो लगाउनुहोस्।',
+                            ),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: glass.danger,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }

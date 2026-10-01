@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../services/spending_habits.dart';
+
 /// Aggregated, user-scoped financial signals used for local mood/streak logic
 /// and as the offline fallback when the AI backend is unreachable.
 ///
@@ -17,6 +19,7 @@ class FinancialSummary {
     required this.dailyExpense,
     required this.activeDays,
     required this.transactionCount,
+    this.habits = SpendingHabits.empty,
   });
 
   final double expenseThisWeek;
@@ -31,6 +34,10 @@ class FinancialSummary {
   final List<({DateTime day, double amount})> dailyExpense;
   final int activeDays;
   final int transactionCount;
+
+  /// The patterns found in the same records, which the suggestions are
+  /// written from.
+  final SpendingHabits habits;
 
   bool get hasEnoughData => transactionCount >= 5;
 
@@ -126,6 +133,30 @@ enum MoodFace {
 
   /// Star eyes: the biggest income of the month.
   starstruck,
+
+  /// One eye wider under a raised brow: something caught its attention.
+  curious,
+
+  /// Mismatched eyes, a wavy mouth and a question mark: it does not follow.
+  confused,
+
+  /// Wide eyes, lifted brows and a small round mouth: an unexpected expense.
+  surprised,
+
+  /// Chin up, eyes closed, a broad smile and a sparkle: saving well.
+  proud,
+
+  /// Heavy lids and a flat mouth: nothing has happened for a while.
+  bored,
+
+  /// Sideways look, raised brow and a one-sided smirk: a playful suggestion.
+  teasing,
+
+  /// Mischievous brows and a toothy grin: a roast is coming.
+  roasting,
+
+  /// Ring eyes whose pupils circle: working on something.
+  loading,
 }
 
 /// The time/weather/habit aware mood shown next to the streak.

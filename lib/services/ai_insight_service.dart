@@ -37,6 +37,18 @@ class AiInsightService {
     }
   }
 
+  /// Whether a request could succeed at all: the backend is configured and
+  /// someone is signed in. Checked before asking, so a signed-out app never
+  /// makes a request that can only be refused.
+  bool get canCall {
+    if (!Env.hasSupabase) return false;
+    try {
+      return (_client ?? Supabase.instance.client).auth.currentSession != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<AiInsight> generateInsight({Map<String, dynamic>? context}) async {
     final data = await _invoke(<String, dynamic>{
       'mode': 'insight',
@@ -71,10 +83,7 @@ class AiInsightService {
   Future<Map<String, dynamic>> _invoke(Map<String, dynamic> body) async {
     final client = _requireClient();
     try {
-      final response = await client.functions.invoke(
-        functionName,
-        body: body,
-      );
+      final response = await client.functions.invoke(functionName, body: body);
       final data = response.data;
       if (data is Map) return Map<String, dynamic>.from(data);
       if (data is String && data.isNotEmpty) {
@@ -88,10 +97,7 @@ class AiInsightService {
     } on AppFailure {
       rethrow;
     } on FunctionException catch (error) {
-      throw AppFailure(
-        FailureKind.syncFailed,
-        _functionMessage(error),
-      );
+      throw AppFailure(FailureKind.syncFailed, _functionMessage(error));
     } catch (error) {
       throw AppFailure.from(error);
     }

@@ -1,11 +1,14 @@
 // Pure row parsers for the statement importer. No I/O and no library imports,
 // so they can be unit tested without a PDF or spreadsheet reader.
 //
-// Two layouts are understood:
+// This file holds the shared types and helpers, and the readers for:
 //   * the bank "Electronic Account Statement" PDF
 //       S.N | Transaction Date | Description | Withdraw | Deposit | Balance
 //   * the eSewa "Statement Report" spreadsheet
 //       Reference Code | Date Time | Description | Dr. | Cr. | Status | ...
+//   * any other bank or wallet spreadsheet, read by its column names
+// PDFs of other layouts are read by statement_pdf.ts, and statement_formats.ts
+// decides which reader a file goes to.
 
 export interface StatementEntry {
   occurred_at: string;
@@ -16,12 +19,23 @@ export interface StatementEntry {
   method?: string;
   /** The statement's own reference for the row, when it has one. */
   ref?: string;
+  /**
+   * `bs` when `occurred_at` is a Bikram Sambat date exactly as printed. The
+   * app converts it with its own calendar tables.
+   */
+  calendar?: 'bs';
+  /** The balance the statement prints after this row. */
+  balance?: number;
+  /** Set when the row should be looked at before it is imported. */
+  check?: string;
 }
 
 /** A row that looked like a transaction but could not be read safely. */
 export interface SkippedRow {
   /** 1-based row in the sheet, or 0 when the source has no row numbers. */
   row: number;
+  /** 1-based page of a PDF the row was on. */
+  page?: number;
   /** Why it was left out, in words the user can act on. */
   reason: string;
   /** What the row said, so the user can find it in their statement. */
@@ -31,9 +45,22 @@ export interface SkippedRow {
 export interface ParsedStatement {
   entries: StatementEntry[];
   skipped: SkippedRow[];
-  /** `esewa`, `bank`, or `unknown` when no known layout was recognised. */
-  source: 'esewa' | 'bank' | 'unknown';
+  /** Where the file says it is from; `unknown` when no layout was found. */
+  source: StatementSourceId | 'unknown';
+  /** Which reader understood the file. */
+  format?: string;
+  /** The bank or wallet named on the statement, when it names one. */
+  provider?: string;
+  /** The table's columns as found, for a PDF. */
+  layout?: string | null;
+  /** 1-based PDF pages that had text but no transaction that could be read. */
+  unreadPages?: number[];
+  pageCount?: number;
+  /** True when amounts were confirmed against the statement's balances. */
+  balanceChecked?: boolean;
 }
+
+export type StatementSourceId = 'bank' | 'esewa' | 'khalti' | 'other';
 
 /**
  * One piece of text on a PDF page, with where it appears to the reader:
@@ -306,7 +333,8 @@ const pad = (n: number) => String(n).padStart(2, '0');
  */
 export function parseStatementDate(
   raw: string,
-): { stamp: string } | { error: string } {
+  options: { allowBs?: boolean } = {},
+): { stamp: string; bs?: boolean } | { error: string } {
   const text = raw.trim();
   if (!text) return { error: 'No date' };
 
@@ -319,7 +347,7 @@ export function parseStatementDate(
   } else if ((m = text.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})(.*)$/))) {
     day = +m[1]; month = +m[2]; year = +m[3]; rest = m[4];
     if (month > 12 && day <= 12) [day, month] = [month, day];
-  } else if ((m = text.match(/^(\d{1,2})[-\s]([A-Za-z]{3})[A-Za-z]*[-\s,]+(\d{2,4})(.*)$/))) {
+  } else if ((m = text.match(/^(\d{1,2})[-\/\s]([A-Za-z]{3})[A-Za-z]*[-\/\s,]+(\d{2,4})(.*)$/))) {
     day = +m[1]; month = MONTHS[m[2].toLowerCase()] ?? 0; year = +m[3]; rest = m[4];
   } else if ((m = text.match(/^([A-Za-z]{3})[A-Za-z]*\s+(\d{1,2}),?\s+(\d{4})(.*)$/))) {
     month = MONTHS[m[1].toLowerCase()] ?? 0; day = +m[2]; year = +m[3]; rest = m[4];
@@ -329,14 +357,23 @@ export function parseStatementDate(
 
   if (year < 100) year += 2000;
   // Bikram Sambat years run about 57 ahead. Converting them needs the
-  // calendar tables, so they are reported instead of being read as AD dates
-  // half a century in the future.
-  if (year >= 2070) return { error: 'Bikram Sambat date' };
-  if (year < 1990 || month < 1 || month > 12 || day < 1 || day > 31) {
-    return { error: 'Date not recognised' };
+  // calendar tables, which the app has: the date is handed over as printed
+  // and marked, never read as an AD date half a century in the future.
+  const bs = year >= 2070 && year <= 2120;
+  if (bs) {
+    if (!options.allowBs) return { error: 'Bikram Sambat date' };
+    if (month < 1 || month > 12 || day < 1 || day > 32) {
+      return { error: 'Date not recognised' };
+    }
+  } else {
+    if (year < 1990 || month < 1 || month > 12 || day < 1 || day > 31) {
+      return { error: 'Date not recognised' };
+    }
+    const check = new Date(Date.UTC(year, month - 1, day));
+    if (check.getUTCMonth() !== month - 1) {
+      return { error: 'Date not recognised' };
+    }
   }
-  const check = new Date(Date.UTC(year, month - 1, day));
-  if (check.getUTCMonth() !== month - 1) return { error: 'Date not recognised' };
 
   let hh = 0, mm = 0, ss = 0;
   const time = rest.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?/);
@@ -347,9 +384,9 @@ export function parseStatementDate(
     if (half === 'am' && hh === 12) hh = 0;
     if (hh > 23 || mm > 59 || ss > 59) { hh = 0; mm = 0; ss = 0; }
   }
-  return {
-    stamp: `${year}-${pad(month)}-${pad(day)} ${pad(hh)}:${pad(mm)}:${pad(ss)}`,
-  };
+  const stamp =
+    `${year}-${pad(month)}-${pad(day)} ${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+  return bs ? { stamp, bs: true } : { stamp };
 }
 
 /**
@@ -387,18 +424,24 @@ export function parseMoneyCell(
 }
 
 type GenericColumn =
-  | 'date' | 'description' | 'debit' | 'credit' | 'amount' | 'type' | 'ref';
+  | 'date' | 'description' | 'debit' | 'credit' | 'amount' | 'type' | 'ref'
+  | 'status';
 
 const HEADERS: Record<GenericColumn, RegExp> = {
   date: /^(transaction |txn |tran |posting |value )?date( ?time)?$|^date \(?ad\)?$|^miti$/,
   description:
-    /^(transaction )?(description|particulars?|narration|remarks?|details?)$|^desc$/,
+    /^(transaction )?(description|particulars?|narration|remarks?|details?)$|^desc$|^(service|purpose|title|merchant|activity)( name)?$/,
   debit: /^(debit|withdraw(al)?s?|dr|paid out|money out)( amount)?( \(?(npr|rs)\)?)?$/,
   credit: /^(credit|deposits?|cr|paid in|money in)( amount)?( \(?(npr|rs)\)?)?$/,
   amount: /^(transaction |txn )?amount( \(?(npr|rs)\)?)?$/,
-  type: /^(transaction |txn )?type$|^dr ?\/ ?cr$|^cr ?\/ ?dr$/,
+  type: /^(transaction |txn )?type$|^dr ?\/ ?cr$|^cr ?\/ ?dr$|^direction$/,
   ref: /^(reference|ref|transaction|txn|cheque|chq)( ?(code|no|number|id))?$/,
+  status: /^(transaction |txn )?(status|state)$/,
 };
+
+/** A status that says the money did not move. */
+const NOT_COMPLETED =
+  /fail|cancel|pending|reject|declin|expired|error|unsuccess|incomplete|processing|initiated|ambiguous/i;
 
 function headerKey(cell: unknown): string {
   return (cell == null ? '' : String(cell))
@@ -420,6 +463,7 @@ function headerKey(cell: unknown): string {
 export function parseGenericRows(
   rows: unknown[][],
   skipped: SkippedRow[] = [],
+  method?: string,
 ): StatementEntry[] {
   const text = (value: unknown) => (value == null ? '' : String(value).trim());
 
@@ -465,11 +509,13 @@ export function parseGenericRows(
       // A footer or a wrapped description: nothing to import, nothing lost.
       continue;
     }
-    const date = parseStatementDate(dateText);
+    const date = parseStatementDate(dateText, { allowBs: true });
     if ('error' in date) {
       skipped.push({ row: i + 1, reason: date.error, text: line });
       continue;
     }
+    // A payment that failed or is still pending moved no money.
+    if (NOT_COMPLETED.test(cell('status'))) continue;
 
     let debit = 0;
     let credit = 0;
@@ -490,8 +536,14 @@ export function parseGenericRows(
       }
       let sign = money.sign;
       const kind = cell('type').toLowerCase();
-      if (/^(dr|debit|withdraw|w|d)/.test(kind)) sign = -1;
-      else if (/^(cr|credit|deposit|c)/.test(kind)) sign = 1;
+      if (/^(dr|debit|withdraw|w$|d$|out|sent|paid|payment|expense)/.test(kind)) {
+        sign = -1;
+      } else if (
+        /^(cr|credit|deposit|c$|in$|in |received|receive|load|income|refund|cashback)/
+          .test(kind)
+      ) {
+        sign = 1;
+      }
       if (money.amount > 0 && sign === 0) {
         // One amount column and nothing saying which way the money went.
         skipped.push({
@@ -511,7 +563,11 @@ export function parseGenericRows(
     }
     const ref = cell('ref');
     const label = description || (ref ? `Ref ${ref}` : 'Bank transaction');
-    const extra = ref ? { ref } : {};
+    const extra = {
+      ...(ref ? { ref } : {}),
+      ...(method ? { method } : {}),
+      ...('bs' in date && date.bs ? { calendar: 'bs' as const } : {}),
+    };
     if (debit > 0) {
       entries.push({
         occurred_at: date.stamp,
@@ -558,7 +614,10 @@ export function cellText(value: unknown): string {
  * Reads any supported spreadsheet: the eSewa report when its header is
  * present, otherwise a generic bank export.
  */
-export function parseSheet(rows: unknown[][]): ParsedStatement {
+export function parseSheet(
+  rows: unknown[][],
+  hint?: StatementSourceId,
+): ParsedStatement {
   const skipped: SkippedRow[] = [];
   const isEsewa = rows.some((row) => {
     const labels = (row ?? []).map(headerKey);
@@ -566,12 +625,40 @@ export function parseSheet(rows: unknown[][]): ParsedStatement {
       labels.includes('cr');
   });
   if (isEsewa) {
-    return { entries: parseEsewaRows(rows, skipped), skipped, source: 'esewa' };
+    return {
+      entries: parseEsewaRows(rows, skipped),
+      skipped,
+      source: 'esewa',
+      format: 'esewa-sheet',
+      provider: 'eSewa',
+    };
   }
-  const entries = parseGenericRows(rows, skipped);
+  // The file's own words outrank what the user picked: a wallet names itself
+  // in the lines above its table.
+  const named = sheetSource(rows);
+  const source: StatementSourceId = named ?? hint ?? 'bank';
+  const method = source === 'khalti' || source === 'esewa' ? source : undefined;
+  const entries = parseGenericRows(rows, skipped, method);
   return {
     entries,
     skipped,
-    source: entries.length > 0 || skipped.length > 0 ? 'bank' : 'unknown',
+    source: entries.length > 0 || skipped.length > 0 ? source : 'unknown',
+    format: 'sheet',
   };
+}
+
+/** A wallet naming itself in the first lines of its export. */
+function sheetSource(rows: unknown[][]): StatementSourceId | null {
+  // Only the lines above the table: a bank statement mentions wallets in its
+  // own rows ("KHALTI LOAD") without being a wallet statement.
+  const above: string[] = [];
+  for (const row of rows.slice(0, 40)) {
+    const cells = (row ?? []).map((cell) => String(cell ?? ''));
+    if (cells.some((cell) => HEADERS.date.test(headerKey(cell)))) break;
+    above.push(cells.join(' '));
+  }
+  const top = above.join(' ').toLowerCase();
+  if (/\bkhalti\b/.test(top)) return 'khalti';
+  if (/\besewa\b/.test(top)) return 'esewa';
+  return null;
 }

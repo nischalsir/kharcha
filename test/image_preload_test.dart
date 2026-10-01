@@ -30,9 +30,13 @@ void main() {
     expect(pixels, 1200);
     for (final source in StatementSource.values) {
       for (final step in StatementGuides.forSource(source)) {
-        expect(urls, contains(step.urlFor(pixels)));
+        // Steps with no picture are not fetched at all.
+        final url = step.urlFor(pixels);
+        if (url == null) continue;
+        expect(urls, contains(url));
       }
     }
+    expect(urls.where((url) => url.contains('/kharcha/help/')), hasLength(10));
   });
 
   test('every festival is fetched at each size it is shown', () {
