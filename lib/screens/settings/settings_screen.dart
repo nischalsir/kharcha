@@ -1,11 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/config/env.dart';
 import '../../core/constants/currencies.dart';
 import '../../core/errors/app_failure.dart';
 import '../../core/l10n/app_l10n.dart';
@@ -15,7 +12,6 @@ import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/push_provider.dart';
 import '../../services/account_avatar_cache.dart';
-import '../../services/app_images.dart';
 import '../../services/biometric_service.dart';
 import '../../services/push_notification_service.dart';
 import '../../services/supabase_service.dart';
@@ -24,13 +20,10 @@ import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/theme_mode_selector.dart';
-import 'avatar_crop_screen.dart';
 import 'backup_restore_screen.dart';
 import 'change_password_screen.dart';
 import 'help_support_screen.dart';
-import '../auth/guest_upgrade_screen.dart';
 import 'privacy_policy_screen.dart';
-import 'profile_edit_screen.dart';
 import 'two_factor_screen.dart';
 import 'version_screen.dart';
 import '../../widgets/common/page_refresh.dart';
@@ -78,10 +71,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
               children: <Widget>[
-                _SectionHeader(title: context.t('Profile', 'प्रोफाइल')),
-                const SizedBox(height: 8),
-                const _ProfileCard(),
-                const SizedBox(height: 24),
                 _SectionHeader(title: context.t('Appearance', 'देखावट')),
                 const SizedBox(height: 8),
                 GlassCard(
@@ -778,8 +767,6 @@ class _SettingTile extends StatelessWidget {
   }
 }
 
-enum _AvatarAction { camera, gallery, remove }
-
 /// Biometric sign-in, "remember me" and sign-out for the local account.
 /// Notifications: the OS permission, and whether the AI is allowed to send
 /// anything at all.
@@ -1215,328 +1202,6 @@ class _SecurityCardState extends State<_SecurityCard> {
           const SizedBox(height: 8),
         ],
       ),
-    );
-  }
-}
-
-class _ProfileCard extends StatefulWidget {
-  const _ProfileCard();
-
-  @override
-  State<_ProfileCard> createState() => _ProfileCardState();
-}
-
-class _ProfileCardState extends State<_ProfileCard> {
-  String? _avatarUrl;
-  String? _loadedForUser;
-  bool _loading = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _reloadIfNeeded();
-  }
-
-  void _reloadIfNeeded() {
-    final auth = context.read<AuthProvider>();
-    final uid = auth.userId;
-    if (uid == null || uid == _loadedForUser) return;
-    _loadedForUser = uid;
-    _avatarUrl = null;
-    auth.signedAvatarUrl().then((url) {
-      if (mounted && uid == context.read<AuthProvider>().userId) {
-        setState(() => _avatarUrl = url);
-      }
-    });
-  }
-
-  Future<void> _onTap() async {
-    final auth = context.read<AuthProvider>();
-    if (!Env.hasSupabase) {
-      showMessage(context, 'Backend is not configured.');
-      return;
-    }
-    if (auth.userId == null) {
-      showMessage(context, 'Sign in to set a profile picture.');
-      return;
-    }
-
-    final action = await showModalBottomSheet<_AvatarAction>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            ListTile(
-              leading: const Icon(Icons.photo_camera_rounded),
-              title: const Text('Take photo'),
-              onTap: () => Navigator.pop(context, _AvatarAction.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_rounded),
-              title: const Text('Choose from gallery'),
-              onTap: () => Navigator.pop(context, _AvatarAction.gallery),
-            ),
-            if (_avatarUrl != null)
-              ListTile(
-                leading: const Icon(Icons.delete_outline_rounded),
-                title: const Text('Remove photo'),
-                onTap: () => Navigator.pop(context, _AvatarAction.remove),
-              ),
-            ListTile(
-              title: const Text('Cancel', textAlign: TextAlign.center),
-              onTap: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (action == null || !mounted) return;
-
-    switch (action) {
-      case _AvatarAction.remove:
-        await _remove();
-      case _AvatarAction.camera:
-      case _AvatarAction.gallery:
-        await _pick(action);
-    }
-  }
-
-  Future<void> _pick(_AvatarAction action) async {
-    final auth = context.read<AuthProvider>();
-    final source = action == _AvatarAction.camera
-        ? ImageSource.camera
-        : ImageSource.gallery;
-    final file = await ImagePicker().pickImage(
-      source: source,
-      maxWidth: 2048,
-      maxHeight: 2048,
-      imageQuality: 95,
-    );
-    if (file == null || !mounted) return;
-
-    final bytes = await file.readAsBytes();
-    if (!mounted) return;
-
-    final Uint8List? cropped = await Navigator.of(context).push<Uint8List>(
-      MaterialPageRoute<Uint8List>(
-        builder: (_) => AvatarCropScreen(imageBytes: bytes),
-      ),
-    );
-    if (cropped == null || cropped.isEmpty || !mounted) return;
-
-    setState(() => _loading = true);
-    try {
-      await auth.uploadAvatar(cropped, contentType: 'image/png');
-      final url = await auth.signedAvatarUrl();
-      if (!mounted) return;
-      setState(() => _avatarUrl = url);
-      showMessage(context, 'Profile picture updated.');
-    } catch (_) {
-      if (mounted) showMessage(context, 'Could not update your photo.');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _remove() async {
-    final auth = context.read<AuthProvider>();
-    setState(() => _loading = true);
-    try {
-      await auth.removeAvatar();
-      if (mounted) setState(() => _avatarUrl = null);
-    } catch (_) {
-      if (mounted) showMessage(context, 'Could not remove your photo.');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final glass = context.glass;
-    final auth = context.watch<AuthProvider>();
-    final name = auth.profileName ?? 'Kharcha User';
-    final subtitle =
-        auth.userEmail ??
-        (auth.userId == null ? 'Guest' : 'Signed in anonymously');
-    final gender = auth.profileGender;
-    final age = auth.computedAge;
-    // One quiet line instead of a row of chips; the full details live on the
-    // edit screen this card opens.
-    final details = <String>[
-      if (gender != null) _genderLabel(gender),
-      if (age != null) '$age years',
-    ].join('  •  ');
-
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const ProfileEditScreen()),
-      ),
-      child: Row(
-        children: <Widget>[
-          GestureDetector(
-            onTap: _loading ? null : _onTap,
-            child: _Avatar(url: _avatarUrl, loading: _loading),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  name,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: glass.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (details.isNotEmpty)
-                  Text(
-                    details,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: glass.textTertiary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                if (auth.isGuest) ...<Widget>[
-                  const SizedBox(height: 6),
-                  FilledButton.tonalIcon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const GuestUpgradeScreen(),
-                      ),
-                    ),
-                    style: FilledButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                    label: Text(
-                      context.t('Save your data', 'डाटा सुरक्षित गर्नुहोस्'),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Icon(Icons.chevron_right_rounded, color: glass.textTertiary),
-        ],
-      ),
-    );
-  }
-
-  String _genderLabel(UserGender gender) {
-    switch (gender) {
-      case UserGender.male:
-        return 'Male';
-      case UserGender.female:
-        return 'Female';
-      case UserGender.other:
-        return 'Other';
-      case UserGender.preferNotToSay:
-        return 'Prefer not to say';
-    }
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({this.url, this.loading = false});
-
-  final String? url;
-  final bool loading;
-
-  static const double _size = 52;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final image = url == null
-        ? null
-        : Image(
-            image: AppImages.provider(url!),
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => _placeholder(theme, colorScheme),
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return ColorFiltered(
-                colorFilter: const ColorFilter.matrix(<double>[
-                  0.2126, 0.7152, 0.0722, 0, 0, //
-                  0.2126, 0.7152, 0.0722, 0, 0,
-                  0.2126, 0.7152, 0.0722, 0, 0,
-                  0, 0, 0, 1, 0,
-                ]),
-                child: child,
-              );
-            },
-          );
-
-    return Stack(
-      alignment: Alignment.center,
-      children: <Widget>[
-        ClipOval(
-          child: SizedBox(
-            width: _size,
-            height: _size,
-            child: image ?? _placeholder(theme, colorScheme),
-          ),
-        ),
-        Positioned(
-          right: 0,
-          bottom: 0,
-          child: Container(
-            decoration: BoxDecoration(
-              color: colorScheme.primary,
-              shape: BoxShape.circle,
-              border: Border.all(color: colorScheme.surface, width: 2),
-            ),
-            padding: const EdgeInsets.all(3),
-            child: loading
-                ? SizedBox(
-                    width: 10,
-                    height: 10,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: colorScheme.onPrimary,
-                    ),
-                  )
-                : Icon(
-                    Icons.photo_camera_rounded,
-                    size: 10,
-                    color: colorScheme.onPrimary,
-                  ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _placeholder(ThemeData theme, ColorScheme colorScheme) {
-    return Container(
-      width: _size,
-      height: _size,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [colorScheme.primary, colorScheme.secondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      alignment: Alignment.center,
-      child: Icon(Icons.person_rounded, size: 26, color: colorScheme.onPrimary),
     );
   }
 }

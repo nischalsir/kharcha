@@ -1,14 +1,24 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/config/env.dart';
+import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_settings_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/app_images.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
+import '../auth/guest_upgrade_screen.dart';
+import 'avatar_crop_screen.dart';
 
+/// The account's own page: its picture, who it is, and the personal details.
+/// Opened from the Profile card at the top of More.
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({super.key});
 
@@ -126,7 +136,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             icon: Icon(Icons.arrow_back_rounded, color: colorScheme.onSurface),
             onPressed: () => Navigator.pop(context),
           ),
-          title: Text('Edit Profile', style: theme.textTheme.titleLarge),
+          title: Text(
+            context.t('Profile', 'प्रोफाइल'),
+            style: theme.textTheme.titleLarge,
+          ),
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -136,6 +149,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const _ProfileHeader(),
+                  const SizedBox(height: 24),
                   // Name field
                   Text(
                     'Personal Info',
@@ -189,6 +204,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                         const SizedBox(height: 14),
                         DropdownButtonFormField<UserGender>(
                           initialValue: _selectedGender,
+                          // Without this a long choice runs off the edge on a
+                          // narrow phone.
+                          isExpanded: true,
                           borderRadius: BorderRadius.circular(12),
                           dropdownColor: colorScheme.surfaceContainerHigh,
                           decoration: buildInputDecoration(
@@ -252,5 +270,294 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       case UserGender.preferNotToSay:
         return 'Prefer not to say';
     }
+  }
+}
+
+enum _AvatarAction { camera, gallery, remove }
+
+/// The profile picture, with the way to change or remove it, above the
+/// account it belongs to. A guest is offered the way to keep their data.
+class _ProfileHeader extends StatefulWidget {
+  const _ProfileHeader();
+
+  @override
+  State<_ProfileHeader> createState() => _ProfileHeaderState();
+}
+
+class _ProfileHeaderState extends State<_ProfileHeader> {
+  String? _avatarUrl;
+  String? _loadedForUser;
+  bool _loading = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reloadIfNeeded();
+  }
+
+  void _reloadIfNeeded() {
+    final auth = context.read<AuthProvider>();
+    final uid = auth.userId;
+    if (uid == null || uid == _loadedForUser) return;
+    _loadedForUser = uid;
+    _avatarUrl = null;
+    auth.signedAvatarUrl().then((url) {
+      if (mounted && uid == context.read<AuthProvider>().userId) {
+        setState(() => _avatarUrl = url);
+      }
+    });
+  }
+
+  Future<void> _onTap() async {
+    final auth = context.read<AuthProvider>();
+    if (!Env.hasSupabase) {
+      showMessage(context, 'Backend is not configured.');
+      return;
+    }
+    if (auth.userId == null) {
+      showMessage(context, 'Sign in to set a profile picture.');
+      return;
+    }
+
+    final action = await showModalBottomSheet<_AvatarAction>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.photo_camera_rounded),
+              title: const Text('Take photo'),
+              onTap: () => Navigator.pop(context, _AvatarAction.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(context, _AvatarAction.gallery),
+            ),
+            if (_avatarUrl != null)
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded),
+                title: const Text('Remove photo'),
+                onTap: () => Navigator.pop(context, _AvatarAction.remove),
+              ),
+            ListTile(
+              title: const Text('Cancel', textAlign: TextAlign.center),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+
+    switch (action) {
+      case _AvatarAction.remove:
+        await _remove();
+      case _AvatarAction.camera:
+      case _AvatarAction.gallery:
+        await _pick(action);
+    }
+  }
+
+  Future<void> _pick(_AvatarAction action) async {
+    final auth = context.read<AuthProvider>();
+    final source = action == _AvatarAction.camera
+        ? ImageSource.camera
+        : ImageSource.gallery;
+    final file = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 2048,
+      maxHeight: 2048,
+      imageQuality: 95,
+    );
+    if (file == null || !mounted) return;
+
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+
+    final Uint8List? cropped = await Navigator.of(context).push<Uint8List>(
+      MaterialPageRoute<Uint8List>(
+        builder: (_) => AvatarCropScreen(imageBytes: bytes),
+      ),
+    );
+    if (cropped == null || cropped.isEmpty || !mounted) return;
+
+    setState(() => _loading = true);
+    try {
+      await auth.uploadAvatar(cropped, contentType: 'image/png');
+      final url = await auth.signedAvatarUrl();
+      if (!mounted) return;
+      setState(() => _avatarUrl = url);
+      showMessage(context, 'Profile picture updated.');
+    } catch (_) {
+      if (mounted) showMessage(context, 'Could not update your photo.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _remove() async {
+    final auth = context.read<AuthProvider>();
+    setState(() => _loading = true);
+    try {
+      await auth.removeAvatar();
+      if (mounted) setState(() => _avatarUrl = null);
+    } catch (_) {
+      if (mounted) showMessage(context, 'Could not remove your photo.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    final auth = context.watch<AuthProvider>();
+    final name = auth.profileName?.trim();
+    final account = auth.isGuest
+        ? context.t('Guest', 'पाहुना')
+        : (auth.userEmail ?? '');
+
+    return Center(
+      child: Column(
+        children: <Widget>[
+          GestureDetector(
+            key: const ValueKey<String>('profile-photo'),
+            onTap: _loading ? null : _onTap,
+            child: _Avatar(url: _avatarUrl, loading: _loading),
+          ),
+          TextButton(
+            onPressed: _loading ? null : _onTap,
+            child: Text(context.t('Change photo', 'तस्बिर फेर्नुहोस्')),
+          ),
+          if (name != null && name.isNotEmpty)
+            Text(
+              name,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          if (account.isNotEmpty)
+            Text(
+              account,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: glass.textSecondary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          if (auth.isGuest) ...<Widget>[
+            const SizedBox(height: 10),
+            FilledButton.tonalIcon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const GuestUpgradeScreen(),
+                ),
+              ),
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+              label: Text(
+                context.t('Save your data', 'डाटा सुरक्षित गर्नुहोस्'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({this.url, this.loading = false});
+
+  final String? url;
+  final bool loading;
+
+  static const double _size = 96;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final image = url == null
+        ? null
+        : Image(
+            image: AppImages.provider(url!),
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => _placeholder(theme, colorScheme),
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return ColorFiltered(
+                colorFilter: const ColorFilter.matrix(<double>[
+                  0.2126, 0.7152, 0.0722, 0, 0, //
+                  0.2126, 0.7152, 0.0722, 0, 0,
+                  0.2126, 0.7152, 0.0722, 0, 0,
+                  0, 0, 0, 1, 0,
+                ]),
+                child: child,
+              );
+            },
+          );
+
+    return Stack(
+      alignment: Alignment.center,
+      children: <Widget>[
+        ClipOval(
+          child: SizedBox(
+            width: _size,
+            height: _size,
+            child: image ?? _placeholder(theme, colorScheme),
+          ),
+        ),
+        Positioned(
+          right: 0,
+          bottom: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              color: colorScheme.primary,
+              shape: BoxShape.circle,
+              border: Border.all(color: colorScheme.surface, width: 2),
+            ),
+            padding: const EdgeInsets.all(6),
+            child: loading
+                ? SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colorScheme.onPrimary,
+                    ),
+                  )
+                : Icon(
+                    Icons.photo_camera_rounded,
+                    size: 14,
+                    color: colorScheme.onPrimary,
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _placeholder(ThemeData theme, ColorScheme colorScheme) {
+    return Container(
+      width: _size,
+      height: _size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [colorScheme.primary, colorScheme.secondary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Icon(Icons.person_rounded, size: 46, color: colorScheme.onPrimary),
+    );
   }
 }

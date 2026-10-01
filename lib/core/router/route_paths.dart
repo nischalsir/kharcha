@@ -44,6 +44,9 @@ class RoutePaths {
   static const String festivals = '/festivals';
   static const String settings = '/settings';
 
+  /// The account's own page: picture and personal details.
+  static const String profile = '/profile';
+
   /// Settings → About Kharcha: version, update status and what's new.
   static const String about = '/settings/about';
 
@@ -83,6 +86,7 @@ class RoutePaths {
     calculator,
     festivals,
     settings,
+    profile,
     about,
     backup,
     help,

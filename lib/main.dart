@@ -46,6 +46,7 @@ import 'screens/payments/statement_import_screen.dart';
 import 'screens/reports/reports_screen.dart';
 import 'screens/settings/backup_restore_screen.dart';
 import 'screens/settings/help_support_screen.dart';
+import 'screens/settings/profile_edit_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/settings/version_screen.dart';
 import 'screens/transactions/add_transaction_screen.dart';
@@ -247,6 +248,7 @@ class KharchaApp extends StatelessWidget {
     RoutePaths.calculator => const CalculatorScreen(),
     RoutePaths.festivals => const FestivalsScreen(),
     RoutePaths.settings => const SettingsScreen(),
+    RoutePaths.profile => const ProfileEditScreen(),
     RoutePaths.about => const VersionScreen(),
     RoutePaths.backup => const BackupRestoreScreen(),
     RoutePaths.help => const HelpSupportScreen(),

@@ -231,8 +231,8 @@ class MoreScreen extends StatelessWidget {
   }
 }
 
-/// Who is signed in, with their picture, leading to their profile and
-/// settings. A guest is told so, with the way to keep their data.
+/// Who is signed in, with their picture, leading to their profile page. A
+/// guest is told so, with the way to keep their data.
 class _AccountCard extends StatefulWidget {
   const _AccountCard();
 
@@ -300,7 +300,7 @@ class _AccountCardState extends State<_AccountCard> {
 
     return GlassCard(
       key: const ValueKey<String>('more-account'),
-      onTap: () => Navigator.of(context).pushNamed(RoutePaths.settings),
+      onTap: () => Navigator.of(context).pushNamed(RoutePaths.profile),
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

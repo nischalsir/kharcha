@@ -404,7 +404,7 @@ void main() {
     testWidgets('every row opens the page it names', (tester) async {
       final opened = await tapEverything(tester);
       expect(opened, <String>[
-        RoutePaths.settings,
+        RoutePaths.profile,
         RoutePaths.budgets,
         RoutePaths.reports,
         RoutePaths.festivals,
@@ -428,6 +428,36 @@ void main() {
       expect(find.text('Update'), findsOneWidget);
       expect(find.textContaining('9.9.9 is out'), findsOneWidget);
       expect(find.text('Log out'), findsOneWidget);
+    });
+
+    testWidgets('the profile page has the picture and the details', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues(<String, String>{});
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      tester.view.physicalSize = const Size(400, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: <InheritedProvider<dynamic>>[
+            Provider<NepaliDateService>(create: (_) => NepaliDateService()),
+            ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: KharchaApp.pageFor(RoutePaths.profile, null),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Profile'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('profile-photo')),
+        findsOneWidget,
+      );
+      expect(find.text('Change photo'), findsOneWidget);
+      expect(find.text('Full Name'), findsOneWidget);
     });
 
     test('every named route the app knows has a screen behind it', () {
