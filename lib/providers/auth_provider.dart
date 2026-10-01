@@ -23,6 +23,11 @@ class AuthProvider extends ChangeNotifier {
   bool _isInitializing = true;
   AppFailure? _failure;
 
+  /// Goes up each time the profile picture is changed or removed, so a page
+  /// showing it knows to load it again.
+  int _avatarRevision = 0;
+  int get avatarRevision => _avatarRevision;
+
   /// Verified TOTP (authenticator app) factors for the current user.
   List<Factor> _verifiedFactors = const <Factor>[];
 
@@ -829,6 +834,7 @@ class AuthProvider extends ChangeNotifier {
         _user = client.auth.currentUser;
         // The old Supabase copy is now stale; drop it so it can never reappear.
         unawaited(_removeLegacyAvatar(client, uid));
+        _avatarRevision++;
         notifyListeners();
         return url;
       }
@@ -854,6 +860,7 @@ class AuthProvider extends ChangeNotifier {
         );
         _user = client.auth.currentUser;
       }
+      _avatarRevision++;
       notifyListeners();
       return path;
     } catch (error) {
@@ -907,6 +914,7 @@ class AuthProvider extends ChangeNotifier {
         _user = client.auth.currentUser;
       }
       await _removeLegacyAvatar(client, uid);
+      _avatarRevision++;
       notifyListeners();
     } catch (error) {
       _failure = AppFailure.from(error);

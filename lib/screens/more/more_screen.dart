@@ -7,6 +7,7 @@ import '../../core/router/route_paths.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/update_provider.dart';
+import '../../services/app_images.dart';
 import '../../widgets/common/glass_card.dart';
 import '../auth/guest_upgrade_screen.dart';
 
@@ -16,8 +17,8 @@ import '../auth/guest_upgrade_screen.dart';
 ///   * **Tools** - importing a statement and the calculator: doing something;
 ///   * **App** - settings, backup, help and about: the app itself.
 ///
-/// The account is at the top, logging out at the bottom, apart from the
-/// rest. Each group is one card of rows rather than a card per item, so the
+/// The account is at the top under **Profile**, with its picture, and
+/// logging out at the bottom, apart from the rest. Each group is one card of rows rather than a card per item, so the
 /// page reads as three things instead of eleven.
 ///
 /// Every row opens a named route, so what each one leads to is defined in one
@@ -86,6 +87,7 @@ class MoreScreen extends StatelessWidget {
         children: <Widget>[
           Text(context.t('More', 'थप'), style: theme.textTheme.headlineMedium),
           const SizedBox(height: 16),
+          _GroupLabel(context.t('Profile', 'प्रोफाइल')),
           const _AccountCard(),
           const SizedBox(height: 22),
           _Group(
@@ -229,15 +231,56 @@ class MoreScreen extends StatelessWidget {
   }
 }
 
-/// Who is signed in, leading to their profile and settings. A guest is told
-/// so, with the way to keep their data.
-class _AccountCard extends StatelessWidget {
+/// Who is signed in, with their picture, leading to their profile and
+/// settings. A guest is told so, with the way to keep their data.
+class _AccountCard extends StatefulWidget {
   const _AccountCard();
+
+  @override
+  State<_AccountCard> createState() => _AccountCardState();
+}
+
+class _AccountCardState extends State<_AccountCard> {
+  String? _avatarUrl;
+
+  /// The account and picture revision [_avatarUrl] was resolved for.
+  String? _avatarLoadedFor;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadAvatar();
+  }
+
+  /// Resolves the picture once per account, and again when it is changed in
+  /// Settings, rather than on every rebuild.
+  void _loadAvatar() {
+    final auth = context.read<AuthProvider>();
+    final uid = auth.userId;
+    if (uid == null) {
+      _avatarLoadedFor = null;
+      _avatarUrl = null;
+      return;
+    }
+    final wanted = '$uid:${auth.avatarRevision}';
+    if (wanted == _avatarLoadedFor) return;
+    if (_avatarLoadedFor?.startsWith('$uid:') != true) _avatarUrl = null;
+    _avatarLoadedFor = wanted;
+    auth.signedAvatarUrl().then((url) {
+      if (mounted && wanted == _avatarLoadedFor) {
+        setState(() => _avatarUrl = url);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final glass = context.glass;
+    // Watched so that a new account or a new picture is picked up.
+    context.select<AuthProvider, String>(
+      (a) => '${a.userId}:${a.avatarRevision}',
+    );
     final name = context.select<AuthProvider, String?>((a) => a.profileName);
     final email = context.select<AuthProvider, String?>((a) => a.userEmail);
     final guest = context.select<AuthProvider, bool>((a) => a.isGuest);
@@ -264,22 +307,7 @@ class _AccountCard extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Container(
-                width: 46,
-                height: 46,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: theme.colorScheme.primary.withValues(alpha: 0.16),
-                ),
-                child: Text(
-                  letter,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
+              _AccountAvatar(url: _avatarUrl, letter: letter),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -332,6 +360,72 @@ class _AccountCard extends StatelessWidget {
   }
 }
 
+/// The profile picture, or the first letter of the name when there is none
+/// or it cannot be loaded.
+class _AccountAvatar extends StatelessWidget {
+  const _AccountAvatar({required this.url, required this.letter});
+
+  final String? url;
+  final String letter;
+
+  static const double _size = 46;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fallback = Center(
+      child: Text(
+        letter,
+        style: theme.textTheme.titleLarge?.copyWith(
+          color: theme.colorScheme.primary,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+    return Container(
+      key: const ValueKey<String>('more-avatar'),
+      width: _size,
+      height: _size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: theme.colorScheme.primary.withValues(alpha: 0.16),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: url == null
+          ? fallback
+          : Image(
+              image: AppImages.provider(url!),
+              width: _size,
+              height: _size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => fallback,
+            ),
+    );
+  }
+}
+
+/// The small heading above a card.
+class _GroupLabel extends StatelessWidget {
+  const _GroupLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 6, bottom: 8),
+      child: Text(
+        label.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: context.glass.textTertiary,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+}
+
 /// A labelled group: one card holding its rows, separated by hairlines.
 class _Group extends StatelessWidget {
   const _Group({required this.label, required this.rows});
@@ -341,24 +435,13 @@ class _Group extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final glass = context.glass;
     return Padding(
       padding: const EdgeInsets.only(bottom: 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.only(left: 6, bottom: 8),
-            child: Text(
-              label.toUpperCase(),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: glass.textTertiary,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ),
+          _GroupLabel(label),
           GlassCard(
             padding: EdgeInsets.zero,
             child: Material(

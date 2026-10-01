@@ -38,6 +38,10 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'Your profile picture on the More page, under Profile',
+      '"थप" पृष्ठमा प्रोफाइल अन्तर्गत तपाईंको प्रोफाइल तस्बिर',
+    ),
+    (
       'Share a statement PDF straight into Kharcha',
       'स्टेटमेन्ट PDF सिधै Kharcha मा Share गर्नुहोस्',
     ),

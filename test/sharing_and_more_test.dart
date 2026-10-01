@@ -422,7 +422,7 @@ void main() {
       tester,
     ) async {
       await tapEverything(tester);
-      for (final label in <String>['PLAN & TRACK', 'TOOLS', 'APP']) {
+      for (final label in <String>['PROFILE', 'PLAN & TRACK', 'TOOLS', 'APP']) {
         expect(find.text(label), findsOneWidget);
       }
       expect(find.text('Update'), findsOneWidget);
