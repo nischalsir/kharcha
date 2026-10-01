@@ -23,7 +23,7 @@ import {
 
 export type PdfColumn =
   | 'sn' | 'date' | 'dateBs' | 'valueDate' | 'description' | 'ref'
-  | 'debit' | 'credit' | 'amount' | 'type' | 'balance' | 'other';
+  | 'debit' | 'credit' | 'amount' | 'type' | 'balance' | 'status' | 'other';
 
 export interface PdfParseResult {
   entries: StatementEntry[];
@@ -50,6 +50,8 @@ interface Line {
   page: number;
   y: number;
   cells: Cell[];
+  /** Every piece of text as its own cell, unjoined. */
+  pieces: Cell[];
 }
 
 interface HeaderColumn {
@@ -125,6 +127,13 @@ function linesOf(items: TextItem[], page: number): Line[] {
     page,
     y: group.y,
     cells: cellsOf(group.items.sort((a, b) => a.x - b.x)),
+    pieces: group.items
+      .filter((item) => item.str.trim())
+      .map((item) => ({
+        text: item.str.trim(),
+        x0: item.x,
+        x1: item.x + item.width,
+      })),
   }));
 }
 
@@ -138,9 +147,14 @@ function cellsOf(items: TextItem[]): Cell[] {
     const x1 = item.x + item.width;
     const charWidth = item.width > 0 ? item.width / item.str.length : 4;
     const last = cells[cells.length - 1];
+    // Two amounts side by side are two columns, however tightly they are
+    // printed: "50.00" and "0.00" must never become one cell.
+    const twoNumbers = last !== undefined &&
+      /\d\.?\)?$/.test(last.text) && /^[-+(]?\s*(npr|rs\.?)?\s*\d/i.test(text) &&
+      (looksLikeMoney(text) || looksLikeMoney(last.text.split(' ').pop() ?? ''));
     // A space between words is about one character wide; the gap between two
     // columns is wider than that.
-    if (last && x0 - last.x1 < Math.max(charWidth * 1.3, 2.5)) {
+    if (last && !twoNumbers && x0 - last.x1 < Math.max(charWidth * 1.3, 2.5)) {
       last.text += x0 - last.x1 > charWidth * 0.25 ? ` ${text}` : text;
       last.x1 = Math.max(last.x1, x1);
     } else {
@@ -183,6 +197,7 @@ const HEADINGS: [PdfColumn, RegExp][] = [
     /\bref|che?que|\bchq|instrument|voucher|(txn|tran|transaction) ?(id|no|number|code)$/,
   ],
   ['sn', /^(s ?n|s ?no|sr|sr no|sl|sl no|no|#)$/],
+  ['status', /^(transaction |txn )?(status|state)$/],
 ];
 
 function columnKind(text: string): PdfColumn {
@@ -265,8 +280,10 @@ const DATE_PREFIXES: RegExp[] = [
   /^\d{1,2}[-\/\s][A-Za-z]{3,9}[-\/\s,]+\d{2,4}/,
   /^[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}/,
 ];
-const TIME_PREFIX = /^[\sT,]*\d{1,2}:\d{2}(:\d{2})?(\s*[AaPp][Mm])?/;
-const TIME_ONLY = /^\d{1,2}:\d{2}(:\d{2})?(\s*[AaPp][Mm])?$/;
+// Seconds may carry a fraction, as eSewa writes them: 10:00:00.0
+const TIME_PREFIX =
+  /^[\sT,]*\d{1,2}:\d{2}(:\d{2}(\.\d{1,6})?)?(\s*[AaPp][Mm])?/;
+const TIME_ONLY = /^\d{1,2}:\d{2}(:\d{2}(\.\d{1,6})?)?(\s*[AaPp][Mm])?$/;
 
 /**
  * Splits a date (and a time, if one follows) off the front of a cell.
@@ -338,6 +355,9 @@ function nearestMoney(cell: Cell, header: HeaderColumn[]): HeaderColumn | null {
   return best;
 }
 
+const NOT_COMPLETED =
+  /fail|cancel|pending|reject|declin|expired|error|unsuccess|incomplete|processing|initiated|ambiguous|reversed/i;
+
 const NOT_A_TRANSACTION =
   /^(opening|closing) balance|^balance (b\/?f|c\/?f|brought|carried)|^(b\/f|c\/f)\b|brought forward|carried forward|^(grand |sub ?)?total\b|^page \d+/i;
 const OPENING = /opening balance|balance b\/?f|brought forward|^b\/f\b/i;
@@ -370,6 +390,7 @@ function readRow(
   const description: string[] = [];
   let ref = '';
   let type = '';
+  let status = '';
   const money: Record<'debit' | 'credit' | 'amount' | 'balance', string[]> = {
     debit: [],
     credit: [],
@@ -442,6 +463,9 @@ function readRow(
           description.push(cell.text);
         }
         break;
+      case 'status':
+        status = status ? `${status} ${cell.text}` : cell.text;
+        break;
       case 'other':
         break;
       default:
@@ -481,6 +505,8 @@ function readRow(
 
   const label = tidy(description.join(' '));
   if (OPENING.test(label)) return 'opening';
+  // A payment that failed or is still pending moved no money.
+  if (NOT_COMPLETED.test(status)) return null;
   if (NOT_A_TRANSACTION.test(label)) return null;
 
   const amountOf = (cells: string[]) => {
@@ -689,9 +715,12 @@ function readTable(pages: TextItem[][]): PdfParseResult | null {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      let found = asHeader(line.cells);
+      // Narrow columns printed close together ("Dr." "Cr.") can be joined
+      // into one cell; the pieces as drawn are tried too.
+      let found = asHeader(line.cells) ?? asHeader(line.pieces);
       if (!found && i + 1 < lines.length && lines[i + 1].y - line.y < 18) {
-        found = asHeader(stacked(line.cells, lines[i + 1].cells));
+        found = asHeader(stacked(line.cells, lines[i + 1].cells)) ??
+          asHeader(stacked(line.pieces, lines[i + 1].pieces));
         if (found) i++;
       } else if (
         found && i + 1 < lines.length && lines[i + 1].y - line.y < 18 &&

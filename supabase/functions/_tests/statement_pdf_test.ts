@@ -483,3 +483,65 @@ Deno.test('detectProvider: longer names win over the names inside them', () => {
   assertEquals(detectProvider('IME Pay wallet statement')?.name, 'IME Pay');
   assertEquals(detectProvider('Statement of account'), null);
 });
+
+// ---------------------------------------------------------------------------
+// A wallet statement printed tightly: narrow Dr. and Cr. columns almost
+// touching, fractional seconds, a status column.
+// ---------------------------------------------------------------------------
+Deno.test('PDF: an eSewa-style statement with tight columns is read', () => {
+  // About 4 points a character and columns a few points apart.
+  const t = (str: string, x: number, y: number): TextItem => ({
+    str,
+    x,
+    y,
+    width: str.length * 4,
+  });
+  const head = 100;
+  const row = (
+    y: number,
+    ref: string,
+    when: string,
+    text: string,
+    dr: string,
+    cr: string,
+    status: string,
+    balance: string,
+  ) => [
+    t(ref, 20, y),
+    t(when, 70, y),
+    t(text, 170, y),
+    t(dr, 330, y),
+    t(cr, 360, y),
+    t(status, 392, y),
+    t(balance, 440, y),
+  ];
+  const parsed = parseStatementPdf([[
+    t('eSewa Statement Report', 180, 40),
+    t('Reference Code', 20, head),
+    t('Date Time', 70, head),
+    t('Description', 170, head),
+    t('Dr.', 330, head),
+    t('Cr.', 344, head),
+    t('Status', 392, head),
+    t('Balance (Rs.)', 440, head),
+    ...row(120, '1SC0VTI', '2026-09-30 19:11:27.0', 'Paid for MINI MART', '50.00', '0.00', 'COMPLETE', '450.00'),
+    ...row(135, '1SBQF6A', '2026-09-30 18:12:21.0', 'Fund Transferred by A B', '0.00', '500.00', 'COMPLETE', '500.00'),
+    ...row(150, '1SAAAAA', '2026-09-29 10:00:00.0', 'Paid for X', '75.00', '0.00', 'FAILED', '0.00'),
+  ]]);
+  assertEquals(
+    parsed.entries.map((e) => [e.occurred_at, e.type, e.amount, e.description, e.ref]),
+    [
+      ['2026-09-30 19:11:27', 'expense', 50, 'Paid for MINI MART', '1SC0VTI'],
+      ['2026-09-30 18:12:21', 'income', 500, 'Fund Transferred by A B', '1SBQF6A'],
+    ],
+  );
+  // The failed payment moved no money and is left out.
+  assertEquals(parsed.skipped, []);
+});
+
+Deno.test('PDF: fractional seconds are part of the time, not text', () => {
+  assertEquals(leadingDate('2026-09-30 19:11:27.0'), {
+    date: '2026-09-30 19:11:27.0',
+    rest: '',
+  });
+});
