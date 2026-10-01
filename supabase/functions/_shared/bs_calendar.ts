@@ -62,8 +62,22 @@ const TABLE = dateConfigMap as unknown as Record<
 export const BS_FIRST_YEAR = 2000;
 export const BS_LAST_YEAR = 2090;
 
+// Years after 2086 are projections, and the two published tables disagree on
+// them. The app (nepali_utils) is the source of truth for what a user sees as
+// "this month", so its lengths win here; budgets and month-end reminders then
+// cover exactly the days the app shows. Through 2086 the tables are identical.
+const APP_OVERRIDES: Record<number, number[]> = {
+  2087: [31, 31, 32, 32, 31, 30, 30, 29, 30, 29, 30, 30],
+  2088: [31, 32, 31, 32, 31, 30, 30, 30, 29, 29, 30, 31],
+  2089: [30, 32, 31, 32, 31, 30, 30, 30, 29, 30, 29, 31],
+  2090: [31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 30],
+};
+
 /** Days in one BS month, or 0 outside the supported range. */
 export function daysInBsMonth(year: number, month: number): number {
+  if (month < 1 || month > 12) return 0;
+  const override = APP_OVERRIDES[year];
+  if (override) return override[month - 1];
   const row = TABLE[String(year)];
   if (!row || month < 1 || month > 12) return 0;
   return row[SOURCE_MONTH_KEYS[month - 1]] ?? 0;
