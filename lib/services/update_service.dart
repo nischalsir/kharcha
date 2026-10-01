@@ -9,6 +9,8 @@ class UpdateInfo {
   const UpdateInfo({
     required this.version,
     required this.downloadUrl,
+    this.apkUrl,
+    this.apkSize,
     this.notes = '',
   });
 
@@ -16,6 +18,14 @@ class UpdateInfo {
 
   /// The release's APK when it has one, otherwise the release page.
   final String downloadUrl;
+
+  /// The release's APK, when it has one. This is what the app downloads to
+  /// update itself; without it the update is opened in the browser.
+  final String? apkUrl;
+
+  /// The APK's size in bytes as the release states it, to tell a complete
+  /// download from one that was cut short.
+  final int? apkSize;
 
   /// A short, plain-text summary of the release notes. May be empty.
   final String notes;
@@ -61,6 +71,7 @@ class UpdateService {
       // Link straight to the APK so "Download" starts the download, instead
       // of dropping the user on a web page to hunt for the file.
       String? apk;
+      int? apkSize;
       final assets = data['assets'];
       if (assets is List) {
         for (final asset in assets) {
@@ -69,6 +80,8 @@ class UpdateService {
           final url = asset['browser_download_url'];
           if (name.endsWith('.apk') && url is String && url.isNotEmpty) {
             apk = url;
+            final size = asset['size'];
+            if (size is int && size > 0) apkSize = size;
             break;
           }
         }
@@ -78,6 +91,8 @@ class UpdateService {
       return UpdateInfo(
         version: version,
         downloadUrl: apk ?? (page is String ? page : _fallbackPage),
+        apkUrl: apk,
+        apkSize: apkSize,
         notes: body is String ? summarizeNotes(body) : '',
       );
     } catch (_) {

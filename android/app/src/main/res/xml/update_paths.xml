@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    What UpdateFileProvider may hand to Android's installer: only the
+    downloaded update, in the `updates` folder of the app's cache.
+-->
+<paths>
+    <cache-path name="updates" path="updates/" />
+</paths>

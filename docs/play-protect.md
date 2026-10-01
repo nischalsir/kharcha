@@ -32,9 +32,15 @@ Checked on the built release APK with `aapt2` and `apksigner`:
   `USE_FINGERPRINT`, `WAKE_LOCK`, `ACCESS_COARSE_LOCATION` (weather only, optional), and the FCM receive permission. None of the
   permissions Play Protect blocks sideloaded apps for (`READ_SMS`,
   `RECEIVE_SMS`, notification listener, accessibility) is requested.
-- **Components** no accessibility service, device admin, notification
-  listener, or package installer. The app does not request
-  `REQUEST_INSTALL_PACKAGES`; "Update" opens the download in the browser.
+- **Components** no accessibility service, device admin or notification
+  listener. Up to v1.0.21 the app did not request `REQUEST_INSTALL_PACKAGES`
+  and "Update" opened the download in the browser.
+- **From v1.0.22** the app downloads its own update and hands it to Android's
+  installer, which needs `REQUEST_INSTALL_PACKAGES`. Android still asks the
+  user to confirm each install and to allow Kharcha as a source the first
+  time, and only accepts an APK signed with the same key. This permission is
+  one Play Protect looks at for apps installed from outside Google Play; if
+  its warnings get worse after v1.0.22, this is the change to look at first.
 - **Network** no cleartext traffic and no custom network security config.
 - **Code** standard Flutter release build, no dynamic code loading.
 

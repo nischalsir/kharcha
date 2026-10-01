@@ -89,6 +89,23 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
+        // An update the app downloaded, handed to Android's installer.
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            APP_UPDATE_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "install" -> {
+                    val path = call.argument<String>("path")
+                    result.success(
+                        if (path == null) "missing" else AppUpdates.install(this, path),
+                    )
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+
         // A statement shared into the app from a bank app or a file manager.
         incomingChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -148,5 +165,7 @@ class MainActivity : FlutterFragmentActivity() {
             "com.nischalpandey.kharcha/incoming_file"
         const val APP_CONFIG_CHANNEL =
             "com.nischalpandey.kharcha/app_config"
+        const val APP_UPDATE_CHANNEL =
+            "com.nischalpandey.kharcha/app_update"
     }
 }

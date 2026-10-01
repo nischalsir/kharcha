@@ -8,6 +8,12 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
+    <!--
+        Lets the app hand an update it downloaded to Android's installer.
+        Android still asks the user to confirm every install, and to allow
+        Kharcha as a source the first time.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Approximate only, and only for the weather on the Calendar page. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!--
@@ -75,6 +81,20 @@
                 <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
             </intent-filter>
         </activity>
+        <!--
+            Lends Android's installer the update the app downloaded. Not
+            exported: access is granted to the installer for that one file,
+            for that one install.
+        -->
+        <provider
+            android:name=".UpdateFileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
             android:exported="false" />
