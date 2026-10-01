@@ -29,7 +29,6 @@ import {
   localTime,
   slotSeed,
 } from "../_shared/buddy_schedule.ts";
-import { resolveChannel } from "../_shared/push_types.ts";
 
 const CATEGORY = "daily_buddy";
 const MAX_USERS_PER_RUN = 200;
@@ -152,10 +151,12 @@ async function sendToUser(
         route: "/",
       },
       android: {
-        priority: "normal",
+        // High so Doze does not hold the 06:00 greeting until the phone's
+        // next maintenance window; every buddy push ends in a visible
+        // notification, which is what FCM expects of high priority.
+        priority: "high",
         ttl: "1800s",
         collapseKey: "daily-buddy",
-        notification: { channelId: resolveChannel(CATEGORY) },
       },
     });
     if (result.ok) sent += 1;

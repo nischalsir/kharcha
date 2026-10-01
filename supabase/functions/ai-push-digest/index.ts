@@ -40,7 +40,6 @@ import {
   DEFAULT_DECISION_CONFIG,
   fingerprintInsight,
 } from "../_shared/notification_decision.ts";
-import { resolveChannel } from "../_shared/push_types.ts";
 
 const MAX_USERS_PER_RUN = 200;
 
@@ -206,7 +205,6 @@ async function sendToUser(
     );
   if (tokens.length === 0) return { sent: 0, pruned: 0 };
 
-  const channel = resolveChannel(AI_PUSH_CATEGORY);
   const dead: string[] = [];
   let sent = 0;
 
@@ -228,7 +226,6 @@ async function sendToUser(
         // One notification per insight on the device: a re-send of the same
         // push replaces rather than stacks.
         collapseKey: `ai-${message.route}`.slice(0, 32),
-        notification: { channelId: channel },
       },
     });
     if (result.ok) sent += 1;

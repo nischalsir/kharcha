@@ -554,8 +554,12 @@ Future<void> kharchaFirebaseMessagingBackgroundHandler(RemoteMessage message) as
   try {
     await Firebase.initializeApp();
     // Negative ids keep background notifications from colliding with the
-    // foreground counter in the main isolate.
-    await PushNotificationService.render(parsed, id: -1);
+    // foreground counter in the main isolate. Each one gets its own id, or a
+    // second push would silently replace the first in the shade.
+    await PushNotificationService.render(
+      parsed,
+      id: -(DateTime.now().millisecondsSinceEpoch % 0x7fffffff) - 1,
+    );
   } catch (error) {
     debugPrint('Push: background render failed ($error)');
   }

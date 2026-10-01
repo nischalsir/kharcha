@@ -79,18 +79,10 @@ class SupabasePushTokenStore implements PushTokenStore {
     final client = _client();
     if (client == null) return;
     try {
-      // Scoped to the token, and to this user's rows by RLS.
-      //
-      // The response is checked rather than just awaited: supabase_flutter puts
-      // an RLS rejection in `error` and resolves normally, so a delete that the
-      // database refused would otherwise look exactly like one that worked.
-      final response = await client
-          .from('push_tokens')
-          .delete()
-          .eq('token', token);
-      if (response.error != null) {
-        throw AppFailure.from(response.error!);
-      }
+      // Scoped to the token, and to this user's rows by RLS. supabase_flutter
+      // v2 throws a PostgrestException on failure, caught below; the awaited
+      // value is the (empty) row list and has no `error` to inspect.
+      await client.from('push_tokens').delete().eq('token', token);
     } catch (error) {
       // Swallowed, but logged: a signed-out device with no network should still
       // end up as a non-recipient. The worst case is one stale row, and the

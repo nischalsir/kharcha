@@ -92,6 +92,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     body.target ?? (caller ? "self" : "user"),
   ) as SendTarget;
   const data = sanitizeData(body.data);
+  // Reported back for diagnostics only. The device picks the channel from
+  // `category` itself; it is deliberately not sent as `android.notification`,
+  // which would turn this into a notification message (see _shared/fcm.ts).
   const channelId = resolveChannel(category);
 
   // ---------------------------------------------------------------- targeting
@@ -163,7 +166,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       android: {
         priority: spec.priority,
         ttl: spec.ttl,
-        notification: { channelId },
       },
     });
     return json({
@@ -184,7 +186,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       android: {
         priority: spec.priority,
         ttl: spec.ttl,
-        notification: { channelId },
       },
     }));
 

@@ -144,7 +144,12 @@ export type FcmMessage = {
     priority?: 'normal' | 'high';
     ttl?: string;
     collapseKey?: string;
-    notification?: { channelId: string; sound?: string };
+    // No `notification` field on purpose. Any `android.notification` block
+    // makes FCM treat the push as a notification message: Android then draws
+    // it itself while the app is in the background (blank, because the title
+    // and body travel in `data`) on top of the copy the app renders, and the
+    // app's own channel, icon and tap routing are bypassed. Kharcha sends
+    // data-only messages and the app picks the channel from `category`.
   };
 };
 
