@@ -272,21 +272,23 @@ void main() {
 
       // The same statement again: both rows are recognised and left out.
       await _open(tester, transactions);
-      expect(find.textContaining('2 already imported'), findsOneWidget);
+      expect(find.textContaining('2 already in Kharcha'), findsOneWidget);
       expect(
-        find.text('2026-09-30 · Debit · eSewa · Already imported'),
+        find.text('2026-09-30 · Debit · eSewa · Already in Kharcha'),
         findsOneWidget,
       );
-      final boxes = tester.widgetList<Checkbox>(find.byType(Checkbox));
-      expect(boxes.every((box) => box.value == false), isTrue);
-      expect(boxes.every((box) => box.onChanged == null), isTrue);
       expect(transactions.statementMatchKeys(), hasLength(2));
+
+      // Nothing on the page looks tickable and then refuses: the rows carry
+      // a done mark instead of a dead box, and there is no Select all.
+      expect(find.byType(Checkbox), findsNothing);
+      expect(find.text('Select all'), findsNothing);
+      expect(find.byIcon(Icons.check_circle_rounded), findsNWidgets(2));
 
       // Said outright, with a way out, instead of a button that does nothing.
       expect(find.byKey(const ValueKey<String>('nothing-new')), findsOneWidget);
       expect(find.text('Nothing new to import'), findsOneWidget);
       expect(find.textContaining('All 2 transactions'), findsOneWidget);
-      expect(find.text('0 of 0 selected'), findsOneWidget);
       expect(find.text('Import 0'), findsNothing);
       expect(find.text('Done'), findsOneWidget);
       expect(find.text('Another file'), findsOneWidget);
@@ -307,7 +309,7 @@ void main() {
       );
       await _open(tester, transactions);
 
-      expect(find.textContaining('1 already imported'), findsOneWidget);
+      expect(find.textContaining('1 already in Kharcha'), findsOneWidget);
       expect(find.text('Import 1'), findsOneWidget);
     });
 
@@ -373,10 +375,12 @@ void main() {
       await tester.tap(find.text('Select all'));
       await tester.pump();
       expect(find.text('Import 1'), findsOneWidget);
-      // The saved row cannot be ticked by tapping it either.
+      // The saved row cannot be ticked by tapping it either; it answers
+      // why, rather than doing nothing.
       await tester.tap(find.text('Paid for MINI MART'));
       await tester.pump();
       expect(find.text('Import 1'), findsOneWidget);
+      expect(find.textContaining('already in Kharcha, so it'), findsOneWidget);
       expect(find.byKey(const ValueKey<String>('nothing-new')), findsNothing);
     });
   });

@@ -799,10 +799,11 @@ class _SummaryCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     context.t(
-                      '$already already imported. They are left unticked so '
-                          'nothing is added twice.',
-                      '$already वटा पहिल्यै आयात भएका छन्। दोहोरो नथपियोस् '
-                          'भनेर ती छानिएका छैनन्।',
+                      '$already already in Kharcha (marked with a green '
+                          'tick). They are left out so nothing is added '
+                          'twice.',
+                      '$already वटा Kharcha मा पहिल्यै छन् (हरियो चिन्ह)। '
+                          'दोहोरो नथपियोस् भनेर ती छोडिएका छन्।',
                     ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: glass.textSecondary,
@@ -878,12 +879,17 @@ class _NothingNewCard extends StatelessWidget {
                 Text(
                   context.t(
                     count == 1
-                        ? 'The transaction in this file is already in '
-                              'Kharcha. You can find it under Payments.'
-                        : 'All $count transactions in this file are already '
-                              'in Kharcha. You can find them under Payments.',
-                    'यो फाइलका सबै $count कारोबार Kharcha मा पहिल्यै छन्। '
-                    'ती Payments मा भेटिन्छन्।',
+                        ? 'The transaction in this file was imported before '
+                              'and is already in Kharcha, under Payments. '
+                              'There is nothing to select.'
+                        : 'All $count transactions in this file were imported '
+                              'before and are already in Kharcha, under '
+                              'Payments. There is nothing to select. To '
+                              'import more, choose a statement for another '
+                              'period.',
+                    'यो फाइलका सबै $count कारोबार पहिल्यै आयात भइसकेका छन् र '
+                    'Kharcha को Payments मा छन्। छान्नुपर्ने केही छैन। '
+                    'थप आयात गर्न अर्को अवधिको स्टेटमेन्ट छान्नुहोस्।',
                   ),
                   style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
                 ),
@@ -1007,13 +1013,17 @@ class _EntriesCard extends StatelessWidget {
         type: MaterialType.transparency,
         child: Column(
           children: <Widget>[
-            _SelectAllRow(entries: entries, onSelectAll: onSelectAll),
-            for (final entry in entries) ...<Widget>[
-              Divider(
-                height: 1,
-                color: glass.textTertiary.withValues(alpha: 0.2),
-              ),
-              _EntryRow(entry: entry, onChanged: onChanged),
+            // With nothing left to tick there is no Select all: a control
+            // that cannot do anything only looks broken.
+            if (entries.any((e) => !e.alreadyImported))
+              _SelectAllRow(entries: entries, onSelectAll: onSelectAll),
+            for (var i = 0; i < entries.length; i++) ...<Widget>[
+              if (i != 0 || entries.any((e) => !e.alreadyImported))
+                Divider(
+                  height: 1,
+                  color: glass.textTertiary.withValues(alpha: 0.2),
+                ),
+              _EntryRow(entry: entries[i], onChanged: onChanged),
             ],
           ],
         ),
@@ -1095,27 +1105,42 @@ class _EntryRow extends StatelessWidget {
         ? context.t('Credit', 'जम्मा')
         : context.t('Debit', 'खर्च');
     final imported = entry.alreadyImported
-        ? ' · ${context.t('Already imported', 'पहिल्यै आयात')}'
+        ? ' · ${context.t('Already in Kharcha', 'Kharcha मा पहिल्यै छ')}'
         : '';
 
     return InkWell(
-      // The whole row ticks, not only the small box.
+      // The whole row ticks, not only the small box. A row that is already
+      // in the app says so when tapped, rather than doing nothing.
       onTap: entry.alreadyImported
-          ? null
+          ? () => showMessage(
+              context,
+              context.t(
+                'This one is already in Kharcha, so it is not added again.',
+                'यो Kharcha मा पहिल्यै छ, त्यसैले फेरि थपिँदैन।',
+              ),
+            )
           : () => onChanged(entry, !entry.selected),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(4, 6, 14, 6),
         child: Row(
           children: <Widget>[
-            Checkbox(
-              value: entry.selected,
-              // A row that is already in the app stays unticked: ticking it
-              // would only write the same record again.
-              onChanged: entry.alreadyImported
-                  ? null
-                  : (value) => onChanged(entry, value ?? false),
-              activeColor: theme.colorScheme.primary,
-            ),
+            if (entry.alreadyImported)
+              // Not a box that cannot be ticked: a mark that it is done.
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: Icon(
+                  Icons.check_circle_rounded,
+                  size: 22,
+                  color: glass.success,
+                ),
+              )
+            else
+              Checkbox(
+                value: entry.selected,
+                onChanged: (value) => onChanged(entry, value ?? false),
+                activeColor: theme.colorScheme.primary,
+              ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
