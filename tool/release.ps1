@@ -92,7 +92,9 @@ if (-not $env:JAVA_HOME) {
   $jbr = 'C:\Program Files\Android\Android Studio\jbr'
   if (Test-Path $jbr) { $env:JAVA_HOME = $jbr }
 }
-$certs = & "$($tools.FullName)\apksigner.bat" verify --print-certs $apk 2>$null
+# Through cmd: Java prints a harmless warning to stderr, which PowerShell
+# would turn into a terminating error.
+$certs = cmd /c "`"`"$($tools.FullName)\apksigner.bat`" verify --print-certs `"$apk`" 2>nul`""
 $signer = ($certs | Select-String 'certificate DN').Line
 if (-not $signer) { Fail 'The APK signature could not be verified.' }
 if ($signer -match 'Android Debug') { Fail "The APK is debug-signed: $signer" }
