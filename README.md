@@ -50,7 +50,7 @@ Most expense trackers show you a number. Kharcha has a little flame called Flame
 - **Log in seconds.** Expenses and income with categories, eSewa / Khalti / bank / cash, notes and dates.
 - **"Spent this month"** shows the total, the share of your income it ate, and your top three categories on one bar.
 - **Budgets** for the month and for each category, with a progress bar that turns amber at 80% and red when you go over.
-- **Reports** with monthly charts and category breakdowns.
+- **Reports** with monthly charts and category breakdowns, exported as a PDF or a CSV for this month, this year or all time.
 - **Recurring payments** for rent, subscriptions and anything else that comes back every month.
 - **Calculator** built in, for the sums you'd otherwise leave the app to do.
 - **Pull to refresh** on every page that shows your data.

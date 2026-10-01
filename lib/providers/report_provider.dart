@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../core/utils/currency_formatter.dart';
 import '../models/category_model.dart';
 import '../models/friend_credit_model.dart';
 import '../models/payment_method.dart';
@@ -12,6 +13,7 @@ import '../repositories/settings_repository.dart';
 import '../repositories/transaction_repository.dart';
 import '../services/cache_service.dart';
 import '../services/nepali_date_service.dart';
+import '../services/report_exporter.dart';
 import 'cache_aware.dart';
 
 enum ReportRange { weekly, monthly, yearly, custom }
@@ -348,6 +350,115 @@ class ReportProvider extends ChangeNotifier with CacheAware {
 
   /// How many months the trends tab shows.
   int get trendMonths => 6;
+
+  /// Everything an exported report says for [period]: the totals, the
+  /// categories, the months and every transaction, newest first. The month
+  /// and the year are the ones the page is showing.
+  ReportExportData exportData(ReportPeriod period) {
+    DateTime? start;
+    DateTime? endExclusive;
+    final String label;
+    switch (period) {
+      case ReportPeriod.thisMonth:
+        final range = _dates.monthRange(_anchor.year, _anchor.month);
+        start = range.start;
+        endExclusive = range.endExclusive;
+        label = _dates.formatMonth(_anchor.year, _anchor.month);
+      case ReportPeriod.thisYear:
+        start = _dates.toGregorian(BsDate(_anchor.year, 1, 1));
+        endExclusive = _dates.toGregorian(BsDate(_anchor.year + 1, 1, 1));
+        label = 'Year ${_anchor.year} BS';
+      case ReportPeriod.allTime:
+        label = 'All time';
+    }
+
+    final categories = <String, CategoryModel>{
+      for (final category in _settings.categories()) category.id: category,
+    };
+    String two(int value) => value.toString().padLeft(2, '0');
+
+    var income = 0.0;
+    var expense = 0.0;
+    final rows = <ReportExportRow>[];
+    final byCategory = <String, ({double income, double expense})>{};
+    final byMonth =
+        <int, ({int year, int month, double income, double expense})>{};
+    // `all()` is newest first, which is the order of the exported rows.
+    for (final item in _transactions.all()) {
+      if (start != null && item.occurredAt.isBefore(start)) continue;
+      if (endExclusive != null && !item.occurredAt.isBefore(endExclusive)) {
+        continue;
+      }
+      final bs = _dates.toBs(item.occurredAt);
+      final category = item.categoryId == null
+          ? null
+          : categories[item.categoryId];
+      final name = category?.name ?? 'Uncategorized';
+      rows.add(
+        ReportExportRow(
+          occurredAt: item.occurredAt,
+          bsDate: '${bs.year}-${two(bs.month)}-${two(bs.day)}',
+          title: item.title,
+          type: switch (item.type) {
+            TransactionType.income => 'Income',
+            TransactionType.expense => 'Expense',
+            _ => 'Transfer',
+          },
+          category: name,
+          method: item.paymentMethod.label,
+          amount: item.amount,
+          notes: item.notes ?? '',
+        ),
+      );
+      // Money moved between the user's own accounts is listed but is
+      // neither earned nor spent.
+      final earned = item.type == TransactionType.income ? item.amount : 0.0;
+      final spent = item.type == TransactionType.expense ? item.amount : 0.0;
+      if (earned == 0 && spent == 0) continue;
+      income += earned;
+      expense += spent;
+      final soFar = byCategory[name];
+      byCategory[name] = (
+        income: (soFar?.income ?? 0) + earned,
+        expense: (soFar?.expense ?? 0) + spent,
+      );
+      final key = bs.year * 100 + bs.month;
+      final month = byMonth[key];
+      byMonth[key] = (
+        year: bs.year,
+        month: bs.month,
+        income: (month?.income ?? 0) + earned,
+        expense: (month?.expense ?? 0) + spent,
+      );
+    }
+
+    final categoryTotals = <ReportExportTotal>[
+      for (final entry in byCategory.entries)
+        ReportExportTotal(
+          label: entry.key,
+          income: entry.value.income,
+          expense: entry.value.expense,
+        ),
+    ]..sort((a, b) => (b.income + b.expense).compareTo(a.income + a.expense));
+    final monthKeys = byMonth.keys.toList()..sort();
+    return ReportExportData(
+      periodLabel: label,
+      generatedAt: DateTime.now(),
+      currency: CurrencyFormatter.symbol,
+      income: income,
+      expense: expense,
+      categories: categoryTotals,
+      months: <ReportExportTotal>[
+        for (final key in monthKeys)
+          ReportExportTotal(
+            label: _dates.formatMonth(byMonth[key]!.year, byMonth[key]!.month),
+            income: byMonth[key]!.income,
+            expense: byMonth[key]!.expense,
+          ),
+      ],
+      rows: rows,
+    );
+  }
 
   @override
   void dispose() {

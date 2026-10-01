@@ -38,6 +38,10 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'Reports export as PDF or CSV: save to your phone or share',
+      'प्रतिवेदन PDF वा CSV मा निर्यात: फोनमा सुरक्षित वा साझा गर्नुहोस्',
+    ),
+    (
       'A new welcome page: one screen, with Get started and Login',
       'नयाँ स्वागत पृष्ठ: एउटै स्क्रिन, सुरु गर्ने र लगइन',
     ),
