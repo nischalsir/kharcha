@@ -12,7 +12,10 @@ import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/primary_button.dart';
 import 'friend_detail_screen.dart';
+
 import 'package:flutter/services.dart';
+
+import '../../widgets/common/page_refresh.dart';
 
 Future<void> showAddFriendSheet(BuildContext context) {
   return showGlassSheet<void>(
@@ -48,94 +51,99 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
     return SafeArea(
       bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text('Friends', style: theme.textTheme.headlineMedium),
-              ),
-              IconButton(
-                onPressed: () => showAddFriendSheet(context),
-                icon: const Icon(Icons.person_add_alt_1_rounded, size: 28),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          GlassCard(
-            child: Column(
+      child: PageRefresh(
+        pageName: 'Friends',
+        pageNameNe: 'साथीहरू',
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+          children: <Widget>[
+            Row(
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: _Stat(
-                        label: 'They owe you',
-                        value: summary.othersOweYou,
-                        color: glass.success,
-                      ),
-                    ),
-                    Container(width: 1, height: 36, color: glass.border),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _Stat(
-                        label: 'You owe',
-                        value: summary.youOwe,
-                        color: glass.danger,
-                      ),
-                    ),
-                  ],
+                Expanded(
+                  child: Text('Friends', style: theme.textTheme.headlineMedium),
                 ),
-                if (summary.overdueCount > 0) ...<Widget>[
-                  const SizedBox(height: 12),
+                IconButton(
+                  onPressed: () => showAddFriendSheet(context),
+                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 28),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            GlassCard(
+              child: Column(
+                children: <Widget>[
                   Row(
                     children: <Widget>[
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        size: 16,
-                        color: glass.warning,
+                      Expanded(
+                        child: _Stat(
+                          label: 'They owe you',
+                          value: summary.othersOweYou,
+                          color: glass.success,
+                        ),
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${summary.overdueCount} overdue',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: glass.warning,
+                      Container(width: 1, height: 36, color: glass.border),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _Stat(
+                          label: 'You owe',
+                          value: summary.youOwe,
+                          color: glass.danger,
                         ),
                       ),
                     ],
                   ),
+                  if (summary.overdueCount > 0) ...<Widget>[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          size: 16,
+                          color: glass.warning,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${summary.overdueCount} overdue',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: glass.warning,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _search,
-            onChanged: provider.setQuery,
-            decoration: const InputDecoration(
-              hintText: 'Search friends',
-              prefixIcon: Icon(Icons.search_rounded),
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (friends.isEmpty)
-            SizedBox(
-              height: 320,
-              child: EmptyState(
-                icon: Icons.people_outline,
-                title: 'No friends yet',
-                message: 'Add a friend to track money you lend or borrow.',
-                actionLabel: 'Add Friend',
-                onAction: () => showAddFriendSheet(context),
               ),
-            )
-          else
-            for (final friend in friends)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _FriendTile(friend: friend),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _search,
+              onChanged: provider.setQuery,
+              decoration: const InputDecoration(
+                hintText: 'Search friends',
+                prefixIcon: Icon(Icons.search_rounded),
               ),
-        ],
+            ),
+            const SizedBox(height: 12),
+            if (friends.isEmpty)
+              SizedBox(
+                height: 320,
+                child: EmptyState(
+                  icon: Icons.people_outline,
+                  title: 'No friends yet',
+                  message: 'Add a friend to track money you lend or borrow.',
+                  actionLabel: 'Add Friend',
+                  onAction: () => showAddFriendSheet(context),
+                ),
+              )
+            else
+              for (final friend in friends)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _FriendTile(friend: friend),
+                ),
+          ],
+        ),
       ),
     );
   }

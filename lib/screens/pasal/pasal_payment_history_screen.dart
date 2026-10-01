@@ -7,6 +7,7 @@ import '../../models/pasal_payment_model.dart';
 import '../../providers/pasal_provider.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/page_refresh.dart';
 
 class PasalPaymentHistoryScreen extends StatefulWidget {
   const PasalPaymentHistoryScreen({super.key, required this.pasalId});
@@ -42,82 +43,87 @@ class _PasalPaymentHistoryScreenState extends State<PasalPaymentHistoryScreen> {
 
     return SafeArea(
       bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_rounded),
-              ),
-              Expanded(
-                child: Text(
-                  'Payment History',
-                  style: theme.textTheme.headlineMedium,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(width: 48),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            pasal.name,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: glass.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          GlassCard(
-            child: Row(
+      child: PageRefresh(
+        pageName: 'Payment history',
+        pageNameNe: 'भुक्तानी इतिहास',
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+          children: <Widget>[
+            Row(
               children: <Widget>[
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
                 Expanded(
-                  child: _Stat(
-                    label: 'Total Credit',
-                    value: balance.totalCredit,
-                    color: glass.danger,
+                  child: Text(
+                    'Payment History',
+                    style: theme.textTheme.headlineMedium,
+                    textAlign: TextAlign.center,
                   ),
                 ),
-                Container(width: 1, height: 50, color: glass.border),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _Stat(
-                    label: 'Total Paid',
-                    value: balance.totalPaid,
-                    color: glass.success,
-                  ),
-                ),
-                Container(width: 1, height: 50, color: glass.border),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _Stat(
-                    label: 'Outstanding',
-                    value: balance.remaining,
-                    color: glass.warning,
-                  ),
-                ),
+                const SizedBox(width: 48),
               ],
             ),
-          ),
-          const SizedBox(height: 24),
-          if (payments.isEmpty)
-            SizedBox(
-              height: 300,
-              child: EmptyState(
-                icon: Icons.payment_rounded,
-                title: 'No payments recorded',
-                message: 'Record payments from the Pasal detail screen.',
+            const SizedBox(height: 8),
+            Text(
+              pasal.name,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: glass.textSecondary,
               ),
-            )
-          else
-            for (final payment in payments)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _PaymentTile(payment: payment),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            GlassCard(
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: _Stat(
+                      label: 'Total Credit',
+                      value: balance.totalCredit,
+                      color: glass.danger,
+                    ),
+                  ),
+                  Container(width: 1, height: 50, color: glass.border),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _Stat(
+                      label: 'Total Paid',
+                      value: balance.totalPaid,
+                      color: glass.success,
+                    ),
+                  ),
+                  Container(width: 1, height: 50, color: glass.border),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _Stat(
+                      label: 'Outstanding',
+                      value: balance.remaining,
+                      color: glass.warning,
+                    ),
+                  ),
+                ],
               ),
-        ],
+            ),
+            const SizedBox(height: 24),
+            if (payments.isEmpty)
+              SizedBox(
+                height: 300,
+                child: EmptyState(
+                  icon: Icons.payment_rounded,
+                  title: 'No payments recorded',
+                  message: 'Record payments from the Pasal detail screen.',
+                ),
+              )
+            else
+              for (final payment in payments)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _PaymentTile(payment: payment),
+                ),
+          ],
+        ),
       ),
     );
   }

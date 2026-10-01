@@ -8,6 +8,7 @@ import '../../providers/report_provider.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/page_refresh.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -32,33 +33,38 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     return SafeArea(
       bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-        children: <Widget>[
-          Text('Reports', style: theme.textTheme.headlineMedium),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: <Widget>[
-                for (var i = 0; i < _tabs.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(_tabs[i]),
-                      selected: _tab == i,
-                      onSelected: (_) => setState(() => _tab = i),
+      child: PageRefresh(
+        pageName: 'Reports',
+        pageNameNe: 'प्रतिवेदन',
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+          children: <Widget>[
+            Text('Reports', style: theme.textTheme.headlineMedium),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: <Widget>[
+                  for (var i = 0; i < _tabs.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(_tabs[i]),
+                        selected: _tab == i,
+                        onSelected: (_) => setState(() => _tab = i),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          if (_tab == 0) ..._overview(provider, glass, theme),
-          if (_tab == 1) ..._categories(provider, glass, theme),
-          if (_tab == 2) ..._trends(provider, glass, theme),
-        ],
+            const SizedBox(height: 16),
+            if (_tab == 0) ..._overview(provider, glass, theme),
+            if (_tab == 1) ..._categories(provider, glass, theme),
+            if (_tab == 2) ..._trends(provider, glass, theme),
+          ],
+        ),
       ),
     );
   }

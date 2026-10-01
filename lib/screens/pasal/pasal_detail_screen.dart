@@ -17,6 +17,7 @@ import 'add_pasal_screen.dart';
 import 'pasal_credit_history_screen.dart';
 import 'pasal_payment_history_screen.dart';
 import 'record_pasal_payment_screen.dart';
+import '../../widgets/common/page_refresh.dart';
 
 class PasalDetailScreen extends StatelessWidget {
   const PasalDetailScreen({super.key, required this.pasalId});
@@ -133,132 +134,137 @@ class PasalDetailScreen extends StatelessWidget {
         icon: const Icon(Icons.add_rounded),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-          children: <Widget>[
-            GlassCard(
-              glow: true,
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        child: PageRefresh(
+          pageName: 'Pasal details',
+          pageNameNe: 'पसल विवरण',
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+            children: <Widget>[
+              GlassCard(
+                glow: true,
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Remaining',
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(color: glass.textSecondary),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            CurrencyFormatter.format(balance.remaining),
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: <Widget>[
                         Text(
-                          'Remaining',
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(color: glass.textSecondary),
+                          'Credit ${CurrencyFormatter.format(balance.totalCredit)}',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
-                        const SizedBox(height: 4),
                         Text(
-                          CurrencyFormatter.format(balance.remaining),
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          'Paid ${CurrencyFormatter.format(balance.totalPaid)}',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: <Widget>[
-                      Text(
-                        'Credit ${CurrencyFormatter.format(balance.totalCredit)}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      Text(
-                        'Paid ${CurrencyFormatter.format(balance.totalPaid)}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (pasal.phone != null || pasal.address != null) ...<Widget>[
-              const SizedBox(height: 12),
-              GlassCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    if (pasal.phone != null)
-                      Text(
-                        pasal.phone!,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    if (pasal.address != null)
-                      Text(
-                        pasal.address!,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
                   ],
                 ),
               ),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: GlassButton(
-                    label: 'Credit History',
-                    icon: Icons.history_rounded,
-                    compact: true,
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            PasalCreditHistoryScreen(pasalId: pasalId),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GlassButton(
-                    label: 'Payment History',
-                    icon: Icons.payment_rounded,
-                    compact: true,
-                    color: glass.success,
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            PasalPaymentHistoryScreen(pasalId: pasalId),
-                      ),
-                    ),
+              if (pasal.phone != null || pasal.address != null) ...<Widget>[
+                const SizedBox(height: 12),
+                GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      if (pasal.phone != null)
+                        Text(
+                          pasal.phone!,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      if (pasal.address != null)
+                        Text(
+                          pasal.address!,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                    ],
                   ),
                 ),
               ],
-            ),
-            const SectionHeader(title: 'Purchase History'),
-            if (credits.isEmpty)
-              const EmptyState(
-                icon: Icons.receipt_long_outlined,
-                title: 'No purchases yet',
-              )
-            else
-              for (final credit in credits)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _CreditTile(
-                    pasalId: pasalId,
-                    credit: credit,
-                    dates: dates,
+              const SizedBox(height: 12),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: GlassButton(
+                      label: 'Credit History',
+                      icon: Icons.history_rounded,
+                      compact: true,
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              PasalCreditHistoryScreen(pasalId: pasalId),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-            const SizedBox(height: 8),
-            const SectionHeader(title: 'Payment History'),
-            if (payments.isEmpty)
-              const EmptyState(
-                icon: Icons.payments_outlined,
-                title: 'No payments yet',
-              )
-            else
-              for (final payment in payments)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _PaymentTile(payment: payment, dates: dates),
-                ),
-          ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GlassButton(
+                      label: 'Payment History',
+                      icon: Icons.payment_rounded,
+                      compact: true,
+                      color: glass.success,
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              PasalPaymentHistoryScreen(pasalId: pasalId),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SectionHeader(title: 'Purchase History'),
+              if (credits.isEmpty)
+                const EmptyState(
+                  icon: Icons.receipt_long_outlined,
+                  title: 'No purchases yet',
+                )
+              else
+                for (final credit in credits)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _CreditTile(
+                      pasalId: pasalId,
+                      credit: credit,
+                      dates: dates,
+                    ),
+                  ),
+              const SizedBox(height: 8),
+              const SectionHeader(title: 'Payment History'),
+              if (payments.isEmpty)
+                const EmptyState(
+                  icon: Icons.payments_outlined,
+                  title: 'No payments yet',
+                )
+              else
+                for (final payment in payments)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _PaymentTile(payment: payment, dates: dates),
+                  ),
+            ],
+          ),
         ),
       ),
     );

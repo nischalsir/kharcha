@@ -8,6 +8,7 @@ import '../../providers/pasal_provider.dart';
 import '../../services/nepali_date_service.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/page_refresh.dart';
 
 class PasalCreditHistoryScreen extends StatefulWidget {
   const PasalCreditHistoryScreen({super.key, required this.pasalId});
@@ -44,82 +45,88 @@ class _PasalCreditHistoryScreenState extends State<PasalCreditHistoryScreen> {
 
     return SafeArea(
       bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_rounded),
-              ),
-              Expanded(
-                child: Text(
-                  'Credit History',
-                  style: theme.textTheme.headlineMedium,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(width: 48),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${pasal.name}  •  ${credits.length} credit${credits.length == 1 ? '' : 's'}',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: glass.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          GlassCard(
-            child: Row(
+      child: PageRefresh(
+        pageName: 'Credit history',
+        pageNameNe: 'उधारो इतिहास',
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+          children: <Widget>[
+            Row(
               children: <Widget>[
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
                 Expanded(
-                  child: _Stat(
-                    label: 'Total Credit',
-                    value: balance.totalCredit,
-                    color: glass.danger,
+                  child: Text(
+                    'Credit History',
+                    style: theme.textTheme.headlineMedium,
+                    textAlign: TextAlign.center,
                   ),
                 ),
-                Container(width: 1, height: 50, color: glass.border),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _Stat(
-                    label: 'Paid',
-                    value: balance.totalPaid,
-                    color: glass.success,
-                  ),
-                ),
-                Container(width: 1, height: 50, color: glass.border),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _Stat(
-                    label: 'Outstanding',
-                    value: balance.remaining,
-                    color: glass.warning,
-                  ),
-                ),
+                const SizedBox(width: 48),
               ],
             ),
-          ),
-          const SizedBox(height: 24),
-          if (credits.isEmpty)
-            SizedBox(
-              height: 300,
-              child: EmptyState(
-                icon: Icons.credit_card_rounded,
-                title: 'No credits yet',
-                message: 'Add a credit purchase from the Pasal detail screen.',
+            const SizedBox(height: 8),
+            Text(
+              '${pasal.name}  •  ${credits.length} credit${credits.length == 1 ? '' : 's'}',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: glass.textSecondary,
               ),
-            )
-          else
-            for (final credit in credits)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _CreditTile(credit: credit, dates: dates),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            GlassCard(
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: _Stat(
+                      label: 'Total Credit',
+                      value: balance.totalCredit,
+                      color: glass.danger,
+                    ),
+                  ),
+                  Container(width: 1, height: 50, color: glass.border),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _Stat(
+                      label: 'Paid',
+                      value: balance.totalPaid,
+                      color: glass.success,
+                    ),
+                  ),
+                  Container(width: 1, height: 50, color: glass.border),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _Stat(
+                      label: 'Outstanding',
+                      value: balance.remaining,
+                      color: glass.warning,
+                    ),
+                  ),
+                ],
               ),
-        ],
+            ),
+            const SizedBox(height: 24),
+            if (credits.isEmpty)
+              SizedBox(
+                height: 300,
+                child: EmptyState(
+                  icon: Icons.credit_card_rounded,
+                  title: 'No credits yet',
+                  message:
+                      'Add a credit purchase from the Pasal detail screen.',
+                ),
+              )
+            else
+              for (final credit in credits)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _CreditTile(credit: credit, dates: dates),
+                ),
+          ],
+        ),
       ),
     );
   }

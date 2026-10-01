@@ -23,6 +23,7 @@ import '../../widgets/dashboard/recent_payments_list.dart';
 import '../../widgets/dashboard/spending_chart_card.dart';
 import '../../widgets/dashboard/timed_greeting.dart';
 import '../../widgets/dashboard/upcoming_recurring_list.dart';
+import '../../widgets/common/page_refresh.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -87,121 +88,49 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return SafeArea(
       bottom: false,
-      child: CustomScrollView(
-        slivers: <Widget>[
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            sliver: SliverToBoxAdapter(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        TimedGreeting(
-                          style: theme.textTheme.headlineMedium,
-                        ),
-                        if (userName != null) ...<Widget>[
-                          const SizedBox(height: 2),
-                          Text(
-                            userName,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: <Widget>[
-                      _HeaderAvatar(url: _avatarUrl, name: userName),
-                      const SizedBox(height: 6),
-                      Text(
-                        dashboard.todayLabel(),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: glass.textSecondary,
-                        ),
-                        textAlign: TextAlign.right,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            sliver: SliverToBoxAdapter(child: const AiBirthdayBanner()),
-          ),
-          if (auth.isGuest)
+      child: PageRefresh(
+        pageName: 'Home',
+        pageNameNe: 'गृह',
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: <Widget>[
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              sliver: SliverToBoxAdapter(child: const _GuestBanner()),
-            ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            sliver: SliverToBoxAdapter(
-              child: GlassCard(
-                strong: true,
-                glow: true,
-                child: Column(
+              sliver: SliverToBoxAdapter(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            context.t('Total Balance', 'कुल बचत'),
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: glass.textSecondary,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          TimedGreeting(style: theme.textTheme.headlineMedium),
+                          if (userName != null) ...<Widget>[
+                            const SizedBox(height: 2),
+                            Text(
+                              userName,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ),
-                        AiMoodBadge(
-                          mood: context.watch<AiInsightProvider>().mood,
-                        ),
-                      ],
+                          ],
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    AnimatedNumber(
-                      value: data.totalBalance,
-                      style: theme.textTheme.displaySmall,
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: <Widget>[
-                        Expanded(
-                          child: _MiniStat(
-                            label: context.t('Income', 'आम्दानी'),
-                            value: data.totalIncome,
-                            color: glass.success,
-                            icon: Icons.south_west,
+                        _HeaderAvatar(url: _avatarUrl, name: userName),
+                        const SizedBox(height: 6),
+                        Text(
+                          dashboard.todayLabel(),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: glass.textSecondary,
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _MiniStat(
-                            label: context.t('Expenses', 'खर्च'),
-                            value: data.totalExpense,
-                            color: glass.danger,
-                            icon: Icons.north_east,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _MiniStat(
-                            label: context.t('Savings', 'बचत'),
-                            value: data.netSavings,
-                            color: theme.colorScheme.primary,
-                            icon: Icons.savings_outlined,
-                          ),
+                          textAlign: TextAlign.right,
                         ),
                       ],
                     ),
@@ -209,76 +138,153 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-          ),
-          if (data.monthlyBudget > 0)
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-              sliver: SliverToBoxAdapter(child: _BudgetSummaryCard(data: data)),
+              sliver: SliverToBoxAdapter(child: const AiBirthdayBanner()),
             ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            sliver: SliverToBoxAdapter(child: const QuickActionsRow()),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            sliver: SliverToBoxAdapter(child: const DayInsightCard()),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            sliver: SliverToBoxAdapter(
-              child: SpendingChartCard(
-                categorySpend: data.categorySpend,
-                categoryNames: categoryNames,
-                monthIncome: data.totalIncome,
+            if (auth.isGuest)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                sliver: SliverToBoxAdapter(child: const _GuestBanner()),
+              ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              sliver: SliverToBoxAdapter(
+                child: GlassCard(
+                  strong: true,
+                  glow: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              context.t('Total Balance', 'कुल बचत'),
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: glass.textSecondary,
+                              ),
+                            ),
+                          ),
+                          AiMoodBadge(
+                            mood: context.watch<AiInsightProvider>().mood,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      AnimatedNumber(
+                        value: data.totalBalance,
+                        style: theme.textTheme.displaySmall,
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: _MiniStat(
+                              label: context.t('Income', 'आम्दानी'),
+                              value: data.totalIncome,
+                              color: glass.success,
+                              icon: Icons.south_west,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _MiniStat(
+                              label: context.t('Expenses', 'खर्च'),
+                              value: data.totalExpense,
+                              color: glass.danger,
+                              icon: Icons.north_east,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _MiniStat(
+                              label: context.t('Savings', 'बचत'),
+                              value: data.netSavings,
+                              color: theme.colorScheme.primary,
+                              icon: Icons.savings_outlined,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-            sliver: SliverToBoxAdapter(
-              child: SectionHeader(
-                title: context.t('Recent Payments', 'हालैका भुक्तानीहरू'),
-                actionLabel: context.t('See all', 'सबै हेर्नुहोस्'),
-                onAction: () =>
-                    Navigator.of(context).pushNamed(RoutePaths.payments),
+            if (data.monthlyBudget > 0)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                sliver: SliverToBoxAdapter(
+                  child: _BudgetSummaryCard(data: data),
+                ),
+              ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              sliver: SliverToBoxAdapter(child: const QuickActionsRow()),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              sliver: SliverToBoxAdapter(child: const DayInsightCard()),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              sliver: SliverToBoxAdapter(
+                child: SpendingChartCard(
+                  categorySpend: data.categorySpend,
+                  categoryNames: categoryNames,
+                  monthIncome: data.totalIncome,
+                ),
               ),
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-            sliver: SliverToBoxAdapter(
-              child: RecentPaymentsList(items: data.recentTransactions),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            sliver: SliverToBoxAdapter(child: const _FriendsSummaryCard()),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            sliver: SliverToBoxAdapter(child: const PasalSummaryCard()),
-          ),
-          if (data.upcomingRecurring.isNotEmpty) ...<Widget>[
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               sliver: SliverToBoxAdapter(
                 child: SectionHeader(
-                  title: context.t(
-                    'Upcoming Recurring Payments',
-                    'आगामी आवर्ती भुक्तानीहरू',
-                  ),
+                  title: context.t('Recent Payments', 'हालैका भुक्तानीहरू'),
+                  actionLabel: context.t('See all', 'सबै हेर्नुहोस्'),
+                  onAction: () =>
+                      Navigator.of(context).pushNamed(RoutePaths.payments),
                 ),
               ),
             ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
               sliver: SliverToBoxAdapter(
-                child: UpcomingRecurringList(items: data.upcomingRecurring),
+                child: RecentPaymentsList(items: data.recentTransactions),
               ),
             ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              sliver: SliverToBoxAdapter(child: const _FriendsSummaryCard()),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              sliver: SliverToBoxAdapter(child: const PasalSummaryCard()),
+            ),
+            if (data.upcomingRecurring.isNotEmpty) ...<Widget>[
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                sliver: SliverToBoxAdapter(
+                  child: SectionHeader(
+                    title: context.t(
+                      'Upcoming Recurring Payments',
+                      'आगामी आवर्ती भुक्तानीहरू',
+                    ),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                sliver: SliverToBoxAdapter(
+                  child: UpcomingRecurringList(items: data.upcomingRecurring),
+                ),
+              ),
+            ],
+            const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
-        ],
+        ),
       ),
     );
   }

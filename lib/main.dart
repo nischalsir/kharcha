@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -56,6 +57,13 @@ import 'package:provider/single_child_widget.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Every screen is laid out for portrait. Declared here as well as in the
+  // Android manifest, which is what stops the system offering to rotate when
+  // the phone is tilted.
+  await SystemChrome.setPreferredOrientations(<DeviceOrientation>[
+    DeviceOrientation.portraitUp,
+  ]);
 
   // Must be registered before Firebase is initialised and before runApp: FCM
   // reads this at plugin registration time, and a background/terminated push

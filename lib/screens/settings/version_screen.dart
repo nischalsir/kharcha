@@ -28,6 +28,11 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'Pull down on any page to refresh it',
+      'जुनसुकै पृष्ठ तल तानेर रिफ्रेस गर्नुहोस्',
+    ),
+    ('Cleaner date on the home card', 'गृह कार्डमा सफा मिति'),
+    (
       'Several accounts can use fingerprint sign-in on one phone',
       'एउटै फोनमा धेरै खाताले फिंगरप्रिन्ट साइन इन प्रयोग गर्न सक्छन्',
     ),

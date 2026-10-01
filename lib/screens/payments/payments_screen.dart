@@ -16,7 +16,10 @@ import '../../widgets/common/glass_button.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/primary_button.dart';
+
 import 'package:flutter/services.dart';
+
+import '../../widgets/common/page_refresh.dart';
 
 const List<TransactionType> _formTypes = <TransactionType>[
   TransactionType.expense,
@@ -67,35 +70,44 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     final theme = Theme.of(context);
     return SafeArea(
       bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text('Payments', style: theme.textTheme.headlineMedium),
-              ),
-              IconButton(
-                onPressed: _add,
-                icon: const Icon(Icons.add_circle_rounded, size: 30),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<int>(
-              segments: const <ButtonSegment<int>>[
-                ButtonSegment<int>(value: 0, label: Text('Recent')),
-                ButtonSegment<int>(value: 1, label: Text('Recurring')),
+      child: PageRefresh(
+        pageName: 'Payments',
+        pageNameNe: 'भुक्तानी',
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Payments',
+                    style: theme.textTheme.headlineMedium,
+                  ),
+                ),
+                IconButton(
+                  onPressed: _add,
+                  icon: const Icon(Icons.add_circle_rounded, size: 30),
+                ),
               ],
-              selected: <int>{_tab},
-              onSelectionChanged: (value) => setState(() => _tab = value.first),
             ),
-          ),
-          const SizedBox(height: 16),
-          if (_tab == 0) ..._recent(context) else ..._recurring(context),
-        ],
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<int>(
+                segments: const <ButtonSegment<int>>[
+                  ButtonSegment<int>(value: 0, label: Text('Recent')),
+                  ButtonSegment<int>(value: 1, label: Text('Recurring')),
+                ],
+                selected: <int>{_tab},
+                onSelectionChanged: (value) =>
+                    setState(() => _tab = value.first),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_tab == 0) ..._recent(context) else ..._recurring(context),
+          ],
+        ),
       ),
     );
   }

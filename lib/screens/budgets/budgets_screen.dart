@@ -17,6 +17,7 @@ import '../../widgets/common/glass_button.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/page_refresh.dart';
 
 class BudgetsScreen extends StatelessWidget {
   const BudgetsScreen({super.key});
@@ -79,118 +80,127 @@ class BudgetsScreen extends StatelessWidget {
           ],
         ),
         body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 48),
-            children: <Widget>[
-              // Month switcher: the label sits between its own arrows.
-              GlassCard(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Row(
-                  children: <Widget>[
-                    IconButton(
-                      tooltip: context.t('Previous month', 'अघिल्लो महिना'),
-                      onPressed: provider.previousMonth,
-                      icon: const Icon(Icons.chevron_left_rounded),
-                    ),
-                    Expanded(
-                      child: Text(
-                        provider.monthLabel,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+          child: PageRefresh(
+            pageName: 'Budgets',
+            pageNameNe: 'बजेट',
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 48),
+              children: <Widget>[
+                // Month switcher: the label sits between its own arrows.
+                GlassCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      IconButton(
+                        tooltip: context.t('Previous month', 'अघिल्लो महिना'),
+                        onPressed: provider.previousMonth,
+                        icon: const Icon(Icons.chevron_left_rounded),
+                      ),
+                      Expanded(
+                        child: Text(
+                          provider.monthLabel,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
+                      IconButton(
+                        tooltip: context.t('Next month', 'अर्को महिना'),
+                        onPressed: provider.nextMonth,
+                        icon: const Icon(Icons.chevron_right_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (!hasAny)
+                  // No fixed height: the text must be free to wrap taller in
+                  // Nepali or at large font sizes.
+                  Padding(
+                    padding: const EdgeInsets.only(top: 32),
+                    child: EmptyState(
+                      icon: Icons.account_balance_wallet_rounded,
+                      title: context.t(
+                        'No budget for this month',
+                        'यस महिना बजेट छैन',
+                      ),
+                      message: context.t(
+                        'Set a limit for the whole month, or for a category '
+                            'like Food.',
+                        'पूरा महिना वा खाना जस्तो श्रेणीका लागि सीमा तोक्नुहोस्।',
+                      ),
+                      actionLabel: context.t('Add budget', 'बजेट थप्नुहोस्'),
+                      onAction: () => _openForm(context),
                     ),
-                    IconButton(
-                      tooltip: context.t('Next month', 'अर्को महिना'),
-                      onPressed: provider.nextMonth,
-                      icon: const Icon(Icons.chevron_right_rounded),
+                  )
+                else ...<Widget>[
+                  if (overall != null) ...<Widget>[
+                    GlassCard(
+                      strong: true,
+                      onTap: () => _openForm(context, existing: overall.budget),
+                      child: _BudgetProgress(
+                        label: context.t('Whole month', 'पूरा महिना'),
+                        progress: overall,
+                        daysLeft: daysLeft,
+                        prominent: true,
+                      ),
                     ),
+                    const SizedBox(height: 20),
                   ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (!hasAny)
-                // No fixed height: the text must be free to wrap taller in
-                // Nepali or at large font sizes.
-                Padding(
-                  padding: const EdgeInsets.only(top: 32),
-                  child: EmptyState(
-                    icon: Icons.account_balance_wallet_rounded,
-                    title: context.t(
-                      'No budget for this month',
-                      'यस महिना बजेट छैन',
-                    ),
-                    message: context.t(
-                      'Set a limit for the whole month, or for a category '
-                          'like Food.',
-                      'पूरा महिना वा खाना जस्तो श्रेणीका लागि सीमा तोक्नुहोस्।',
-                    ),
-                    actionLabel: context.t('Add budget', 'बजेट थप्नुहोस्'),
-                    onAction: () => _openForm(context),
-                  ),
-                )
-              else ...<Widget>[
-                if (overall != null) ...<Widget>[
-                  GlassCard(
-                    strong: true,
-                    onTap: () => _openForm(context, existing: overall.budget),
-                    child: _BudgetProgress(
-                      label: context.t('Whole month', 'पूरा महिना'),
-                      progress: overall,
-                      daysLeft: daysLeft,
-                      prominent: true,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                if (byCategory.isNotEmpty) ...<Widget>[
-                  Text(
-                    context.t('By category', 'श्रेणी अनुसार'),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  for (final item in byCategory)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: GlassCard(
-                        onTap: () => _openForm(context, existing: item.budget),
-                        child: _BudgetProgress(
-                          label: categoryName(item.budget.categoryId!),
-                          progress: item,
-                          daysLeft: item.budget.period == BudgetPeriod.weekly
-                              ? 0
-                              : daysLeft,
-                        ),
+                  if (byCategory.isNotEmpty) ...<Widget>[
+                    Text(
+                      context.t('By category', 'श्रेणी अनुसार'),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    for (final item in byCategory)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: GlassCard(
+                          onTap: () =>
+                              _openForm(context, existing: item.budget),
+                          child: _BudgetProgress(
+                            label: categoryName(item.budget.categoryId!),
+                            progress: item,
+                            daysLeft: item.budget.period == BudgetPeriod.weekly
+                                ? 0
+                                : daysLeft,
+                          ),
+                        ),
+                      ),
+                  ],
+                  const SizedBox(height: 8),
+                  Center(
+                    child: GlassButton(
+                      label: context.t(
+                        'Copy these budgets to next month',
+                        'यी बजेट अर्को महिनामा प्रतिलिपि गर्नुहोस्',
+                      ),
+                      onPressed: () => _duplicate(context),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Center(
+                    child: Text(
+                      context.t(
+                        'Tap a budget to edit it.',
+                        'सम्पादन गर्न बजेट थिच्नुहोस्।',
+                      ),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: glass.textTertiary,
+                      ),
+                    ),
+                  ),
                 ],
-                const SizedBox(height: 8),
-                Center(
-                  child: GlassButton(
-                    label: context.t(
-                      'Copy these budgets to next month',
-                      'यी बजेट अर्को महिनामा प्रतिलिपि गर्नुहोस्',
-                    ),
-                    onPressed: () => _duplicate(context),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Center(
-                  child: Text(
-                    context.t(
-                      'Tap a budget to edit it.',
-                      'सम्पादन गर्न बजेट थिच्नुहोस्।',
-                    ),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: glass.textTertiary,
-                    ),
-                  ),
-                ),
               ],
-            ],
+            ),
           ),
         ),
       ),

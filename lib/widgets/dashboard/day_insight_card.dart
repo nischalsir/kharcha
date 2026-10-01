@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -56,18 +58,13 @@ class DayInsightCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              if (holiday != null)
-                _FestivalPhoto(
-                  assetPath: holiday.imagePath,
-                  day: useAd ? gregorianNow.day : today.day,
-                )
-              else
-                _DayBadge(
-                  day: useAd ? gregorianNow.day : today.day,
-                  month: useAd
-                      ? dates.gregorianMonthName(gregorianNow.month)
-                      : dates.monthName(today.month),
-                ),
+              _DayBadge(
+                day: useAd ? gregorianNow.day : today.day,
+                month: useAd
+                    ? dates.gregorianMonthName(gregorianNow.month)
+                    : dates.monthName(today.month),
+                imagePath: holiday?.imagePath,
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -192,99 +189,89 @@ class DayInsightCard extends StatelessWidget {
   }
 }
 
+/// Today's day and month, the first thing read on the card.
+///
+/// When a festival is coming up its photograph sits behind the date as a soft,
+/// blurred wash: enough to hint at the festival, never enough to compete with
+/// the numbers. Without one the badge is a plain tint.
 class _DayBadge extends StatelessWidget {
-  const _DayBadge({required this.day, required this.month});
+  const _DayBadge({required this.day, required this.month, this.imagePath});
 
   final int day;
   final String month;
+  final String? imagePath;
+
+  static const double _size = 58;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: 54,
-      height: 54,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Text(
-            '$day',
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w800,
-              height: 1.0,
-            ),
-          ),
-          Text(
-            month,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+    final scheme = theme.colorScheme;
+    final image = imagePath;
+    final tint = ColoredBox(color: scheme.primary.withValues(alpha: 0.16));
 
-/// Bundled festival photograph shown in place of the day badge, with the
-/// day number kept as a small overlay so the date never disappears.
-class _FestivalPhoto extends StatelessWidget {
-  const _FestivalPhoto({required this.assetPath, required this.day});
-
-  final String assetPath;
-  final int day;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      width: 54,
-      height: 54,
-      child: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: FestivalImage(
-                assetPath: assetPath,
-                width: 54,
-                height: 54,
-                fallback: Container(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.16),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.celebration_rounded,
-                    color: theme.colorScheme.primary,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        width: _size,
+        height: _size,
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            if (image == null)
+              tint
+            else ...<Widget>[
+              // Decoration only, so it is hidden from screen readers.
+              ExcludeSemantics(
+                child: ImageFiltered(
+                  imageFilter: ImageFilter.blur(
+                    sigmaX: 5,
+                    sigmaY: 5,
+                    tileMode: TileMode.clamp,
+                  ),
+                  child: FestivalImage(
+                    assetPath: image,
+                    width: _size,
+                    height: _size,
+                    fallback: tint,
                   ),
                 ),
               ),
-            ),
-          ),
-          Positioned(
-            right: 3,
-            bottom: 3,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '$day',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onPrimary,
-                  fontWeight: FontWeight.w800,
+              // The theme's own surface laid over the photo keeps the date
+              // readable on any picture, in light and dark alike.
+              ColoredBox(color: scheme.surface.withValues(alpha: 0.72)),
+              tint,
+            ],
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Text(
+                  '$day',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w800,
+                    height: 1.0,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 2),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      month,
+                      maxLines: 1,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

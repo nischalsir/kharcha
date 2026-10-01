@@ -29,6 +29,7 @@ import 'privacy_policy_screen.dart';
 import 'profile_edit_screen.dart';
 import 'two_factor_screen.dart';
 import 'version_screen.dart';
+import '../../widgets/common/page_refresh.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -66,233 +67,249 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         body: SafeArea(
           top: false,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-            children: <Widget>[
-              _SectionHeader(title: context.t('Profile', 'प्रोफाइल')),
-              const SizedBox(height: 8),
-              const _ProfileCard(),
-              const SizedBox(height: 24),
-              _SectionHeader(title: context.t('Appearance', 'देखावट')),
-              const SizedBox(height: 8),
-              GlassCard(
-                child: Column(
-                  children: <Widget>[
-                    _ThemeTile(
-                      label: context.t('Light', 'उज्यालो'),
-                      selected: provider.themeMode == ThemeMode.light,
-                      onTap: () => provider.updateThemeMode(AppThemeMode.light),
-                    ),
-                    const Divider(height: 1),
-                    _ThemeTile(
-                      label: context.t('Dark', 'अँध्यारो'),
-                      selected: provider.themeMode == ThemeMode.dark,
-                      onTap: () => provider.updateThemeMode(AppThemeMode.dark),
-                    ),
-                    const Divider(height: 1),
-                    _ThemeTile(
-                      label: context.t('System', 'प्रणाली'),
-                      selected: provider.themeMode == ThemeMode.system,
-                      onTap: () =>
-                          provider.updateThemeMode(AppThemeMode.system),
-                    ),
-                  ],
+          child: PageRefresh(
+            pageName: 'Settings',
+            pageNameNe: 'सेटिङ',
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+              children: <Widget>[
+                _SectionHeader(title: context.t('Profile', 'प्रोफाइल')),
+                const SizedBox(height: 8),
+                const _ProfileCard(),
+                const SizedBox(height: 24),
+                _SectionHeader(title: context.t('Appearance', 'देखावट')),
+                const SizedBox(height: 8),
+                GlassCard(
+                  child: Column(
+                    children: <Widget>[
+                      _ThemeTile(
+                        label: context.t('Light', 'उज्यालो'),
+                        selected: provider.themeMode == ThemeMode.light,
+                        onTap: () =>
+                            provider.updateThemeMode(AppThemeMode.light),
+                      ),
+                      const Divider(height: 1),
+                      _ThemeTile(
+                        label: context.t('Dark', 'अँध्यारो'),
+                        selected: provider.themeMode == ThemeMode.dark,
+                        onTap: () =>
+                            provider.updateThemeMode(AppThemeMode.dark),
+                      ),
+                      const Divider(height: 1),
+                      _ThemeTile(
+                        label: context.t('System', 'प्रणाली'),
+                        selected: provider.themeMode == ThemeMode.system,
+                        onTap: () =>
+                            provider.updateThemeMode(AppThemeMode.system),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              _SectionHeader(title: context.t('Data & Sync', 'डाटा र सिंक')),
-              const SizedBox(height: 8),
-              GlassCard(
-                child: Column(
-                  children: <Widget>[
-                    _SettingTile(
-                      icon: Icons.cloud_sync_rounded,
-                      color: const Color(0xFF0A84FF),
-                      title: context.t('Database Sync', 'डाटाबेस सिंक'),
-                      subtitle: supabase.isConfigured
-                          ? context.t('Connected', 'जडान भयो')
-                          : context.t('Not configured', 'कन्फिगर गरिएको छैन'),
-                      trailing: supabase.isConfigured
-                          ? const Icon(
-                              Icons.check_circle_rounded,
-                              color: Color(0xFF30D158),
-                            )
-                          : const Icon(
-                              Icons.warning_amber_rounded,
-                              color: Color(0xFFFF9F0A),
-                            ),
-                      onTap: () => _showSyncDialog(supabase),
-                    ),
-                    const Divider(height: 1),
-                    _SettingTile(
-                      icon: Icons.backup_rounded,
-                      color: const Color(0xFF30D158),
-                      title: context.t('Backup & Restore', 'ब्याकअप र रिस्टोर'),
-                      subtitle: context.t(
-                        'Cloud (Supabase) or device file',
-                        'क्लाउड (Supabase) वा यन्त्र फाइल',
+                const SizedBox(height: 24),
+                _SectionHeader(title: context.t('Data & Sync', 'डाटा र सिंक')),
+                const SizedBox(height: 8),
+                GlassCard(
+                  child: Column(
+                    children: <Widget>[
+                      _SettingTile(
+                        icon: Icons.cloud_sync_rounded,
+                        color: const Color(0xFF0A84FF),
+                        title: context.t('Database Sync', 'डाटाबेस सिंक'),
+                        subtitle: supabase.isConfigured
+                            ? context.t('Connected', 'जडान भयो')
+                            : context.t('Not configured', 'कन्फिगर गरिएको छैन'),
+                        trailing: supabase.isConfigured
+                            ? const Icon(
+                                Icons.check_circle_rounded,
+                                color: Color(0xFF30D158),
+                              )
+                            : const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Color(0xFFFF9F0A),
+                              ),
+                        onTap: () => _showSyncDialog(supabase),
                       ),
-                      onTap: () => _open(context, const BackupRestoreScreen()),
-                    ),
-                  ],
+                      const Divider(height: 1),
+                      _SettingTile(
+                        icon: Icons.backup_rounded,
+                        color: const Color(0xFF30D158),
+                        title: context.t(
+                          'Backup & Restore',
+                          'ब्याकअप र रिस्टोर',
+                        ),
+                        subtitle: context.t(
+                          'Cloud (Supabase) or device file',
+                          'क्लाउड (Supabase) वा यन्त्र फाइल',
+                        ),
+                        onTap: () =>
+                            _open(context, const BackupRestoreScreen()),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              _SectionHeader(title: context.t('Preferences', 'प्राथमिकताहरू')),
-              const SizedBox(height: 8),
-              GlassCard(
-                child: Column(
-                  children: <Widget>[
-                    _SettingTile(
-                      icon: Icons.currency_rupee_rounded,
-                      color: const Color(0xFFFF9F0A),
-                      title: context.t('Currency', 'मुद्रा'),
-                      subtitle: currencyLabel(provider.currency),
-                      onTap: () => _pickCurrency(provider),
-                    ),
-                    const Divider(height: 1),
-                    _SettingTile(
-                      icon: Icons.language_rounded,
-                      color: const Color(0xFFBF5AF2),
-                      title: context.t('Language', 'भाषा'),
-                      subtitle: provider.devanagariDates
-                          ? 'नेपाली (Nepali)'
-                          : 'English',
-                      onTap: () => _pickLanguage(provider),
-                    ),
-                    const Divider(height: 1),
-                    _SettingTile(
-                      icon: Icons.calendar_today_rounded,
-                      color: const Color(0xFF64D2FF),
-                      title: context.t('Calendar', 'पात्रो'),
-                      subtitle: provider.calendarType == CalendarSystem.ad
-                          ? context.t('Gregorian (AD)', 'ग्रेगोरियन (AD)')
-                          : context.t(
-                              'Bikram Sambat (BS)',
-                              'विक्रम संवत् (BS)',
-                            ),
-                      onTap: () => _pickCalendar(provider),
-                    ),
-                  ],
+                const SizedBox(height: 24),
+                _SectionHeader(
+                  title: context.t('Preferences', 'प्राथमिकताहरू'),
                 ),
-              ),
-              const SizedBox(height: 24),
-              _SectionHeader(title: context.t('Notifications', 'सूचनाहरू')),
-              const SizedBox(height: 8),
-              const _NotificationSettingsCard(),
-              const SizedBox(height: 24),
-              _SectionHeader(title: context.t('Security', 'सुरक्षा')),
-              const SizedBox(height: 8),
-              const _SecurityCard(),
-              const SizedBox(height: 8),
-              GlassCard(
-                child: Column(
-                  children: <Widget>[
-                    _SettingTile(
-                      icon: Icons.verified_user_rounded,
-                      color: const Color(0xFF30D158),
-                      title: context.t(
-                        'Two-factor authentication',
-                        'दुई-चरण प्रमाणीकरण',
+                const SizedBox(height: 8),
+                GlassCard(
+                  child: Column(
+                    children: <Widget>[
+                      _SettingTile(
+                        icon: Icons.currency_rupee_rounded,
+                        color: const Color(0xFFFF9F0A),
+                        title: context.t('Currency', 'मुद्रा'),
+                        subtitle: currencyLabel(provider.currency),
+                        onTap: () => _pickCurrency(provider),
                       ),
-                      subtitle: auth.hasMfaEnabled
-                          ? context.t(
-                              'On: a code is asked at sign-in',
-                              'खुला: साइन इनमा कोड मागिन्छ',
-                            )
-                          : context.t(
-                              'Off: protect your account with an authenticator app',
-                              'बन्द: प्रमाणक एपले खाता सुरक्षित गर्नुहोस्',
-                            ),
-                      trailing: Switch(
-                        value: auth.hasMfaEnabled,
-                        onChanged: _togglingTwoFactor
-                            ? null
-                            : (value) => _toggleTwoFactor(auth, value),
+                      const Divider(height: 1),
+                      _SettingTile(
+                        icon: Icons.language_rounded,
+                        color: const Color(0xFFBF5AF2),
+                        title: context.t('Language', 'भाषा'),
+                        subtitle: provider.devanagariDates
+                            ? 'नेपाली (Nepali)'
+                            : 'English',
+                        onTap: () => _pickLanguage(provider),
                       ),
-                      onTap: () => _open(context, const TwoFactorAuthScreen()),
-                    ),
-                    const Divider(height: 1),
-                    _SettingTile(
-                      icon: Icons.password_rounded,
-                      color: const Color(0xFF0A84FF),
-                      title: context.t(
-                        'Change password',
-                        'पासवर्ड परिवर्तन गर्नुहोस्',
+                      const Divider(height: 1),
+                      _SettingTile(
+                        icon: Icons.calendar_today_rounded,
+                        color: const Color(0xFF64D2FF),
+                        title: context.t('Calendar', 'पात्रो'),
+                        subtitle: provider.calendarType == CalendarSystem.ad
+                            ? context.t('Gregorian (AD)', 'ग्रेगोरियन (AD)')
+                            : context.t(
+                                'Bikram Sambat (BS)',
+                                'विक्रम संवत् (BS)',
+                              ),
+                        onTap: () => _pickCalendar(provider),
                       ),
-                      subtitle: context.t(
-                        'Update your account password',
-                        'तपाईंको खाता पासवर्ड अद्यावधिक गर्नुहोस्',
-                      ),
-                      onTap: () => _open(context, const ChangePasswordScreen()),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              _SectionHeader(title: context.t('About', 'बारे')),
-              const SizedBox(height: 8),
-              GlassCard(
-                child: Column(
-                  children: <Widget>[
-                    _SettingTile(
-                      icon: Icons.info_outline_rounded,
-                      color: const Color(0xFF8E8E93),
-                      title: context.t('About Kharcha', 'खर्चा बारे'),
-                      subtitle: context.t(
-                        'What’s new, updates and credits',
-                        'के नयाँ छ, अपडेट र श्रेय',
+                const SizedBox(height: 24),
+                _SectionHeader(title: context.t('Notifications', 'सूचनाहरू')),
+                const SizedBox(height: 8),
+                const _NotificationSettingsCard(),
+                const SizedBox(height: 24),
+                _SectionHeader(title: context.t('Security', 'सुरक्षा')),
+                const SizedBox(height: 8),
+                const _SecurityCard(),
+                const SizedBox(height: 8),
+                GlassCard(
+                  child: Column(
+                    children: <Widget>[
+                      _SettingTile(
+                        icon: Icons.verified_user_rounded,
+                        color: const Color(0xFF30D158),
+                        title: context.t(
+                          'Two-factor authentication',
+                          'दुई-चरण प्रमाणीकरण',
+                        ),
+                        subtitle: auth.hasMfaEnabled
+                            ? context.t(
+                                'On: a code is asked at sign-in',
+                                'खुला: साइन इनमा कोड मागिन्छ',
+                              )
+                            : context.t(
+                                'Off: protect your account with an authenticator app',
+                                'बन्द: प्रमाणक एपले खाता सुरक्षित गर्नुहोस्',
+                              ),
+                        trailing: Switch(
+                          value: auth.hasMfaEnabled,
+                          onChanged: _togglingTwoFactor
+                              ? null
+                              : (value) => _toggleTwoFactor(auth, value),
+                        ),
+                        onTap: () =>
+                            _open(context, const TwoFactorAuthScreen()),
                       ),
-                      onTap: () => _open(context, const VersionScreen()),
-                    ),
-                    const Divider(height: 1),
-                    _SettingTile(
-                      icon: Icons.privacy_tip_rounded,
-                      color: const Color(0xFF8E8E93),
-                      title: context.t('Privacy Policy', 'गोपनीयता नीति'),
-                      subtitle: context.t(
-                        'View our privacy policy',
-                        'हाम्रो गोपनीयता नीति हेर्नुहोस्',
+                      const Divider(height: 1),
+                      _SettingTile(
+                        icon: Icons.password_rounded,
+                        color: const Color(0xFF0A84FF),
+                        title: context.t(
+                          'Change password',
+                          'पासवर्ड परिवर्तन गर्नुहोस्',
+                        ),
+                        subtitle: context.t(
+                          'Update your account password',
+                          'तपाईंको खाता पासवर्ड अद्यावधिक गर्नुहोस्',
+                        ),
+                        onTap: () =>
+                            _open(context, const ChangePasswordScreen()),
                       ),
-                      onTap: () => _open(context, const PrivacyPolicyScreen()),
-                    ),
-                    const Divider(height: 1),
-                    _SettingTile(
-                      icon: Icons.help_outline_rounded,
-                      color: const Color(0xFF8E8E93),
-                      title: context.t('Help & Support', 'मद्दत र सहयोग'),
-                      subtitle: context.t(
-                        'Get help or send feedback',
-                        'मद्दत लिनुहोस् वा प्रतिक्रिया पठाउनुहोस्',
-                      ),
-                      onTap: () => _open(context, const HelpSupportScreen()),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              _SectionHeader(title: context.t('Danger Zone', 'खतरा क्षेत्र')),
-              const SizedBox(height: 8),
-              GlassCard(
-                child: Column(
-                  children: <Widget>[
-                    _SettingTile(
-                      icon: Icons.delete_forever_rounded,
-                      color: glass.danger,
-                      title: context.t(
-                        'Delete All Data',
-                        'सबै डाटा मेटाउनुहोस्',
+                const SizedBox(height: 24),
+                _SectionHeader(title: context.t('About', 'बारे')),
+                const SizedBox(height: 8),
+                GlassCard(
+                  child: Column(
+                    children: <Widget>[
+                      _SettingTile(
+                        icon: Icons.info_outline_rounded,
+                        color: const Color(0xFF8E8E93),
+                        title: context.t('About Kharcha', 'खर्चा बारे'),
+                        subtitle: context.t(
+                          'What’s new, updates and credits',
+                          'के नयाँ छ, अपडेट र श्रेय',
+                        ),
+                        onTap: () => _open(context, const VersionScreen()),
                       ),
-                      subtitle: context.t(
-                        'Permanently delete all local data',
-                        'सबै स्थानीय डाटा स्थायी रूपमा मेटाउनुहोस्',
+                      const Divider(height: 1),
+                      _SettingTile(
+                        icon: Icons.privacy_tip_rounded,
+                        color: const Color(0xFF8E8E93),
+                        title: context.t('Privacy Policy', 'गोपनीयता नीति'),
+                        subtitle: context.t(
+                          'View our privacy policy',
+                          'हाम्रो गोपनीयता नीति हेर्नुहोस्',
+                        ),
+                        onTap: () =>
+                            _open(context, const PrivacyPolicyScreen()),
                       ),
-                      onTap: () => _confirmDeleteAll(),
-                    ),
-                  ],
+                      const Divider(height: 1),
+                      _SettingTile(
+                        icon: Icons.help_outline_rounded,
+                        color: const Color(0xFF8E8E93),
+                        title: context.t('Help & Support', 'मद्दत र सहयोग'),
+                        subtitle: context.t(
+                          'Get help or send feedback',
+                          'मद्दत लिनुहोस् वा प्रतिक्रिया पठाउनुहोस्',
+                        ),
+                        onTap: () => _open(context, const HelpSupportScreen()),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                _SectionHeader(title: context.t('Danger Zone', 'खतरा क्षेत्र')),
+                const SizedBox(height: 8),
+                GlassCard(
+                  child: Column(
+                    children: <Widget>[
+                      _SettingTile(
+                        icon: Icons.delete_forever_rounded,
+                        color: glass.danger,
+                        title: context.t(
+                          'Delete All Data',
+                          'सबै डाटा मेटाउनुहोस्',
+                        ),
+                        subtitle: context.t(
+                          'Permanently delete all local data',
+                          'सबै स्थानीय डाटा स्थायी रूपमा मेटाउनुहोस्',
+                        ),
+                        onTap: () => _confirmDeleteAll(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

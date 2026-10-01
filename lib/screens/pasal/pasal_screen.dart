@@ -11,6 +11,7 @@ import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/staggered_list_item.dart';
 import 'add_pasal_screen.dart';
 import 'pasal_detail_screen.dart';
+import '../../widgets/common/page_refresh.dart';
 
 class PasalScreen extends StatefulWidget {
   const PasalScreen({super.key});
@@ -52,144 +53,151 @@ class _PasalScreenState extends State<PasalScreen> {
 
     return SafeArea(
       bottom: false,
-      child: CustomScrollView(
-        slivers: <Widget>[
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      'Pasal',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AddPasalScreen()),
-                    ),
-                    icon: const Icon(Icons.add_circle_rounded, size: 30),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            sliver: SliverToBoxAdapter(
-              child: GlassCard(
-                glow: true,
+      child: PageRefresh(
+        pageName: 'Pasal',
+        pageNameNe: 'पसल',
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: <Widget>[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child: Row(
                   children: <Widget>[
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Text(
+                        'Pasal',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AddPasalScreen(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.add_circle_rounded, size: 30),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverToBoxAdapter(
+                child: GlassCard(
+                  glow: true,
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              'Total Outstanding',
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(color: glass.textSecondary),
+                            ),
+                            const SizedBox(height: 4),
+                            AnimatedNumber(
+                              value: summary.totalOutstanding,
+                              formatter: (v) => CurrencyFormatter.format(v),
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(width: 1, height: 36, color: glass.border),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: <Widget>[
                           Text(
-                            'Total Outstanding',
+                            '${summary.pasalCount}',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          Text(
+                            'Pasals',
                             style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(color: glass.textSecondary),
                           ),
-                          const SizedBox(height: 4),
-                          AnimatedNumber(
-                            value: summary.totalOutstanding,
-                            formatter: (v) => CurrencyFormatter.format(v),
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
                         ],
                       ),
-                    ),
-                    Container(width: 1, height: 36, color: glass.border),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: <Widget>[
-                        Text(
-                          '${summary.pasalCount}',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        Text(
-                          'Pasals',
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(color: glass.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-            sliver: SliverToBoxAdapter(
-              child: TextField(
-                controller: _searchController,
-                onChanged: provider.setQuery,
-                decoration: const InputDecoration(
-                  hintText: 'Search pasal',
-                  prefixIcon: Icon(Icons.search_rounded),
-                ),
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-            sliver: SliverToBoxAdapter(
-              child: SizedBox(
-                height: 36,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: <Widget>[
-                    for (final filter in PasalStatusFilter.values)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(_filterLabel(filter)),
-                          selected: provider.statusFilter == filter,
-                          onSelected: (_) => provider.setStatusFilter(filter),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (pasals.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: EmptyState(
-                icon: Icons.storefront_rounded,
-                title: 'No Pasals yet',
-                message:
-                    'Add your local shop to start tracking credit purchases.',
-                actionLabel: 'Add Pasal',
-                onAction: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddPasalScreen()),
-                ),
-              ),
-            )
-          else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final pasal = pasals[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: StaggeredListItem(
-                      index: index,
-                      child: _PasalTile(pasal: pasal),
-                    ),
-                  );
-                }, childCount: pasals.length),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+              sliver: SliverToBoxAdapter(
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: provider.setQuery,
+                  decoration: const InputDecoration(
+                    hintText: 'Search pasal',
+                    prefixIcon: Icon(Icons.search_rounded),
+                  ),
+                ),
               ),
             ),
-        ],
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              sliver: SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 36,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: <Widget>[
+                      for (final filter in PasalStatusFilter.values)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(_filterLabel(filter)),
+                            selected: provider.statusFilter == filter,
+                            onSelected: (_) => provider.setStatusFilter(filter),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (pasals.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: EmptyState(
+                  icon: Icons.storefront_rounded,
+                  title: 'No Pasals yet',
+                  message:
+                      'Add your local shop to start tracking credit purchases.',
+                  actionLabel: 'Add Pasal',
+                  onAction: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddPasalScreen()),
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final pasal = pasals[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: StaggeredListItem(
+                        index: index,
+                        child: _PasalTile(pasal: pasal),
+                      ),
+                    );
+                  }, childCount: pasals.length),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

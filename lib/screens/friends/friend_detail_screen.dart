@@ -10,7 +10,10 @@ import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/primary_button.dart';
+
 import 'package:flutter/services.dart';
+
+import '../../widgets/common/page_refresh.dart';
 
 String _filterLabel(FriendCreditFilter filter) {
   switch (filter) {
@@ -112,93 +115,98 @@ class FriendDetailScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
-        children: <Widget>[
-          GlassCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: _Amount(
-                        label: 'They owe you',
-                        value: theyOwe,
-                        color: glass.success,
+      body: PageRefresh(
+        pageName: 'Friend',
+        pageNameNe: 'साथी',
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+          children: <Widget>[
+            GlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: _Amount(
+                          label: 'They owe you',
+                          value: theyOwe,
+                          color: glass.success,
+                        ),
                       ),
-                    ),
-                    Container(width: 1, height: 36, color: glass.border),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _Amount(
-                        label: 'You owe',
-                        value: iOwe,
-                        color: glass.danger,
+                      Container(width: 1, height: 36, color: glass.border),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _Amount(
+                          label: 'You owe',
+                          value: iOwe,
+                          color: glass.danger,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (friend.phone != null) ...<Widget>[
+                    const SizedBox(height: 12),
+                    Text(
+                      friend.phone!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: glass.textSecondary,
                       ),
                     ),
                   ],
-                ),
-                if (friend.phone != null) ...<Widget>[
-                  const SizedBox(height: 12),
-                  Text(
-                    friend.phone!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: glass.textSecondary,
+                  if (friend.notes != null)
+                    Text(
+                      friend.notes!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: glass.textSecondary,
+                      ),
                     ),
-                  ),
                 ],
-                if (friend.notes != null)
-                  Text(
-                    friend.notes!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: glass.textSecondary,
-                    ),
-                  ),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 36,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: <Widget>[
-                for (final filter in FriendCreditFilter.values)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(_filterLabel(filter)),
-                      selected: provider.creditFilter == filter,
-                      onSelected: (_) => provider.setCreditFilter(filter),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (credits.isEmpty)
+            const SizedBox(height: 16),
             SizedBox(
-              height: 280,
-              child: EmptyState(
-                icon: Icons.receipt_long_rounded,
-                title: 'No credits',
-                message: 'Record money you lent or borrowed.',
-                actionLabel: 'Add Credit',
-                onAction: () => showGlassSheet<void>(
-                  context: context,
-                  title: 'Add Credit',
-                  builder: (_) => _CreditForm(friendId: friendId),
+              height: 36,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: <Widget>[
+                  for (final filter in FriendCreditFilter.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(_filterLabel(filter)),
+                        selected: provider.creditFilter == filter,
+                        onSelected: (_) => provider.setCreditFilter(filter),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (credits.isEmpty)
+              SizedBox(
+                height: 280,
+                child: EmptyState(
+                  icon: Icons.receipt_long_rounded,
+                  title: 'No credits',
+                  message: 'Record money you lent or borrowed.',
+                  actionLabel: 'Add Credit',
+                  onAction: () => showGlassSheet<void>(
+                    context: context,
+                    title: 'Add Credit',
+                    builder: (_) => _CreditForm(friendId: friendId),
+                  ),
                 ),
-              ),
-            )
-          else
-            for (final credit in credits)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _CreditTile(credit: credit, now: now),
-              ),
-        ],
+              )
+            else
+              for (final credit in credits)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _CreditTile(credit: credit, now: now),
+                ),
+          ],
+        ),
       ),
     );
   }

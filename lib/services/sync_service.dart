@@ -132,6 +132,7 @@ class SyncService extends ChangeNotifier {
   /// of writing it into the new account's cache.
   int _account = 0;
   int _runningAccount = 0;
+  bool _runningPulls = false;
 
   Future<AccountAdoption> _adopt(String userId) async {
     final owner = cacheOwner;
@@ -189,15 +190,18 @@ class SyncService extends ChangeNotifier {
   Future<void> _start({required bool pull}) {
     final running = _running;
     if (running != null) {
-      if (_runningAccount == _account) return running;
-      // That run belongs to the previous account. Let it wind down, then sync
-      // for the current one rather than handing back a run that fetched
-      // nothing of theirs.
+      final sameAccount = _runningAccount == _account;
+      if (sameAccount && (_runningPulls || !pull)) return running;
+      // That run cannot answer this request: it belongs to the previous
+      // account, or it only uploads while a fetch was asked for. Let it wind
+      // down, then run again rather than handing back a run that fetched
+      // nothing.
       return running
           .then<void>((_) {}, onError: (_) {})
           .then((_) => _start(pull: pull));
     }
     _runningAccount = _account;
+    _runningPulls = pull;
     final future = _run(pull: pull).whenComplete(() {
       _running = null;
       if (_status == SyncStatus.synced && _cache.hasRunnablePending) {
