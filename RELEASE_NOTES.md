@@ -1,35 +1,35 @@
-# Kharcha v1.0.1
+# Kharcha v1.0.13
 
-## Fixes
-- **User data isolation fixed**: Added explicit `user_id` filter to sync pull queries for defense-in-depth. Every user now only sees their own transactions, budgets, friends, categories, and settings.
-- **Login/Signup improvements**: Better error messages ("Wrong email or password" instead of generic "Could not sign in to sync"), fully localized strings, improved UX.
-- **Update checker**: App now checks GitHub releases on login/signup and prompts to update if a newer version is available.
-- **Removed app version from More page** for cleaner UI.
-- **Database cleaned**: All previous test accounts and data removed for a fresh start.
+## 🔔 Notifications that actually arrive
 
-## Highlights (from v1.0.0)
-- **Bikram Sambat calendar** in Nepali with gazetted festival dates from the Ministry of Home Affairs
-- **Expense / income tracking** with categories, monthly budget, and "Spent this month" card showing total, % of income, and category breakdown
-- **AI flame mascot**: glows gold when you're saving, turns blue/sad when overspending, reacts to every transaction with random lines ("Hmmmm… money!", "Save money!")
-- **AI insights + chat** (API key stays on the server)
-- **Daily AI greetings**: good morning at 6 AM, good night at 10 PM, random tips in between — toggle in Settings
-- **Push notifications (FCM)**, friends owe/owed, pasal credit, recurring payments, reports
-- **Offline-first sync**, encrypted backups, biometric lock
-- **Security**: row-level security on every table, private storage, secrets only in edge functions, input limits matched to the database
+- **Push notifications fixed.** Flame reactions, good-morning / good-night greetings and AI tips now reach your phone as real notifications, including when the app is closed.
+- **No more blank or doubled notifications** when the app is in the background. Every notification now uses Kharcha's own channels, icon and tap routing.
+- **Notifications stack instead of replacing each other** when several arrive while the app is closed.
+
+## ✨ Seven new reminder types
+
+These were in Settings before but never fired. They all work now, in your own local time and Nepali calendar months:
+
+| | Reminder | When |
+|---|---|---|
+| 🚨 | **Budget alerts** | Within the hour your monthly or weekly budget passes 80% or 100% (8 am–10 pm) |
+| 📅 | **Upcoming payments** | 9 am, for recurring bills due today or tomorrow |
+| 🤝 | **Friend reminders** | 9 am, when money you lent or borrowed is due today or tomorrow |
+| ⏰ | **Overdue payments** | 9 am, a weekly nudge for past-due friend and pasal payments |
+| 🏪 | **Pasal month end** | 9 am, the day before the Nepali month ends, if you still owe a pasal |
+| 📊 | **Daily summary** | 9 pm (off by default: turn it on in Settings) |
+| 📈 | **Weekly summary** | Sunday 9 am (off by default) |
+
+Each one respects its switch in **Settings → Notifications** and is never sent twice.
+
+## 🛠 Under the hood
+
+- Devices from old installs are cleaned up automatically, so notifications stop being sent to phones that no longer have the app.
 
 ## Install
-1. Download the APK below (`kharcha-v1.0.1.apk`)
-2. Enable *Install unknown apps* for your browser / file manager
-3. Open the APK → Install
 
-> ⚠️ **Warning**: This APK is **debug-signed** (same key as development builds). If you have any previous Kharcha build installed with a different signature (e.g., a release-signed build), you must **uninstall it first** — Android blocks updates with mismatched signatures.
+1. Download `kharcha-v1.0.13.apk` below.
+2. Allow *Install unknown apps* for your browser or file manager if asked.
+3. Open the APK → **Update**.
 
-## Minimum SDK
-- **minSdk 21** (Android 5.0 Lollipop)
-
-## Tech Stack
-- **Frontend**: Flutter 3.47 (Dart 3.13)
-- **Backend**: Supabase (Postgres + Edge Functions in Deno)
-- **Push**: Firebase Cloud Messaging (FCM v1)
-- **AI**: NVIDIA Nemotron / custom prompts via Supabase Edge Functions
-- **Calendar**: Bikram Sambat (BS) with official Nepali festival data
+> Signed with the same release key as v1.0.8, so it installs over v1.0.8–v1.0.12 without losing data. If you are still on v1.0.7 or older (signed with the development key), uninstall that first.
