@@ -1,327 +1,243 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/l10n/app_l10n.dart';
 import '../../core/router/route_paths.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../services/app_images.dart';
-import '../../widgets/common/glass_background.dart';
-import '../../widgets/common/primary_button.dart';
 
-class IntroductionScreen extends StatefulWidget {
+/// The first thing a new user sees: one page, not a walk-through.
+///
+/// A picture standing on a glass disc in a warm glow, what the app is for in
+/// two lines, and the two ways on: create an account, or sign in. It is dark
+/// whatever the theme, like a title card.
+class IntroductionScreen extends StatelessWidget {
   const IntroductionScreen({super.key});
 
-  /// The slides, in order. Also read by the image preloader.
-  static const List<OnboardingPage> pages = <OnboardingPage>[
-    OnboardingPage(
-      title: 'Track Every Expense',
-      imageId: 'qiwpmjgzfclytnrv5tgh',
-      description:
-          'Log your daily spending in seconds. Categorize expenses, add '
-          'notes, and never wonder where your money went.',
-      illustration: Icons.receipt_long_rounded,
-      color: Color(0xFF10B981),
-    ),
-    OnboardingPage(
-      title: 'Smart Budgets',
-      imageId: 'stwv5wtm46f3pfjftb13',
-      description:
-          'Set monthly budgets per category. Get alerts before you overspend '
-          'and visualize your spending patterns.',
-      illustration: Icons.pie_chart_rounded,
-      color: Color(0xFF3B82F6),
-    ),
-    OnboardingPage(
-      title: 'Split with Friends',
-      imageId: 'b3qorzldimac95asnxng',
-      description:
-          'Track shared expenses with friends and Pasal (group expenses). '
-          'Settle up instantly with clear balances.',
-      illustration: Icons.people_alt_rounded,
-      color: Color(0xFFF59E0B),
-    ),
-    OnboardingPage(
-      title: 'Works Offline',
-      imageId: 'yhq42j7ar5npx5ncybxx',
-      description:
-          'Your data stays on your device. Sync securely with Supabase when '
-          'online. Privacy first, always.',
-      illustration: Icons.cloud_sync_rounded,
-      color: Color(0xFF8B5CF6),
-    ),
-  ];
+  /// Cloudinary public id of the picture on the disc.
+  static const String heroImageId = 'kharcha/intro/wallet';
 
-  @override
-  State<IntroductionScreen> createState() => _IntroductionScreenState();
-}
+  /// The picture, cut out of its background and trimmed to its own edges so
+  /// that it stands on the disc, served as WebP/AVIF at a phone-sized width.
+  /// Also read by the image preloader.
+  static const String heroImageUrl =
+      'https://res.cloudinary.com/dh3rzo7bt/image/upload/'
+      'e_background_removal/e_trim/f_auto,q_auto,w_720/$heroImageId.png';
 
-class _IntroductionScreenState extends State<IntroductionScreen> {
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
+  static const Color _accent = Color(0xFFF07F13);
+  static const Color _accentDeep = Color(0xFFD9650A);
 
-  List<OnboardingPage> get _pages => IntroductionScreen.pages;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Warm the first two slides so swiping never waits on the network.
-    for (final page in _pages.take(2)) {
-      precacheImage(
-        AppImages.provider(page.imageUrl),
-        context,
-        onError: (_, _) {},
-      );
-    }
-  }
-
-  void _onPageChanged(int index) {
-    setState(() => _currentPage = index);
-    if (index + 1 < _pages.length) {
-      precacheImage(
-        AppImages.provider(_pages[index + 1].imageUrl),
-        context,
-        onError: (_, _) {},
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  void _nextPage() {
-    if (_currentPage < _pages.length - 1) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-      );
-    } else {
-      _completeOnboarding();
-    }
-  }
-
-  void _completeOnboarding() async {
+  /// Marks the introduction as seen and goes to [route].
+  Future<void> _leave(BuildContext context, String route) async {
+    // Read before the wait: once the introduction is marked as seen the page
+    // under this one becomes the sign-in page and this context may be gone.
+    final navigator = Navigator.of(context);
     await context.read<AppSettingsProvider>().markIntroductionSeen();
-    if (mounted) {
-      // Push (not replace) so the root `_AuthWrapper` route stays in the stack
-      // and can still hand the user back to the login page after a sign-out.
-      Navigator.of(context).pushNamed(RoutePaths.login);
-    }
+    // Push (not replace) so the root route stays in the stack and can still
+    // hand the user back to the sign-in page after a sign-out.
+    navigator.pushNamed(route);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return GlassBackground(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Column(
-            children: [
-              // Skip button
-              Align(
-                alignment: Alignment.topRight,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: TextButton(
-                    onPressed: _completeOnboarding,
-                    child: Text(
-                      'Skip',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+        backgroundColor: const Color(0xFF2E2A2B),
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[
+                Color(0xFF3B3431),
+                Color(0xFF2C2A33),
+                Color(0xFF3A3836),
+              ],
+              stops: <double>[0, 0.6, 1],
+            ),
+          ),
+          child: SafeArea(
+            // Very large text would push the buttons off a small phone.
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.2,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final words = _words(context);
+                  const padding = EdgeInsets.fromLTRB(24, 8, 24, 20);
+                  // On a phone of ordinary height the picture takes whatever
+                  // the words leave. On a very short one it keeps a small
+                  // fixed size and the page scrolls, rather than the buttons
+                  // running off the bottom.
+                  if (constraints.maxHeight >= _roomyHeight) {
+                    return Padding(
+                      padding: padding,
+                      child: Column(
+                        children: <Widget>[
+                          const Expanded(child: _Hero()),
+                          ...words,
+                        ],
                       ),
-                    ),
-                  ),
-                ),
-              ),
-              // PageView
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _pages.length,
-                  onPageChanged: _onPageChanged,
-                  itemBuilder: (context, index) {
-                    final page = _pages[index];
-                    // Parallax: the illustration drifts and shrinks slightly as
-                    // its page slides away. Driven by the controller, so it
-                    // costs one transform per frame and no rebuild of the text.
-                    return AnimatedBuilder(
-                      animation: _pageController,
-                      builder: (context, child) {
-                        var offset = 0.0;
-                        if (_pageController.hasClients &&
-                            _pageController.position.haveDimensions) {
-                          offset = (_pageController.page ?? 0) - index;
-                        }
-                        return _OnboardingPageContent(
-                          page: page,
-                          offset: offset.clamp(-1.0, 1.0),
-                        );
-                      },
                     );
-                  },
-                ),
-              ),
-              // Indicators and buttons
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-                child: Column(
-                  children: [
-                    // Page indicators
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(_pages.length, (index) {
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: _currentPage == index ? 24 : 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: _currentPage == index
-                                ? _pages[_currentPage].color
-                                : colorScheme.outline.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        );
-                      }),
+                  }
+                  return SingleChildScrollView(
+                    padding: padding,
+                    child: Column(
+                      children: <Widget>[
+                        const SizedBox(height: 180, child: _Hero()),
+                        ...words,
+                      ],
                     ),
-                    const SizedBox(height: 32),
-                    // Next/Get Started button
-                    SizedBox(
-                      width: double.infinity,
-                      child: PrimaryButton(
-                        label: _currentPage == _pages.length - 1
-                            ? 'Get Started'
-                            : 'Next',
-                        onPressed: _nextPage,
-                        color: _pages[_currentPage].color,
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  /// The least height at which the picture and the words fit without
+  /// scrolling.
+  static const double _roomyHeight = 560;
+
+  /// Everything under the picture.
+  List<Widget> _words(BuildContext context) {
+    final theme = Theme.of(context);
+    return <Widget>[
+      const SizedBox(height: 20),
+      Text(
+        context.t(
+          'Know Where\nYour Money Goes',
+          'तपाईंको पैसा\nकहाँ जान्छ, थाहा पाउनुहोस्',
+        ),
+        textAlign: TextAlign.center,
+        style: theme.textTheme.headlineMedium?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+          height: 1.2,
+        ),
+      ),
+      const SizedBox(height: 12),
+      Text(
+        context.t(
+          'Track spending, budgets and festivals, in your own calendar and '
+              'language',
+          'खर्च, बजेट र चाडपर्व, तपाईंकै पात्रो र भाषामा',
+        ),
+        textAlign: TextAlign.center,
+        style: theme.textTheme.bodyLarge?.copyWith(
+          color: Colors.white.withValues(alpha: 0.78),
+          height: 1.4,
+        ),
+      ),
+      const SizedBox(height: 22),
+      const _Ornament(color: _accent),
+      const SizedBox(height: 22),
+      _GetStartedButton(
+        label: context.t('Get started', 'सुरु गर्नुहोस्'),
+        onPressed: () => _leave(context, RoutePaths.signup),
+      ),
+      const SizedBox(height: 6),
+      TextButton(
+        key: const ValueKey<String>('intro-login'),
+        onPressed: () => _leave(context, RoutePaths.login),
+        child: Text(
+          context.t('Login', 'लगइन'),
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: Colors.white,
+            decoration: TextDecoration.underline,
+            decorationColor: Colors.white70,
+          ),
+        ),
+      ),
+    ];
+  }
 }
 
-class OnboardingPage {
-  final String title;
-  final String description;
-  final IconData illustration;
-  final Color color;
-
-  /// Cloudinary public id of the slide's illustration.
-  final String imageId;
-
-  const OnboardingPage({
-    required this.title,
-    required this.description,
-    required this.illustration,
-    required this.color,
-    required this.imageId,
-  });
-
-  /// Generated on a white canvas; background removal lets it sit on the glass
-  /// background, and f_auto/q_auto serve WebP/AVIF at a phone-sized width.
-  String get imageUrl =>
-      'https://res.cloudinary.com/dh3rzo7bt/image/upload/'
-      'e_background_removal/f_auto,q_auto,w_720/$imageId.png';
-}
-
-class _OnboardingPageContent extends StatelessWidget {
-  const _OnboardingPageContent({required this.page, this.offset = 0});
-
-  final OnboardingPage page;
-
-  /// -1..1: how far this page is from being centred.
-  final double offset;
+/// The picture on its glass disc, lit from behind.
+class _Hero extends StatelessWidget {
+  const _Hero();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    // On a small phone the illustration gives way, and if the words still do
-    // not fit they scroll, rather than running off the bottom of the page.
     return LayoutBuilder(
       builder: (context, constraints) {
-        final art = (constraints.maxHeight * 0.42).clamp(120.0, 260.0);
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Illustration
-                Transform.translate(
-                  offset: Offset(offset * -60, 0),
-                  child: Transform.scale(
-                    scale: 1 - offset.abs() * 0.12,
-                    child: SizedBox(
-                      width: art,
-                      height: art,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: <Widget>[
-                          Container(
-                            width: art * 0.85,
-                            height: art * 0.85,
-                            decoration: BoxDecoration(
-                              color: page.color.withValues(alpha: 0.12),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          Image(
-                            image: AppImages.provider(page.imageUrl),
-                            width: art,
-                            height: art,
-                            fit: BoxFit.contain,
-                            semanticLabel: page.title,
-                            frameBuilder: (context, child, frame, sync) =>
-                                AnimatedOpacity(
-                                  opacity: sync || frame != null ? 1 : 0,
-                                  duration: const Duration(milliseconds: 250),
-                                  child: child,
-                                ),
-                            // First launch can be offline: show the icon instead.
-                            errorBuilder: (_, _, _) => Icon(
-                              page.illustration,
-                              size: 72,
-                              color: page.color,
-                            ),
-                          ),
+        // As large as the space allows, and never wider than it is tall, so
+        // a short phone gets a smaller picture rather than a cropped one.
+        final size = constraints.biggest.shortestSide;
+        final discWidth = size * 0.94;
+        final discHeight = discWidth * 0.26;
+        // A little below the middle of the space, close to the words.
+        return Align(
+          alignment: const Alignment(0, 0.5),
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                // The warm light behind the picture.
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        // Gone before it reaches the edge of its box, so
+                        // the light never shows a straight edge.
+                        radius: 0.5,
+                        colors: <Color>[
+                          const Color(0xFFE9A77C).withValues(alpha: 0.62),
+                          const Color(0xFFE9A77C).withValues(alpha: 0.2),
+                          Colors.transparent,
                         ],
+                        stops: const <double>[0, 0.5, 0.95],
                       ),
                     ),
                   ),
                 ),
-                SizedBox(height: art < 200 ? 18 : 32),
-                // Title
-                Text(
-                  page.title,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                    height: 1.2,
+                Positioned(
+                  bottom: size * 0.04,
+                  child: CustomPaint(
+                    size: Size(discWidth, discHeight),
+                    painter: const _GlassDiscPainter(),
                   ),
                 ),
-                const SizedBox(height: 16),
-                // Description
-                Text(
-                  page.description,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.5,
+                // Standing on the disc: its foot is a little above the
+                // disc's middle.
+                Positioned(
+                  bottom: size * 0.04 + discHeight * 0.42,
+                  child: Image(
+                    image: AppImages.provider(IntroductionScreen.heroImageUrl),
+                    width: size * 0.66,
+                    height: size * 0.66,
+                    fit: BoxFit.contain,
+                    alignment: Alignment.bottomCenter,
+                    semanticLabel: context.t(
+                      'A wallet with coins and a receipt',
+                      'सिक्का र रसिदसहितको वालेट',
+                    ),
+                    frameBuilder: (context, child, frame, sync) =>
+                        AnimatedOpacity(
+                          opacity: sync || frame != null ? 1 : 0,
+                          duration: const Duration(milliseconds: 300),
+                          child: child,
+                        ),
+                    // The first launch can be offline: an icon stands in.
+                    errorBuilder: (_, _, _) => SizedBox(
+                      width: size * 0.66,
+                      height: size * 0.66,
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Icon(
+                          Icons.account_balance_wallet_rounded,
+                          size: size * 0.42,
+                          color: const Color(0xFF5E8A5A),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -329,6 +245,143 @@ class _OnboardingPageContent extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// A round sheet of glass seen from a little above: a faint fill, a bright
+/// near edge, and a second line under it for the glass's thickness.
+class _GlassDiscPainter extends CustomPainter {
+  const _GlassDiscPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const thickness = 5.0;
+    final top = Rect.fromLTWH(0, 0, size.width, size.height - thickness);
+    final under = top.shift(const Offset(0, thickness));
+
+    canvas.drawOval(
+      under,
+      Paint()..color = Colors.white.withValues(alpha: 0.10),
+    );
+    canvas.drawOval(
+      under,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = Colors.white.withValues(alpha: 0.28),
+    );
+    canvas.drawOval(
+      top,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[Color(0x52857C86), Color(0x66665F6B)],
+        ).createShader(top),
+    );
+    canvas.drawOval(
+      top,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[Color(0x40FFFFFF), Color(0xD9FFFFFF)],
+        ).createShader(top),
+    );
+    // Where the picture stands: a soft shadow, so it sits on the glass
+    // rather than floating over it.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: top.center.translate(0, -top.height * 0.04),
+        width: top.width * 0.5,
+        height: top.height * 0.42,
+      ),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Three dots on a line, under the words.
+class _Ornament extends StatelessWidget {
+  const _Ornament({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget dot() => Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+    Widget line() => Container(width: 12, height: 2, color: color);
+    return ExcludeSemantics(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[dot(), line(), dot(), line(), dot()],
+      ),
+    );
+  }
+}
+
+/// The wide orange button.
+class _GetStartedButton extends StatelessWidget {
+  const _GetStartedButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(28);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[
+            IntroductionScreen._accent,
+            IntroductionScreen._accentDeep,
+          ],
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: IntroductionScreen._accentDeep.withValues(alpha: 0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          key: const ValueKey<String>('intro-get-started'),
+          borderRadius: radius,
+          onTap: onPressed,
+          child: SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: Center(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

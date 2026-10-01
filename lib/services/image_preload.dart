@@ -15,10 +15,10 @@ class ImagePreload {
   /// home card, and (null) the full-width day card.
   static const List<double?> _festivalWidths = <double?>[46, 64, null];
 
-  /// Pictures seen before signing in: the logo and the introduction slides.
+  /// Pictures seen before signing in: the logo and the introduction's.
   static List<String> startup({required double devicePixelRatio}) => <String>[
     AuthBrand.logoUrl((AuthBrand.logoSize * devicePixelRatio).round()),
-    for (final page in IntroductionScreen.pages) page.imageUrl,
+    IntroductionScreen.heroImageUrl,
   ];
 
   /// Pictures used inside the app: the statement guides and every festival.

@@ -38,6 +38,10 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'A new welcome page: one screen, with Get started and Login',
+      'नयाँ स्वागत पृष्ठ: एउटै स्क्रिन, सुरु गर्ने र लगइन',
+    ),
+    (
       'Updates download and install from inside the app',
       'अपडेट एपभित्रै डाउनलोड र इन्स्टल हुन्छ',
     ),
