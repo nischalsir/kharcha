@@ -600,18 +600,53 @@ class AuthProvider extends ChangeNotifier {
           'You are not signed in.',
         );
       }
-      final url = await CloudinaryService(client: client).uploadAvatar(
+      String? url;
+      try {
+        url = await CloudinaryService(client: client).uploadAvatar(
+          bytes,
+          filename: 'avatar.${_avatarExtension(contentType)}',
+        );
+      } catch (error) {
+        // Cloudinary needs the `media-sign` function and its secret on the
+        // server. Until those are set up, keep the photo in Supabase Storage
+        // rather than failing the upload.
+        debugPrint('Avatar: Cloudinary unavailable, using storage ($error)');
+      }
+
+      if (url != null) {
+        await client.auth.updateUser(
+          UserAttributes(data: <String, dynamic>{_avatarUrlKey: url}),
+        );
+        _user = client.auth.currentUser;
+        // The old Supabase copy is now stale; drop it so it can never reappear.
+        unawaited(_removeLegacyAvatar(client, uid));
+        notifyListeners();
+        return url;
+      }
+
+      final path = avatarPath(uid, contentType);
+      final storage = client.storage.from(avatarBucket);
+      // A new photo may use a different extension than the previous one, so
+      // drop older files first to keep exactly one avatar per user.
+      await _removeLegacyAvatar(client, uid);
+      await storage.uploadBinary(
+        path,
         bytes,
-        filename: 'avatar.${_avatarExtension(contentType)}',
+        fileOptions: FileOptions(
+          upsert: true,
+          cacheControl: '31536000',
+          contentType: contentType,
+        ),
       );
-      await client.auth.updateUser(
-        UserAttributes(data: <String, dynamic>{_avatarUrlKey: url}),
-      );
-      _user = client.auth.currentUser;
-      // The old Supabase copy is now stale; drop it so it can never reappear.
-      unawaited(_removeLegacyAvatar(client, uid));
+      // A stale Cloudinary URL would otherwise win over the new photo.
+      if (_cloudAvatarUrl != null) {
+        await client.auth.updateUser(
+          UserAttributes(data: <String, dynamic>{_avatarUrlKey: null}),
+        );
+        _user = client.auth.currentUser;
+      }
       notifyListeners();
-      return url;
+      return path;
     } catch (error) {
       _failure = AppFailure.from(error);
       notifyListeners();
@@ -651,7 +686,12 @@ class AuthProvider extends ChangeNotifier {
       final uid = _user?.id;
       if (uid == null) return;
       if (_cloudAvatarUrl != null) {
-        await CloudinaryService(client: client).deleteAvatar();
+        try {
+          await CloudinaryService(client: client).deleteAvatar();
+        } catch (error) {
+          // Not reachable: still forget the URL so the photo is gone in-app.
+          debugPrint('Avatar: could not delete from Cloudinary ($error)');
+        }
         await client.auth.updateUser(
           UserAttributes(data: <String, dynamic>{_avatarUrlKey: null}),
         );
