@@ -27,13 +27,10 @@ class _VersionScreenState extends State<VersionScreen> {
 
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
-    ('Your name on your profile', 'प्रोफाइलमा तपाईंको नाम'),
-    ('Google Drive backup (rolling out)', 'Google Drive ब्याकअप (आउँदैछ)'),
-    ('Daily tithi and 16 more festivals', 'दैनिक तिथि र थप १६ चाडपर्व'),
-    (
-      'The flame reacts with notifications',
-      'ज्वालाले सूचनाबाट प्रतिक्रिया दिन्छ',
-    ),
+    ('Budgets rebuilt: edit, delete, daily allowance', 'बजेट नयाँ: सम्पादन, मेटाउने, दैनिक सीमा'),
+    ('Category and weekly budgets now work', 'श्रेणी र साप्ताहिक बजेट अब चल्छ'),
+    ('Two-factor sign-in switch', 'दुई-चरण साइन इन स्विच'),
+    ('No more false "update available"', 'गलत "अपडेट उपलब्ध" हटाइयो'),
   ];
 
   Future<void> _checkForUpdate() async {
