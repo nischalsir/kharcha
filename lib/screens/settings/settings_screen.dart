@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import '../../models/app_settings_model.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/push_provider.dart';
+import '../../services/account_avatar_cache.dart';
 import '../../services/biometric_service.dart';
 import '../../services/push_notification_service.dart';
 import '../../services/supabase_service.dart';
@@ -139,8 +141,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'ब्याकअप र रिस्टोर',
                         ),
                         subtitle: context.t(
-                          'Cloud (Supabase) or device file',
-                          'क्लाउड (Supabase) वा यन्त्र फाइल',
+                          'Cloud or device file',
+                          'क्लाउड वा यन्त्र फाइल',
                         ),
                         onTap: () =>
                             _open(context, const BackupRestoreScreen()),
@@ -1087,6 +1089,7 @@ class _SecurityCardState extends State<_SecurityCard> {
     if (!value) {
       await biometric.disable(email);
       if (!mounted) return;
+      unawaited(context.read<AccountAvatarCache>().remove(email));
       setState(() => _biometricEnabled = false);
       showMessage(context, 'Biometric sign-in turned off.');
       return;

@@ -29,7 +29,7 @@ Checked on the built release APK with `aapt2` and `apksigner`:
   older version of Android" block does not apply.
 - **Permissions** `INTERNET`, `ACCESS_NETWORK_STATE`, `POST_NOTIFICATIONS`,
   `RECEIVE_BOOT_COMPLETED`, `VIBRATE`, `SCHEDULE_EXACT_ALARM`, `USE_BIOMETRIC`,
-  `USE_FINGERPRINT`, `WAKE_LOCK`, and the FCM receive permission. None of the
+  `USE_FINGERPRINT`, `WAKE_LOCK`, `ACCESS_COARSE_LOCATION` (weather only, optional), and the FCM receive permission. None of the
   permissions Play Protect blocks sideloaded apps for (`READ_SMS`,
   `RECEIVE_SMS`, notification listener, accessibility) is requested.
 - **Components** no accessibility service, device admin, notification

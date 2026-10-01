@@ -9,6 +9,7 @@ import '../../core/l10n/app_l10n.dart';
 import '../../core/router/route_paths.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/account_avatar_cache.dart';
 import '../../services/biometric_service.dart';
 import '../../services/update_service.dart';
 import '../../widgets/common/auth_widgets.dart';
@@ -205,7 +206,21 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!verified || !mounted) return;
       // The fingerprint proves who holds the phone, not which account they
       // mean, so with several accounts the user has to say.
-      account = await chooseBiometricAccount(context, accounts);
+      // Each account's own saved picture, looked up by that account's email.
+      final avatars = <String, ImageProvider>{};
+      if (accounts.length > 1) {
+        final cache = context.read<AccountAvatarCache>();
+        for (final entry in accounts) {
+          final file = await cache.fileFor(entry.email);
+          if (file != null) avatars[entry.email] = FileImage(file);
+        }
+        if (!mounted) return;
+      }
+      account = await chooseBiometricAccount(
+        context,
+        accounts,
+        avatarFor: (entry) => avatars[entry.email],
+      );
       if (account == null) return;
       await auth.signIn(
         email: account.email,
@@ -222,6 +237,9 @@ class _LoginScreenState extends State<LoginScreen> {
       // rather than left to fail on every tap.
       if (account != null && AuthProvider.isWrongCredentials(error)) {
         await biometric.disable(account.email);
+        if (mounted) {
+          unawaited(context.read<AccountAvatarCache>().remove(account.email));
+        }
         final bool any = await biometric.isEnabled();
         if (mounted) {
           setState(() => _biometricEnabled = any);

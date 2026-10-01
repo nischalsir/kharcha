@@ -354,30 +354,85 @@ export interface BuddyMessage {
   source: "ai" | "fallback";
 }
 
-const FALLBACK_BUDDY: Record<BuddySlotKind, Array<[string, string]>> = {
+/** Canned lines, used when the model is unavailable or repeats itself. */
+const FALLBACK_BUDDY: Record<string, Array<[string, string]>> = {
   morning: [
     ["Good morning! ☀️", "New day, fresh budget. Log your first spend and let's keep the flame bright 🔥"],
     ["Rise and shine! 🌅", "Hmmm… a great day to save a little money. You've got this 💪"],
     ["Good morning 🌞", "Coffee first, then let's keep today's spending light ☕"],
+    ["Morning! 🔥", "I'm awake and warm. One small saving today and I'll glow all day ✨"],
+    ["Good morning 🌤️", "Decide today's spending limit now, before the day decides it for you 🎯"],
+    ["Up and at it! 🌄", "Yesterday is logged, today is a clean page. Let's write a good one 📒"],
   ],
-  day: [
-    ["Quick check-in 👋", "Spent anything today? Log it now so nothing slips away 📝"],
-    ["Psst… 🔥", "Small savings add up. Skip one extra today and I'll glow brighter ✨"],
+  late_morning: [
+    ["Quick check-in 👋", "Spent anything this morning? Log it now so nothing slips away 📝"],
+    ["Day's just started 🌤️", "Pick one thing you won't buy today. That's your win 🏆"],
+    ["Psst… 🔥", "Carrying water and a snack saves more than you'd think 💧"],
+    ["Morning money tip 💡", "Check your budget once before lunch. Two taps, no surprises 📊"],
+    ["Hello hello 👀", "Any tea, bus fare or snack so far? Tiny spends count too ☕"],
+  ],
+  midday: [
+    ["Lunch time! 🍛", "Enjoy it, then log it. I like knowing what we ate 😋"],
+    ["Midday nudge 🕛", "Half the day done. How's the wallet holding up? 👛"],
     ["Money tip 💡", "Before you buy, wait 10 minutes. If you still want it, go for it!"],
+    ["Psst… 🔥", "Home lunch twice this week keeps me burning bright ✨"],
+    ["Quick one 📝", "Log this morning's spends now, while you still remember them."],
+  ],
+  afternoon: [
+    ["Afternoon slump? ☕", "A walk is free. That second coffee isn't. Just saying 😉"],
+    ["Still here 🔥", "Small savings add up. Skip one extra today and I'll glow brighter ✨"],
+    ["Tiny challenge 🎯", "No spending until dinner. Think you can do it? 💪"],
+    ["Afternoon check 📊", "A quick look at this month's spending takes ten seconds 👀"],
+    ["Fun fact 🪙", "A rupee saved daily is a whole day's spending by month end. Slow and steady 🐢"],
+  ],
+  evening: [
+    ["Evening! 🌇", "Day's nearly done. Log what's left before it slips your mind 📝"],
+    ["How was today? 🙂", "Add up today's spends. If it was light, be proud 🌟"],
+    ["Dinner plans? 🍲", "Cooking tonight is a saving and a meal in one 🔥"],
+    ["Wind-down tip 🌆", "Set tomorrow's spending limit tonight. Future you will thank you 🙏"],
+    ["Almost there 🏁", "One last check of the budget, then the evening is yours 📊"],
   ],
   night: [
     ["Good night! 🌙", "Day's done. Quick look at today's spending, then rest well 😴"],
     ["Sweet dreams 🌙", "Thanks for tracking today. Tomorrow we save even more 💤"],
     ["Good night 🌟", "The flame is going to sleep. See you at sunrise! 😴"],
+    ["Lights out 🕯️", "Whatever today cost, it's logged and done. Sleep easy 😌"],
+    ["Night night 🌜", "I'm banking the embers for tomorrow. Rest well 💤"],
+    ["Good night 😴", "One more day tracked. That habit is worth more than any one saving 🌟"],
   ],
 };
+
+/** Loose comparison, so a line that differs only in punctuation still counts. */
+function sameLine(a: string, b: string): boolean {
+  const norm = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return norm(a) === norm(b);
+}
+
+export interface BuddyOptions {
+  /** For a daytime slot: late_morning, midday, afternoon or evening. */
+  part?: string | null;
+  /** Bodies sent to this user recently, newest first. */
+  recent?: string[];
+}
 
 export function fallbackBuddyMessage(
   slot: BuddySlotKind,
   seed: number,
+  options: BuddyOptions = {},
 ): BuddyMessage {
-  const options = FALLBACK_BUDDY[slot];
-  const [title, message] = options[Math.abs(seed) % options.length];
+  const pool = slot === "day"
+    ? FALLBACK_BUDDY[options.part ?? "afternoon"] ?? FALLBACK_BUDDY.afternoon
+    : FALLBACK_BUDDY[slot];
+  const recent = options.recent ?? [];
+  const start = Math.abs(seed) % pool.length;
+  // Walk on from the seeded line until one turns up that was not sent lately.
+  for (let step = 0; step < pool.length; step++) {
+    const [title, message] = pool[(start + step) % pool.length];
+    if (!recent.some((line) => sameLine(line, message))) {
+      return { title, message, source: "fallback" };
+    }
+  }
+  const [title, message] = pool[start];
   return { title, message, source: "fallback" };
 }
 
@@ -391,17 +446,23 @@ export async function generateBuddyMessage(
   userPrompt: string,
   slot: BuddySlotKind,
   seed: number,
+  options: BuddyOptions = {},
 ): Promise<BuddyMessage> {
   try {
     const raw = await complete(systemPrompt, userPrompt, 200);
     const parsed = parseJsonObject(raw);
     const message = clamp(parsed?.message, MAX_PUSH_MESSAGE);
-    if (!message) return fallbackBuddyMessage(slot, seed);
+    if (!message) return fallbackBuddyMessage(slot, seed, options);
+    // The model was told what it sent lately; if it says it again anyway, a
+    // canned line the user has not just seen is the better notification.
+    if ((options.recent ?? []).some((line) => sameLine(line, message))) {
+      return fallbackBuddyMessage(slot, seed, options);
+    }
     const title = clamp(parsed?.title, MAX_PUSH_TITLE) ||
-      fallbackBuddyMessage(slot, seed).title;
+      fallbackBuddyMessage(slot, seed, options).title;
     return { title, message, source: "ai" };
   } catch (error) {
     console.error("buddy: model failed, using fallback", String(error));
-    return fallbackBuddyMessage(slot, seed);
+    return fallbackBuddyMessage(slot, seed, options);
   }
 }

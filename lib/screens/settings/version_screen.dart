@@ -28,6 +28,23 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'A new flame with many more moods and reactions',
+      'नयाँ ज्वाला, धेरै नयाँ भाव र प्रतिक्रियाहरू',
+    ),
+    (
+      'Shop credit items: just a name, a price and a picture',
+      'पसल उधारो: नाम, मूल्य र तस्बिर मात्र',
+    ),
+    ('Calculator inside the price field', 'मूल्य फिल्डभित्रै क्याल्कुलेटर'),
+    (
+      'Weather for your own town on the Calendar',
+      'पात्रोमा तपाईंकै शहरको मौसम',
+    ),
+    (
+      'Profile pictures in the fingerprint account chooser',
+      'फिंगरप्रिन्ट खाता छनोटमा प्रोफाइल तस्बिर',
+    ),
+    (
       'Pull down on any page to refresh it',
       'जुनसुकै पृष्ठ तल तानेर रिफ्रेस गर्नुहोस्',
     ),

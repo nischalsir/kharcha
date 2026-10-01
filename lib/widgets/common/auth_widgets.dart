@@ -30,10 +30,15 @@ extension BiometricUi on BiometricKind {
 /// two people's accounts apart. With one account there is nothing to choose
 /// and it is returned directly; with several the user has to pick, and
 /// dismissing the sheet returns null so nobody is signed in by accident.
+///
+/// [avatarFor] supplies each account's saved profile picture. It is asked per
+/// account, so one account's picture can never be drawn for another; where it
+/// returns null, or the picture fails to load, the account's initial shows.
 Future<BiometricAccount?> chooseBiometricAccount(
   BuildContext context,
-  List<BiometricAccount> accounts,
-) {
+  List<BiometricAccount> accounts, {
+  ImageProvider? Function(BiometricAccount account)? avatarFor,
+}) {
   if (accounts.isEmpty) return Future<BiometricAccount?>.value();
   if (accounts.length == 1) {
     return Future<BiometricAccount?>.value(accounts.single);
@@ -81,12 +86,12 @@ Future<BiometricAccount?> chooseBiometricAccount(
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 24,
                         ),
-                        leading: CircleAvatar(
-                          backgroundColor: theme.colorScheme.primary.withValues(
-                            alpha: 0.14,
-                          ),
-                          foregroundColor: theme.colorScheme.primary,
-                          child: Text(account.email[0].toUpperCase()),
+                        leading: _AccountAvatar(
+                          // Keyed by account so a picture is never carried
+                          // over to a different row.
+                          key: ValueKey<String>(account.email),
+                          initial: account.email[0].toUpperCase(),
+                          image: avatarFor?.call(account),
                         ),
                         title: Text(
                           account.email,
@@ -109,6 +114,54 @@ Future<BiometricAccount?> chooseBiometricAccount(
       );
     },
   );
+}
+
+/// An account's picture in a circle, cropped to fill it, with the account's
+/// initial underneath for when there is no picture or it cannot be drawn.
+class _AccountAvatar extends StatelessWidget {
+  const _AccountAvatar({super.key, required this.initial, this.image});
+
+  final String initial;
+  final ImageProvider? image;
+
+  static const double _size = 40;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final letter = ColoredBox(
+      color: theme.colorScheme.primary.withValues(alpha: 0.14),
+      child: Center(
+        child: Text(
+          initial,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+    final picture = image;
+    return ClipOval(
+      child: SizedBox(
+        width: _size,
+        height: _size,
+        child: picture == null
+            ? letter
+            : Image(
+                image: picture,
+                width: _size,
+                height: _size,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                // Until the picture is decoded, and if it never is.
+                frameBuilder: (_, child, frame, sync) =>
+                    sync || frame != null ? child : letter,
+                errorBuilder: (_, _, _) => letter,
+              ),
+      ),
+    );
+  }
 }
 
 /// Shared building blocks for the sign-in / sign-up screens so both pages

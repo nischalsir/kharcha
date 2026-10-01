@@ -22,7 +22,13 @@ import {
   BUDDY_SYSTEM_PROMPT,
   buildBuddyUserPrompt,
 } from "../_shared/prompt.ts";
-import { dueSlot, localTime } from "../_shared/buddy_schedule.ts";
+import {
+  DAY_ANGLES,
+  dayPart,
+  dueSlot,
+  localTime,
+  slotSeed,
+} from "../_shared/buddy_schedule.ts";
 import { resolveChannel } from "../_shared/push_types.ts";
 
 const CATEGORY = "daily_buddy";
@@ -99,6 +105,27 @@ async function alreadySent(
     .eq("status", "sent")
     .limit(1);
   return (data ?? []).length > 0;
+}
+
+/**
+ * What the flame told this user lately, newest first. Passed to the model and
+ * to the canned fallback so neither says the same thing again.
+ */
+async function recentLines(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("ai_notification_log")
+    .select("body")
+    .eq("user_id", userId)
+    .eq("category", CATEGORY)
+    .eq("status", "sent")
+    .order("created_at", { ascending: false })
+    .limit(8);
+  return ((data ?? []) as Array<{ body?: string | null }>)
+    .map((row) => row.body)
+    .filter((body): body is string => typeof body === "string" && body !== "");
 }
 
 async function sendToUser(
@@ -195,10 +222,21 @@ Deno.serve(async (req) => {
         new Date(`${local.date}T00:00:00Z`).getUTCDay()
       ];
 
+      const seed = slotSeed(user.userId, due.key);
+      const part = due.slot === "day" ? dayPart(local.hour) : null;
+      const recent = await recentLines(supabase, user.userId);
+      const clock = `${String(local.hour).padStart(2, "0")}:${
+        String(local.minute).padStart(2, "0")
+      }`;
+
       const message = await generateBuddyMessage(
         BUDDY_SYSTEM_PROMPT,
         buildBuddyUserPrompt({
           slot: due.slot,
+          timeOfDay: part ?? due.slot,
+          localTime: clock,
+          angle: DAY_ANGLES[seed % DAY_ANGLES.length],
+          recent,
           name: user.name,
           currency: summary.currency,
           incomeThisMonth: summary.totals.incomeThisWindow,
@@ -208,7 +246,8 @@ Deno.serve(async (req) => {
           weekday,
         }),
         due.slot,
-        local.quarter + local.date.length,
+        seed,
+        { part, recent },
       );
       if (message.source === "fallback") stats.fallback += 1;
 

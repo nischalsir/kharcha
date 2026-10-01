@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/errors/app_failure.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
@@ -35,6 +36,11 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isLoading = false;
   bool _agreeToTerms = false;
 
+  /// Set once the user has tried to sign up without agreeing. Until then the
+  /// box is plain; after it, the box glows red while unticked and green once
+  /// ticked, so the fix is shown right where the problem is.
+  bool _termsFlagged = false;
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -47,12 +53,16 @@ class _SignupScreenState extends State<SignupScreen> {
   Future<void> _handleSignup() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_agreeToTerms) {
-      context.read<AuthProvider>().setError(
-        FailureKind.invalidData,
+      HapticFeedback.mediumImpact();
+      setState(() => _termsFlagged = true);
+      // Colour alone is not enough for a screen reader.
+      SemanticsService.sendAnnouncement(
+        View.of(context),
         context.t(
           'Please agree to the Terms of Service',
           'कृपया सेवा शर्तहरूमा सहमत हुनुहोस्',
         ),
+        Directionality.of(context),
       );
       return;
     }
@@ -437,17 +447,11 @@ class _SignupScreenState extends State<SignupScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: Checkbox(
-                          value: _agreeToTerms,
-                          onChanged: (value) =>
-                              setState(() => _agreeToTerms = value ?? false),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                        ),
+                      _TermsCheckbox(
+                        value: _agreeToTerms,
+                        flagged: _termsFlagged,
+                        onChanged: (value) =>
+                            setState(() => _agreeToTerms = value),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -511,8 +515,11 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            // Wraps onto a second line on a narrow screen or with large text,
+            // where a Row would run off the edge.
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: <Widget>[
                 Text(
                   context.t('Already have an account?', 'पहिले नै खाता छ?'),
@@ -534,6 +541,56 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The terms tick box. Plain until [flagged]; then it glows red while
+/// unticked and green once ticked.
+class _TermsCheckbox extends StatelessWidget {
+  const _TermsCheckbox({
+    required this.value,
+    required this.flagged,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final bool flagged;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+    final Color? glow = !flagged
+        ? null
+        : value
+        ? glass.success
+        : glass.danger;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(7),
+        boxShadow: glow == null
+            ? const <BoxShadow>[]
+            : <BoxShadow>[
+                BoxShadow(
+                  color: glow.withValues(alpha: 0.55),
+                  blurRadius: 10,
+                  spreadRadius: 1.5,
+                ),
+              ],
+      ),
+      child: Checkbox(
+        value: value,
+        onChanged: (next) => onChanged(next ?? false),
+        activeColor: flagged ? glass.success : null,
+        side: glow == null || value ? null : BorderSide(color: glow, width: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
       ),
     );
   }

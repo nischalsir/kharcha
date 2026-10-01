@@ -11,6 +11,7 @@ class PasalCreditItem {
     required this.createdAt,
     required this.updatedAt,
     this.sortOrder = 0,
+    this.imagePath,
     this.deletedAt,
   });
 
@@ -21,6 +22,9 @@ class PasalCreditItem {
   final String unit;
   final double unitPrice;
   final int sortOrder;
+
+  /// Storage path of an optional picture of the item, or null.
+  final String? imagePath;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -43,11 +47,15 @@ class PasalCreditItem {
       unit: (json['unit'] as String?) ?? 'pcs',
       unitPrice: jsonDouble(json['unit_price']),
       sortOrder: jsonInt(json['sort_order']),
+      imagePath: _path(json['image_path']),
       createdAt: jsonDateTime(json['created_at']) ?? now,
       updatedAt: jsonDateTime(json['updated_at']) ?? now,
       deletedAt: jsonDateTime(json['deleted_at']),
     );
   }
+
+  static String? _path(Object? value) =>
+      value is String && value.trim().isNotEmpty ? value : null;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -58,6 +66,7 @@ class PasalCreditItem {
       'unit': unit,
       'unit_price': unitPrice,
       'sort_order': sortOrder,
+      'image_path': imagePath,
       'created_at': jsonTimestamp(createdAt),
       'updated_at': jsonTimestamp(updatedAt),
       'deleted_at': deletedAt == null ? null : jsonTimestamp(deletedAt!),
@@ -72,6 +81,7 @@ class PasalCreditItem {
     String? unit,
     double? unitPrice,
     int? sortOrder,
+    String? Function()? imagePath,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? Function()? deletedAt,
@@ -84,6 +94,7 @@ class PasalCreditItem {
       unit: unit ?? this.unit,
       unitPrice: unitPrice ?? this.unitPrice,
       sortOrder: sortOrder ?? this.sortOrder,
+      imagePath: imagePath != null ? imagePath() : this.imagePath,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt != null ? deletedAt() : this.deletedAt,

@@ -47,7 +47,9 @@ import 'screens/transactions/add_transaction_screen.dart';
 import 'services/root_shell.dart';
 import 'services/biometric_service.dart';
 import 'services/cache_service.dart';
+import 'services/account_avatar_cache.dart';
 import 'services/nepali_date_service.dart';
+import 'services/pasal_image_store.dart';
 import 'services/push_notification_service.dart';
 import 'services/sync_service.dart';
 import 'widgets/common/app_bottom_nav.dart';
@@ -95,6 +97,7 @@ class KharchaApp extends StatelessWidget {
         Provider<CacheService>.value(value: env.cache),
         ChangeNotifierProvider<SyncService>.value(value: env.sync),
         Provider<BiometricService>(create: (_) => BiometricService()),
+        Provider<AccountAvatarCache>(create: (_) => AccountAvatarCache()),
         ChangeNotifierProvider<AuthProvider>(
           create: (context) =>
               AuthProvider(vault: context.read<BiometricService>())
@@ -290,6 +293,7 @@ class _AuthWrapperState extends State<_AuthWrapper>
     // Queued writes are pushed first, for the same reason: after sign-out
     // they could only ever be uploaded by whichever account signs in next.
     final biometric = context.read<BiometricService>();
+    final avatars = context.read<AccountAvatarCache>();
     _signOutCleanup = () async {
       // The account signing out is the one to offer on the sign-in form next,
       // whoever else has used this phone. Read here, while it is still known.
@@ -298,6 +302,18 @@ class _AuthWrapperState extends State<_AuthWrapper>
         await biometric.setRememberedEmail(
           await biometric.rememberMe() ? email : null,
         );
+      }
+      // Save this account's picture for the fingerprint account chooser,
+      // while it can still be fetched. Only for accounts that will be listed
+      // there, and bounded so it cannot hold up signing out.
+      if (email != null && await biometric.isEnabledFor(email)) {
+        try {
+          await avatars
+              .capture(email, await auth.signedAvatarUrl())
+              .timeout(const Duration(seconds: 6));
+        } catch (_) {
+          // Slow or offline: the chooser shows the account's initial.
+        }
       }
       await sync.flushBeforeSignOut();
       await push.unregisterForSignOut();
@@ -327,6 +343,7 @@ class _AuthWrapperState extends State<_AuthWrapper>
       final adoption = await sync.adoptUser(userId);
       if (adoption == AccountAdoption.switched) {
         await insight.resetForAccount();
+        PasalImageStore.clearCache();
       }
       if (adoption != AccountAdoption.unchanged) {
         // Bounded: a slow network must not hold the user on a spinner, and the

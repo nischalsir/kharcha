@@ -231,7 +231,7 @@ class PasalRepository {
           item.unitPrice < 0) {
         throw const AppFailure(
           FailureKind.invalidData,
-          'Every item needs a name, quantity and price.',
+          'Every item needs a name and a price.',
         );
       }
     }

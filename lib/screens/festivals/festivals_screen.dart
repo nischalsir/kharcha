@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/festival_provider.dart';
+import '../../core/l10n/app_l10n.dart';
+import '../../services/device_locator.dart';
+import '../../services/location_service.dart';
 import '../../services/nepali_date_service.dart';
 import '../../services/weather_service.dart';
 import '../../widgets/calendar/bs_month_grid.dart';
@@ -152,7 +156,11 @@ class _WeatherBadge extends StatefulWidget {
 
 class _WeatherBadgeState extends State<_WeatherBadge> {
   // Shared so reselecting today reuses the cached reading.
-  static final WeatherService _service = WeatherService();
+  static final WeatherService _service = WeatherService(
+    locationService: LocationService(device: const GeolocatorDeviceLocator()),
+  );
+
+  static const String _askedKey = 'weather.location_asked';
 
   AiWeather? _weather;
 
@@ -164,9 +172,61 @@ class _WeatherBadgeState extends State<_WeatherBadge> {
 
   Future<void> _load() async {
     final weather = await _service.current();
-    if (mounted && weather != null) {
-      setState(() => _weather = weather);
+    if (!mounted) return;
+    if (weather != null) setState(() => _weather = weather);
+    try {
+      await _offerLocation();
+    } catch (_) {
+      // No location or preferences plugin here: the weather stays as it is.
     }
+  }
+
+  /// Asks, once, whether the weather may use the phone's location. Until
+  /// then (and if the answer is no) the weather is for wherever the network
+  /// address suggests, which can be a neighbouring city.
+  Future<void> _offerLocation() async {
+    if (await GeolocatorDeviceLocator.isPermitted()) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_askedKey) == true || !mounted) return;
+    await prefs.setBool(_askedKey, true);
+    if (!mounted) return;
+
+    // Said in the app's own words first, so the system prompt that follows
+    // is not a surprise.
+    final allow = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          dialogContext.t(
+            'Weather for where you are?',
+            'तपाईं भएको ठाउँको मौसम?',
+          ),
+        ),
+        content: Text(
+          dialogContext.t(
+            'Kharcha can use your approximate location to show the weather '
+                'for your town. It is used for the weather only and is not '
+                'saved.',
+            'खर्चाले तपाईंको अनुमानित स्थान प्रयोग गरी तपाईंको शहरको मौसम '
+                'देखाउन सक्छ। यो मौसमका लागि मात्र प्रयोग हुन्छ र सुरक्षित '
+                'गरिँदैन।',
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(dialogContext.t('Not now', 'अहिले होइन')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(dialogContext.t('Allow', 'अनुमति दिनुहोस्')),
+          ),
+        ],
+      ),
+    );
+    if (allow != true) return;
+    final weather = await _service.current(askPermission: true);
+    if (mounted && weather != null) setState(() => _weather = weather);
   }
 
   @override
@@ -179,10 +239,12 @@ class _WeatherBadgeState extends State<_WeatherBadge> {
     final devanagari = context.read<NepaliDateService>().devanagari;
 
     final label = devanagari ? _labelNe(weather.code) : weather.label;
+    final place = weather.place;
     return Semantics(
       label:
           '${devanagari ? 'मौसम' : 'Weather'}: '
-          '${weather.temperatureC.round()}°C, $label',
+          '${weather.temperatureC.round()}°C, $label'
+          '${place == null ? '' : ', $place'}',
       child: ExcludeSemantics(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 110),
@@ -211,6 +273,30 @@ class _WeatherBadgeState extends State<_WeatherBadge> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+              if (place != null) ...<Widget>[
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(
+                      Icons.place_rounded,
+                      size: 11,
+                      color: glass.textTertiary,
+                    ),
+                    const SizedBox(width: 2),
+                    Flexible(
+                      child: Text(
+                        place,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: glass.textTertiary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

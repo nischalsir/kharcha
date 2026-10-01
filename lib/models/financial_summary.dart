@@ -105,6 +105,27 @@ enum MoodFace {
 
   /// Eyes glancing up, crooked mouth: offering a saving tip.
   thinking,
+
+  /// Sunglasses and a smirk: a good streak, comfortably under budget.
+  cool,
+
+  /// Laughing with confetti: a milestone worth celebrating.
+  party,
+
+  /// Streaming tears: spending has run far past income.
+  crying,
+
+  /// Lowered brows and a flat mouth: the budget has been blown.
+  grumpy,
+
+  /// Crossed-out eyes: a spend so large it made the flame's head spin.
+  dizzy,
+
+  /// Tongue out: tasty money just came in.
+  yum,
+
+  /// Star eyes: the biggest income of the month.
+  starstruck,
 }
 
 /// The time/weather/habit aware mood shown next to the streak.

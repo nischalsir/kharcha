@@ -52,6 +52,61 @@ class _HomeScreenState extends State<HomeScreen> {
       )
       ..ensureLoaded();
     _loadAvatar();
+    _remindGuest(auth);
+  }
+
+  /// The guest account this reminder was last shown for, so it appears once
+  /// per session rather than every time Home is rebuilt.
+  static String? _guestRemindedFor;
+
+  /// Tells a guest, in a notice that slides up from the bottom, that their
+  /// data only lives on this phone. It used to be a card permanently taking
+  /// up space at the top of Home.
+  void _remindGuest(AuthProvider auth) {
+    final userId = auth.userId;
+    if (!auth.isGuest || userId == null || _guestRemindedFor == userId) return;
+    _guestRemindedFor = userId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final glass = context.glass;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger == null) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 8),
+            // Clear of the floating navigation bar.
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+            content: Row(
+              children: <Widget>[
+                Icon(Icons.cloud_off_rounded, color: glass.warning, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    context.t(
+                      'Guest mode: your data is only on this phone.',
+                      'पाहुना मोड: डाटा यो फोनमा मात्र छ।',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            action: SnackBarAction(
+              label: context.t('Keep it', 'राख्नुहोस्'),
+              onPressed: () {
+                if (!mounted) return;
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const GuestUpgradeScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+    });
   }
 
   /// Resolves the avatar once per signed-in user and caches it in state, so a
@@ -142,11 +197,6 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               sliver: SliverToBoxAdapter(child: const AiBirthdayBanner()),
             ),
-            if (auth.isGuest)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                sliver: SliverToBoxAdapter(child: const _GuestBanner()),
-              ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               sliver: SliverToBoxAdapter(
@@ -305,28 +355,38 @@ class _HeaderAvatar extends StatelessWidget {
         ? trimmed[0].toUpperCase()
         : null;
 
+    const double size = 48;
+    // The ring is painted over the picture rather than around it. As a
+    // border of the clipping box it pushed the picture inwards, leaving a
+    // square photo with its corners cut off instead of a filled circle.
     return Container(
-      width: 48,
-      height: 48,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[colorScheme.primary, colorScheme.secondary],
+        ),
+      ),
+      foregroundDecoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
           color: colorScheme.primary.withValues(alpha: 0.35),
           width: 2,
         ),
-        gradient: url == null
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: <Color>[colorScheme.primary, colorScheme.secondary],
-              )
-            : null,
       ),
       clipBehavior: Clip.antiAlias,
       child: url != null
           ? Image.network(
               url!,
+              width: size,
+              height: size,
+              // Cover: fills the circle and crops the overflow, never
+              // stretches, whatever the photo's shape.
               fit: BoxFit.cover,
+              alignment: Alignment.center,
               errorBuilder: (_, _, _) => _fallback(theme, initial),
             )
           : _fallback(theme, initial),
@@ -499,43 +559,6 @@ class _MiniStat extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// A quiet reminder that a guest's data only lives on this phone until they
-/// create an account.
-class _GuestBanner extends StatelessWidget {
-  const _GuestBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final glass = context.glass;
-    return GlassCard(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const GuestUpgradeScreen()),
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(Icons.cloud_off_rounded, color: glass.warning, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              context.t(
-                'Guest mode: your data is only on this phone. Create an '
-                    'account to keep it.',
-                'पाहुना मोड: डाटा यो फोनमा मात्र छ। राख्न खाता बनाउनुहोस्।',
-              ),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: glass.textSecondary,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Icon(Icons.chevron_right_rounded, color: glass.textTertiary),
-        ],
-      ),
     );
   }
 }

@@ -59,6 +59,7 @@ class DayInsightCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               _DayBadge(
+                label: context.t('Today', 'आज'),
                 day: useAd ? gregorianNow.day : today.day,
                 month: useAd
                     ? dates.gregorianMonthName(gregorianNow.month)
@@ -195,13 +196,21 @@ class DayInsightCard extends StatelessWidget {
 /// blurred wash: enough to hint at the festival, never enough to compete with
 /// the numbers. Without one the badge is a plain tint.
 class _DayBadge extends StatelessWidget {
-  const _DayBadge({required this.day, required this.month, this.imagePath});
+  const _DayBadge({
+    required this.label,
+    required this.day,
+    required this.month,
+    this.imagePath,
+  });
 
+  /// "Today": without it the date reads as the festival's, since the
+  /// festival's name and picture sit right beside it.
+  final String label;
   final int day;
   final String month;
   final String? imagePath;
 
-  static const double _size = 58;
+  static const double _size = 64;
 
   @override
   Widget build(BuildContext context) {
@@ -246,6 +255,18 @@ class _DayBadge extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Text(
+                  label.toUpperCase(),
+                  maxLines: 1,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurface.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 8.5,
+                    letterSpacing: 0.6,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
                   '$day',
                   style: theme.textTheme.titleLarge?.copyWith(
                     color: scheme.primary,
@@ -253,7 +274,7 @@ class _DayBadge extends StatelessWidget {
                     height: 1.0,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 3),
                   child: FittedBox(

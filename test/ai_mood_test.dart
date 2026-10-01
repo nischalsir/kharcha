@@ -107,14 +107,19 @@ void main() {
         summary: _summary(monthExpense: 500, income: 10000),
         now: _at(14),
       );
-      expect(rich.face, MoodFace.excited);
+      expect(const <MoodFace>{
+        MoodFace.excited,
+        MoodFace.cool,
+        MoodFace.starstruck,
+      }, contains(rich.face));
       expect(rich.tone, MoodTone.good);
 
       final broke = service.buildMood(
         summary: _summary(monthExpense: 5000, income: 1000),
         now: _at(14),
       );
-      expect(broke.face, MoodFace.sad);
+      // Spending five times the income is past sad: the flame is in tears.
+      expect(broke.face, MoodFace.crying);
       expect(broke.tone, MoodTone.bad);
     });
 
@@ -168,7 +173,7 @@ void main() {
         now: _at(14),
         weather: _rain,
       );
-      expect(mood.face, MoodFace.sad);
+      expect(mood.face, MoodFace.crying);
     });
 
     test('weather is surfaced on the mood', () {
@@ -190,7 +195,9 @@ void main() {
           await tester.pumpWidget(
             MaterialApp(
               home: Scaffold(
-                body: Center(child: FlameMascot(face: face, energy: energy)),
+                body: Center(
+                  child: FlameMascot(face: face, energy: energy),
+                ),
               ),
             ),
           );
@@ -239,11 +246,19 @@ void main() {
         summary: _summary(),
         categoryName: 'Salary',
       );
-      expect(mood.face, MoodFace.excited);
+      expect(const <MoodFace>{
+        MoodFace.excited,
+        MoodFace.yum,
+        MoodFace.cool,
+        MoodFace.happy,
+      }, contains(mood.face));
       expect(mood.tone, MoodTone.good);
-      expect(mood.label, 'Money in');
+      expect(mood.label, isNotEmpty);
       expect(mood.energy, greaterThan(before));
-      expect(mood.message.toLowerCase(), anyOf(contains('money'), contains('500')));
+      expect(
+        mood.message.toLowerCase(),
+        anyOf(contains('money'), contains('500')),
+      );
     });
 
     test('a small expense stays calm rather than scolding', () {
@@ -253,9 +268,15 @@ void main() {
         summary: _summary(),
         categoryName: 'Food',
       );
-      expect(mood.face, MoodFace.wink);
+      expect(const <MoodFace>{
+        MoodFace.wink,
+        MoodFace.calm,
+        MoodFace.happy,
+        MoodFace.cool,
+        MoodFace.yum,
+      }, contains(mood.face));
       expect(mood.tone, MoodTone.neutral);
-      expect(mood.label, 'Logged');
+      expect(mood.label, isNotEmpty);
     });
 
     test('a huge expense shocks the flame and drains it', () {
@@ -266,9 +287,12 @@ void main() {
         summary: _summary(),
         categoryName: 'Shopping',
       );
-      expect(mood.face, MoodFace.shocked);
+      expect(const <MoodFace>{
+        MoodFace.shocked,
+        MoodFace.dizzy,
+        MoodFace.crying,
+      }, contains(mood.face));
       expect(mood.tone, MoodTone.bad);
-      expect(mood.label, 'Big spend');
       expect(mood.energy, lessThan(before));
     });
 
@@ -278,8 +302,11 @@ void main() {
         amount: 50000,
         summary: _summary(),
       );
-      expect(mood.face, MoodFace.love);
-      expect(mood.label, 'Jackpot');
+      expect(const <MoodFace>{
+        MoodFace.love,
+        MoodFace.starstruck,
+        MoodFace.party,
+      }, contains(mood.face));
       expect(mood.energy, 1.0);
     });
 
@@ -289,8 +316,111 @@ void main() {
         amount: 200,
         summary: _summary(),
       );
-      expect(mood.face, MoodFace.worried);
+      expect(const <MoodFace>{
+        MoodFace.worried,
+        MoodFace.thinking,
+      }, contains(mood.face));
       expect(mood.tone, MoodTone.warn);
+    });
+
+    test('the same reaction is never given twice in a row', () {
+      for (final (isIncome, amount) in <(bool, double)>[
+        (true, 500),
+        (true, 50000),
+        (false, 100),
+        (false, 200),
+        (false, 900),
+      ]) {
+        String? previous;
+        for (var i = 0; i < 40; i++) {
+          final mood = service.buildReaction(
+            isIncome: isIncome,
+            amount: amount,
+            summary: _summary(),
+            categoryName: 'Misc',
+            now: _at(14),
+          );
+          expect(mood.message, isNot(previous), reason: 'amount $amount');
+          previous = mood.message;
+        }
+      }
+    });
+
+    test('reactions vary in wording, title and face', () {
+      final messages = <String>{};
+      final titles = <String>{};
+      final faces = <MoodFace>{};
+      for (var i = 0; i < 60; i++) {
+        final mood = service.buildReaction(
+          isIncome: true,
+          amount: 500,
+          summary: _summary(),
+          now: _at(14),
+        );
+        messages.add(mood.message);
+        titles.add('${mood.emoji} ${mood.label}');
+        faces.add(mood.face);
+      }
+      expect(messages.length, greaterThanOrEqualTo(8));
+      expect(titles.length, greaterThanOrEqualTo(4));
+      expect(faces.length, greaterThanOrEqualTo(3));
+    });
+
+    test('the category flavours an everyday expense', () {
+      final messages = <String>{
+        for (var i = 0; i < 80; i++)
+          service
+              .buildReaction(
+                isIncome: false,
+                amount: 100,
+                summary: _summary(),
+                categoryName: 'Food & Dining',
+                now: _at(14),
+              )
+              .message,
+      };
+      expect(messages.any((m) => m.contains('delicious')), isTrue);
+    });
+
+    test('the time of day flavours an everyday expense', () {
+      String seen(int hour) => <String>{
+        for (var i = 0; i < 80; i++)
+          service
+              .buildReaction(
+                isIncome: false,
+                amount: 100,
+                summary: _summary(),
+                now: _at(hour),
+              )
+              .label,
+      }.join('|');
+      expect(seen(1), contains('Night owl'));
+      expect(seen(7), contains('Early bird'));
+      expect(seen(14), isNot(contains('Night owl')));
+      expect(seen(14), isNot(contains('Early bird')));
+    });
+
+    test('spending once the budget is gone makes the flame grumpy', () {
+      // 6000 spent against a 5000 budget; 100 is a normal-sized expense.
+      final summary = _summary(
+        monthExpense: 6000,
+        income: 20000,
+        daily: <({DateTime day, double amount})>[
+          (day: DateTime(2026, 1, 1), amount: 6000),
+        ],
+      );
+      final mood = service.buildReaction(
+        isIncome: false,
+        amount: 100,
+        summary: summary,
+        now: _at(14),
+      );
+      expect(mood.tone, MoodTone.bad);
+      expect(const <MoodFace>{
+        MoodFace.grumpy,
+        MoodFace.worried,
+      }, contains(mood.face));
+      expect(mood.label, anyOf('Over budget', 'Budget blown'));
     });
 
     test('a transaction with no category never prints null', () {

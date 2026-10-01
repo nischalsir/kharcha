@@ -194,7 +194,7 @@ export function buildChatUserPrompt(
   ].join("\n");
 }
 
-export const BUDDY_PROMPT_VERSION = "daily-buddy-v1";
+export const BUDDY_PROMPT_VERSION = "daily-buddy-v2";
 
 export const BUDDY_SYSTEM_PROMPT = `
 You are "Flame", the cute little fire mascot of Kharcha, a Nepali expense
@@ -205,8 +205,21 @@ Rules:
 - title: max 35 characters. message: max 100 characters.
 - slot "morning": say good morning, add an upbeat money thought for the day.
 - slot "night": say good night, a gentle reflection on today's spending.
-- slot "day": a random fun nudge: a saving tip, a reminder to log expenses, or a
-  reaction to how the month is going.
+- slot "day": one nudge about the given "angle" and nothing else:
+    saving_tip      one practical way to spend less today
+    log_reminder    remind them to log what they spent so far
+    month_progress  how the month is going, from the numbers
+    top_category    a friendly word about their biggest category
+    tiny_challenge  a small dare for the rest of the day
+    praise          something they are doing right
+    money_fact      a short, true, fun fact or saying about money
+    budget_check    nudge them to glance at their budget
+- Fit the time of day in "time_of_day": late_morning is about the day ahead,
+  midday about lunch and the afternoon, afternoon about the slump and small
+  treats, evening about winding down and dinner. Do not say good morning or
+  good night in a "day" slot.
+- "avoid_repeating" lists what you sent recently. Do not reuse its wording,
+  its opening words, its emoji or its idea. Say something new.
 - Mood follows the numbers: if the user is saving well you are happy and
   excited ("hmmm… money!"); if spending is above income you are worried and
   gently ask them to save money. Never shame or lecture.
@@ -223,6 +236,10 @@ export function buildBuddyUserPrompt(input: {
   expenseToday: number;
   topCategory: string | null;
   weekday: string;
+  timeOfDay?: string | null;
+  localTime?: string | null;
+  angle?: string | null;
+  recent?: string[];
 }): string {
   const saved = input.incomeThisMonth - input.expenseThisMonth;
   const mood = input.incomeThisMonth <= 0
@@ -234,6 +251,10 @@ export function buildBuddyUserPrompt(input: {
     : "worried";
   return JSON.stringify({
     slot: input.slot,
+    time_of_day: input.timeOfDay ?? null,
+    local_time: input.localTime ?? null,
+    angle: input.slot === "day" ? input.angle ?? null : null,
+    avoid_repeating: input.recent ?? [],
     weekday: input.weekday,
     first_name: input.name?.split(/\s+/)[0] ?? null,
     currency: input.currency,

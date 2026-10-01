@@ -168,6 +168,7 @@ class AiInsightProvider extends ChangeNotifier {
       amount: amount,
       summary: summary,
       categoryName: categoryName,
+      now: DateTime.now(),
     );
     final reaction = _reaction!;
     final deliver = onReaction;

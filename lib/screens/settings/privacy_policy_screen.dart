@@ -78,6 +78,19 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     'Passwords, tokens and other users\' data are never sent.',
               ),
               _Section(
+                title: 'Location & weather',
+                body:
+                    'The weather on the Calendar page needs to know roughly '
+                    'where you are. If you allow it, Kharcha reads your '
+                    'approximate location (never your exact position) and '
+                    'sends only those coordinates to the weather service. '
+                    'It is not stored, not linked to your account and not '
+                    'used for anything else. If you decline, the weather is '
+                    'estimated from your internet connection instead.\n\n'
+                    'Pictures you attach to shop credit items are kept in '
+                    'your own private folder, readable only by your account.',
+              ),
+              _Section(
                 title: 'Security',
                 body:
                     'Passwords are handled by Supabase Auth and are never '

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../widgets/pasal/pasal_item_image.dart';
+
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/pasal_credit_model.dart';
@@ -292,6 +294,14 @@ class _CreditTile extends StatelessWidget {
       PasalCreditStatus.overdue => glass.danger,
       PasalCreditStatus.unpaid => glass.textSecondary,
     };
+    // The first item that has a picture stands for the purchase.
+    String? picture;
+    for (final item in context.watch<PasalProvider>().itemsFor(credit.id)) {
+      if (item.imagePath != null) {
+        picture = item.imagePath;
+        break;
+      }
+    }
     return GlassCard(
       onTap: () {
         final items = context.read<PasalProvider>().itemsFor(credit.id);
@@ -308,6 +318,28 @@ class _CreditTile extends StatelessWidget {
       },
       child: Row(
         children: <Widget>[
+          if (picture != null) ...<Widget>[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 40,
+                height: 40,
+                child: PasalItemImage(
+                  path: picture,
+                  size: 40,
+                  fallback: ColoredBox(
+                    color: glass.fill,
+                    child: Icon(
+                      Icons.image_outlined,
+                      size: 18,
+                      color: glass.textTertiary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
