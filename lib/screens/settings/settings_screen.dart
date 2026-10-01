@@ -20,12 +20,9 @@ import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/theme_mode_selector.dart';
-import 'backup_restore_screen.dart';
 import 'change_password_screen.dart';
-import 'help_support_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'two_factor_screen.dart';
-import 'version_screen.dart';
 import '../../widgets/common/page_refresh.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -103,21 +100,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 color: Color(0xFFFF9F0A),
                               ),
                         onTap: () => _showSyncDialog(supabase),
-                      ),
-                      const Divider(height: 1),
-                      _SettingTile(
-                        icon: Icons.backup_rounded,
-                        color: const Color(0xFF30D158),
-                        title: context.t(
-                          'Backup & Restore',
-                          'ब्याकअप र रिस्टोर',
-                        ),
-                        subtitle: context.t(
-                          'Cloud or device file',
-                          'क्लाउड वा यन्त्र फाइल',
-                        ),
-                        onTap: () =>
-                            _open(context, const BackupRestoreScreen()),
                       ),
                     ],
                   ),
@@ -219,22 +201,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _SectionHeader(title: context.t('About', 'बारे')),
+                // Backup, Help and About live on the More page.
+                _SectionHeader(title: context.t('Privacy', 'गोपनीयता')),
                 const SizedBox(height: 8),
                 GlassCard(
                   child: Column(
                     children: <Widget>[
-                      _SettingTile(
-                        icon: Icons.info_outline_rounded,
-                        color: const Color(0xFF8E8E93),
-                        title: context.t('About Kharcha', 'खर्चा बारे'),
-                        subtitle: context.t(
-                          'What’s new, updates and credits',
-                          'के नयाँ छ, अपडेट र श्रेय',
-                        ),
-                        onTap: () => _open(context, const VersionScreen()),
-                      ),
-                      const Divider(height: 1),
                       _SettingTile(
                         icon: Icons.privacy_tip_rounded,
                         color: const Color(0xFF8E8E93),
@@ -245,17 +217,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         onTap: () =>
                             _open(context, const PrivacyPolicyScreen()),
-                      ),
-                      const Divider(height: 1),
-                      _SettingTile(
-                        icon: Icons.help_outline_rounded,
-                        color: const Color(0xFF8E8E93),
-                        title: context.t('Help & Support', 'मद्दत र सहयोग'),
-                        subtitle: context.t(
-                          'Get help or send feedback',
-                          'मद्दत लिनुहोस् वा प्रतिक्रिया पठाउनुहोस्',
-                        ),
-                        onTap: () => _open(context, const HelpSupportScreen()),
                       ),
                     ],
                   ),
