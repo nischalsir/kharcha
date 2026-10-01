@@ -232,7 +232,8 @@ void main() {
       );
 
       expect(reader.bytes, isNotNull);
-      expect(reader.hint, StatementSource.bank);
+      // No source is guessed for it: the file says what it is.
+      expect(reader.hint, isNull);
       expect(find.text('Statement.pdf'), findsOneWidget);
       expect(find.textContaining('Nabil Bank statement'), findsOneWidget);
       expect(find.textContaining('page 2 of 2'), findsOneWidget);

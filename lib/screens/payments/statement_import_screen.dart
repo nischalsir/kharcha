@@ -20,10 +20,12 @@ import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
 import 'statement_guide_screen.dart';
 
-/// Bring transactions in from a bank or wallet statement:
-/// choose the source, see how to download it, pick the file (or share it into
-/// the app from the bank's own app), review what was read, then confirm.
-/// Nothing is saved before the confirmation.
+/// Bring transactions in from a bank or wallet statement: pick the file (or
+/// share it into the app from the bank's own app), review what was read, then
+/// confirm. Nothing is saved before the confirmation.
+///
+/// There is nothing to choose before the file: whose statement it is, and
+/// what kind of file, are worked out from the file itself.
 ///
 /// This screen only shows things. Reading, duplicate detection and saving
 /// are [StatementImporter]'s.
@@ -60,7 +62,6 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
     service: widget.service,
   );
 
-  StatementSource _source = StatementSource.bank;
   bool _busy = false;
   bool _importing = false;
   String? _fileName;
@@ -92,12 +93,48 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
     }
   }
 
-  void _openGuide(StatementSource source) {
-    Navigator.of(context).push<void>(
+  /// The download guides, one per kind of statement. Only for someone who
+  /// does not have the file yet; importing never needs one picked.
+  Future<void> _openGuides() async {
+    final source = await showModalBottomSheet<StatementSource>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            for (final source in StatementSource.values)
+              ListTile(
+                key: ValueKey<String>('guide-${source.id}'),
+                leading: Icon(
+                  _sourceLook[source]!.$1,
+                  color: _sourceLook[source]!.$2,
+                ),
+                title: Text(_sourceTitle(sheetContext, source)),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.pop(sheetContext, source),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => StatementGuideScreen(source: source),
       ),
     );
+  }
+
+  /// Ticks every row that can be imported, or unticks them all. Rows already
+  /// in the app are never ticked.
+  void _selectAll(bool value) {
+    final result = _result;
+    if (result == null) return;
+    setState(() {
+      for (final entry in result.entries) {
+        entry.selected = value && !entry.alreadyImported;
+      }
+    });
   }
 
   Future<void> _pickAndParse() async {
@@ -157,7 +194,7 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
     });
     flamey?.send(FlameyEvent.loading);
     try {
-      final result = await _importer.read(await bytes(), hint: _source);
+      final result = await _importer.read(await bytes());
       if (!mounted) return;
       flamey?.send(FlameyEvent.suggestion);
       setState(() {
@@ -223,6 +260,12 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
     final theme = Theme.of(context);
     final result = _result;
     final selectedCount = result?.entries.where((e) => e.selected).length ?? 0;
+    // Rows that are not in the app yet. With none, there is nothing to
+    // import, which is said outright rather than left as a dead button.
+    final newCount =
+        result?.entries.where((e) => !e.alreadyImported).length ?? 0;
+    final nothingNew =
+        result != null && result.entries.isNotEmpty && newCount == 0;
 
     return GlassBackground(
       child: Scaffold(
@@ -252,6 +295,10 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
                         padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                         children: <Widget>[
                           _SummaryCard(result: result, fileName: _fileName),
+                          if (nothingNew) ...<Widget>[
+                            const SizedBox(height: 12),
+                            _NothingNewCard(count: result.entries.length),
+                          ],
                           if (result.unreadPages.isNotEmpty) ...<Widget>[
                             const SizedBox(height: 12),
                             _UnreadPagesCard(
@@ -280,6 +327,7 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
                               entries: result.entries,
                               onChanged: (entry, value) =>
                                   setState(() => entry.selected = value),
+                              onSelectAll: _selectAll,
                             ),
                         ],
                       ),
@@ -297,24 +345,32 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
                                 minimumSize: const Size.fromHeight(50),
                               ),
                               child: Text(
-                                context.t('Cancel', 'रद्द गर्नुहोस्'),
+                                nothingNew
+                                    ? context.t('Another file', 'अर्को फाइल')
+                                    : context.t('Cancel', 'रद्द गर्नुहोस्'),
                               ),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             flex: 2,
-                            child: PrimaryButton(
-                              label: context.t(
-                                'Import $selectedCount',
-                                '$selectedCount आयात गर्नुहोस्',
-                              ),
-                              icon: Icons.check_rounded,
-                              onPressed: _importing || selectedCount == 0
-                                  ? null
-                                  : _import,
-                              isLoading: _importing,
-                            ),
+                            child: nothingNew
+                                ? PrimaryButton(
+                                    label: context.t('Done', 'सम्पन्न'),
+                                    icon: Icons.check_rounded,
+                                    onPressed: () => Navigator.pop(context),
+                                  )
+                                : PrimaryButton(
+                                    label: context.t(
+                                      'Import $selectedCount',
+                                      '$selectedCount आयात गर्नुहोस्',
+                                    ),
+                                    icon: Icons.check_rounded,
+                                    onPressed: _importing || selectedCount == 0
+                                        ? null
+                                        : _import,
+                                    isLoading: _importing,
+                                  ),
                           ),
                         ],
                       ),
@@ -340,94 +396,42 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
         StatementSource.other: (Icons.description_rounded, Color(0xFFFF9F0A)),
       };
 
-  (String, String) _sourceText(BuildContext context, StatementSource source) =>
+  String _sourceTitle(BuildContext context, StatementSource source) =>
       switch (source) {
-        StatementSource.bank => (
-          context.t('Bank statement', 'बैंक स्टेटमेन्ट'),
-          context.t(
-            'Any bank. PDF, Excel or CSV, read by its column headings.',
-            'जुनसुकै बैंक। PDF, Excel वा CSV, स्तम्भका नामबाट पढिन्छ।',
-          ),
+        StatementSource.bank => context.t('Bank statement', 'बैंक स्टेटमेन्ट'),
+        StatementSource.esewa => context.t(
+          'eSewa statement',
+          'eSewa स्टेटमेन्ट',
         ),
-        StatementSource.esewa => (
-          context.t('eSewa statement', 'eSewa स्टेटमेन्ट'),
-          context.t(
-            'The Excel (.xls) statement exported from eSewa.',
-            'eSewa बाट निकालिएको Excel (.xls) स्टेटमेन्ट।',
-          ),
+        StatementSource.khalti => context.t(
+          'Khalti statement',
+          'Khalti स्टेटमेन्ट',
         ),
-        StatementSource.khalti => (
-          context.t('Khalti statement', 'Khalti स्टेटमेन्ट'),
-          context.t(
-            'The Excel export of your transaction history from khalti.com.',
-            'khalti.com बाट निकालिएको कारोबार विवरणको Excel फाइल।',
-          ),
-        ),
-        StatementSource.other => (
-          context.t('Another wallet or app', 'अर्को वालेट वा एप'),
-          context.t(
-            'Any statement with a date and amount columns: PDF, Excel or CSV.',
-            'मिति र रकम भएको जुनसुकै स्टेटमेन्ट: PDF, Excel वा CSV।',
-          ),
+        StatementSource.other => context.t(
+          'Another wallet or app',
+          'अर्को वालेट वा एप',
         ),
       };
 
   Widget _intro(BuildContext context) {
     final theme = Theme.of(context);
     final glass = context.glass;
-    final (title, subtitle) = _sourceText(context, _source);
-    final (icon, color) = _sourceLook[_source]!;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 48),
       children: <Widget>[
         Text(
           context.t(
-            'Download a statement from your bank or wallet, then import the '
-                'file here. You review every row before anything is added.',
-            'आफ्नो बैंक वा वालेटबाट स्टेटमेन्ट डाउनलोड गरी यहाँ फाइल आयात '
-                'गर्नुहोस्। केही थपिनुअघि हरेक पङ्क्ति तपाईंले जाँच्नुहुन्छ।',
+            'Choose a statement file from your bank, eSewa, Khalti or any '
+                'other wallet. Kharcha works out what it is from the file '
+                'itself, and you review every row before anything is added.',
+            'बैंक, eSewa, Khalti वा अरू कुनै वालेटको स्टेटमेन्ट फाइल '
+                'छान्नुहोस्। फाइल के हो भन्ने Kharcha आफैँ पत्ता लगाउँछ, र केही '
+                'थपिनुअघि हरेक पङ्क्ति तपाईंले जाँच्नुहुन्छ।',
           ),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: glass.textSecondary,
             height: 1.5,
           ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          context.t('Where is it from?', 'यो कहाँबाट हो?'),
-          style: theme.textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: <Widget>[
-            for (final source in StatementSource.values)
-              ChoiceChip(
-                key: ValueKey<String>('source-${source.id}'),
-                label: Text(source.label),
-                avatar: Icon(
-                  _sourceLook[source]!.$1,
-                  size: 18,
-                  color: _sourceLook[source]!.$2,
-                ),
-                selected: _source == source,
-                showCheckmark: false,
-                onSelected: _busy
-                    ? null
-                    : (_) => setState(() => _source = source),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _SourceCard(
-          icon: icon,
-          color: color,
-          title: title,
-          subtitle: subtitle,
-          onGuide: _busy ? null : () => _openGuide(_source),
         ),
         const SizedBox(height: 20),
         PrimaryButton(
@@ -449,10 +453,8 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
         const SizedBox(height: 10),
         Text(
           context.t(
-            'Supported: PDF, Excel (.xls, .xlsx) and CSV, up to 5 MB. The '
-                'file type and layout are worked out from the file itself.',
-            'समर्थित: PDF, Excel (.xls, .xlsx) र CSV, ५ MB सम्म। फाइलको '
-                'प्रकार र ढाँचा फाइलबाटै पत्ता लगाइन्छ।',
+            'Supported: PDF, Excel (.xls, .xlsx) and CSV, up to 5 MB.',
+            'समर्थित: PDF, Excel (.xls, .xlsx) र CSV, ५ MB सम्म।',
           ),
           textAlign: TextAlign.center,
           style: theme.textTheme.labelSmall?.copyWith(
@@ -485,14 +487,29 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const ValueKey<String>('open-guides'),
+            onPressed: _busy ? null : _openGuides,
+            icon: const Icon(Icons.help_outline_rounded, size: 18),
+            label: Text(
+              context.t(
+                'How to download a statement',
+                'स्टेटमेन्ट कसरी डाउनलोड गर्ने',
+              ),
+            ),
+          ),
+        ),
         if (_error != null) ...<Widget>[
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _FailureCard(
             fileName: _fileName,
             message: _error!,
             problem: _problem,
             unreadPages: _unreadPages,
-            onGuide: () => _openGuide(_source),
+            onGuide: _openGuides,
             onAddManually: () =>
                 Navigator.of(context).pushNamed(RoutePaths.addExpense),
           ),
@@ -635,70 +652,6 @@ class _UnreadPagesCard extends StatelessWidget {
               ),
               style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// One kind of statement, with the way into its download guide.
-class _SourceCard extends StatelessWidget {
-  const _SourceCard({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    required this.onGuide,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onGuide;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final glass = context.glass;
-    return GlassCard(
-      onTap: onGuide,
-      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: color),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: glass.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: onGuide,
-            child: Text(context.t('How to get it', 'कसरी पाउने')),
           ),
         ],
       ),
@@ -879,6 +832,56 @@ class _Note extends StatelessWidget {
   }
 }
 
+/// Every row of the file is in the app already: said plainly, with where to
+/// find them, so the review is not a list of boxes that cannot be ticked.
+class _NothingNewCard extends StatelessWidget {
+  const _NothingNewCard({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    return GlassCard(
+      key: const ValueKey<String>('nothing-new'),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(Icons.verified_rounded, size: 20, color: glass.success),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  context.t('Nothing new to import', 'आयात गर्न नयाँ केही छैन'),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  context.t(
+                    count == 1
+                        ? 'The transaction in this file is already in '
+                              'Kharcha. You can find it under Payments.'
+                        : 'All $count transactions in this file are already '
+                              'in Kharcha. You can find them under Payments.',
+                    'यो फाइलका सबै $count कारोबार Kharcha मा पहिल्यै छन्। '
+                    'ती Payments मा भेटिन्छन्।',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Rows the statement had that could not be read with confidence.
 class _SkippedCard extends StatelessWidget {
   const _SkippedCard({required this.rows});
@@ -969,27 +972,91 @@ class _SkippedCard extends StatelessWidget {
 }
 
 class _EntriesCard extends StatelessWidget {
-  const _EntriesCard({required this.entries, required this.onChanged});
+  const _EntriesCard({
+    required this.entries,
+    required this.onChanged,
+    required this.onSelectAll,
+  });
 
   final List<StatementEntry> entries;
   final void Function(StatementEntry entry, bool value) onChanged;
+  final void Function(bool value) onSelectAll;
 
   @override
   Widget build(BuildContext context) {
     final glass = context.glass;
     return GlassCard(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        children: <Widget>[
-          for (var i = 0; i < entries.length; i++) ...<Widget>[
-            if (i != 0)
+      // The rows draw their ink on the nearest Material; without one of
+      // their own it would paint behind the card.
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
+          children: <Widget>[
+            _SelectAllRow(entries: entries, onSelectAll: onSelectAll),
+            for (final entry in entries) ...<Widget>[
               Divider(
                 height: 1,
                 color: glass.textTertiary.withValues(alpha: 0.2),
               ),
-            _EntryRow(entry: entries[i], onChanged: onChanged),
+              _EntryRow(entry: entry, onChanged: onChanged),
+            ],
           ],
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Ticks or unticks every row that can be imported, and says how many are
+/// ticked.
+class _SelectAllRow extends StatelessWidget {
+  const _SelectAllRow({required this.entries, required this.onSelectAll});
+
+  final List<StatementEntry> entries;
+  final void Function(bool value) onSelectAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    final available = entries.where((e) => !e.alreadyImported).length;
+    final selected = entries.where((e) => e.selected).length;
+    final all = available > 0 && selected == available;
+    final toggle = available == 0 ? null : () => onSelectAll(!all);
+    return InkWell(
+      key: const ValueKey<String>('select-all'),
+      onTap: toggle,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 2, 14, 2),
+        child: Row(
+          children: <Widget>[
+            Checkbox(
+              // A dash while only some rows are ticked.
+              tristate: true,
+              value: all ? true : (selected == 0 ? false : null),
+              onChanged: toggle == null ? null : (_) => toggle(),
+              activeColor: theme.colorScheme.primary,
+            ),
+            Expanded(
+              child: Text(
+                context.t('Select all', 'सबै छान्नुहोस्'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              context.t(
+                '$selected of $available selected',
+                '$available मध्ये $selected छानिएको',
+              ),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: glass.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1017,76 +1084,82 @@ class _EntryRow extends StatelessWidget {
         ? ' · ${context.t('Already imported', 'पहिल्यै आयात')}'
         : '';
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 6, 14, 6),
-      child: Row(
-        children: <Widget>[
-          Checkbox(
-            value: entry.selected,
-            // A row that is already in the app stays unticked: ticking it
-            // would only write the same record again.
-            onChanged: entry.alreadyImported
-                ? null
-                : (value) => onChanged(entry, value ?? false),
-            activeColor: theme.colorScheme.primary,
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  entry.title,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: entry.alreadyImported ? glass.textSecondary : null,
+    return InkWell(
+      // The whole row ticks, not only the small box.
+      onTap: entry.alreadyImported
+          ? null
+          : () => onChanged(entry, !entry.selected),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 6, 14, 6),
+        child: Row(
+          children: <Widget>[
+            Checkbox(
+              value: entry.selected,
+              // A row that is already in the app stays unticked: ticking it
+              // would only write the same record again.
+              onChanged: entry.alreadyImported
+                  ? null
+                  : (value) => onChanged(entry, value ?? false),
+              activeColor: theme.colorScheme.primary,
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    entry.title,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: entry.alreadyImported ? glass.textSecondary : null,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  '$dateLabel · $direction · ${entry.source.label}$imported',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: glass.textSecondary,
+                  Text(
+                    '$dateLabel · $direction · ${entry.source.label}$imported',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: glass.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (entry.warning != null && !entry.alreadyImported)
-                  Row(
-                    children: <Widget>[
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        size: 13,
-                        color: glass.warning,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          context.t(
-                            'Check: ${entry.warning}',
-                            'जाँच्नुहोस्: स्टेटमेन्टको ब्यालेन्ससँग मिलेन',
-                          ),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: glass.warning,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                  if (entry.warning != null && !entry.alreadyImported)
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          size: 13,
+                          color: glass.warning,
                         ),
-                      ),
-                    ],
-                  ),
-              ],
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            context.t(
+                              'Check: ${entry.warning}',
+                              'जाँच्नुहोस्: स्टेटमेन्टको ब्यालेन्ससँग मिलेन',
+                            ),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: glass.warning,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '${entry.isIncome ? '+' : '-'}${entry.amount.toStringAsFixed(2)}',
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: entry.alreadyImported ? glass.textSecondary : color,
-              fontWeight: FontWeight.w700,
+            const SizedBox(width: 8),
+            Text(
+              '${entry.isIncome ? '+' : '-'}${entry.amount.toStringAsFixed(2)}',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: entry.alreadyImported ? glass.textSecondary : color,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

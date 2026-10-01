@@ -235,11 +235,11 @@ class StatementGuides {
       title: 'Import it into Kharcha',
       titleNe: 'खर्चामा आयात गर्नुहोस्',
       body:
-          'Go back to the import page with Khalti selected and tap Choose '
-          'file, or share the file to Kharcha. Payments that failed are left '
-          'out, and you choose which rows to keep.',
+          'Go back to the import page and tap Choose file, or share the '
+          'file to Kharcha. Payments that failed are left out, and you '
+          'choose which rows to keep.',
       bodyNe:
-          'आयात पृष्ठमा Khalti छानेर Choose file थिच्नुहोस्, वा फाइल Kharcha '
+          'आयात पृष्ठमा फर्केर Choose file थिच्नुहोस्, वा फाइल Kharcha '
           'मा Share गर्नुहोस्। असफल भुक्तानी छुट्छन्, र कुन पङ्क्ति राख्ने '
           'तपाईंले छान्नुहुन्छ।',
     ),

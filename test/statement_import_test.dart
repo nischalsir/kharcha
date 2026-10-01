@@ -182,17 +182,12 @@ void main() {
       await _open(tester, transactions, review: review);
     }
 
-    testWidgets('the start offers every source and says what is supported', (
-      tester,
-    ) async {
+    testWidgets('the start asks for a file and nothing else', (tester) async {
       await pump(tester, review: false);
 
-      // One chip per source, Bank picked to begin with.
-      for (final label in <String>['Bank', 'eSewa', 'Khalti', 'Other']) {
-        expect(find.widgetWithText(ChoiceChip, label), findsOneWidget);
-      }
-      expect(find.text('Bank statement'), findsOneWidget);
-      expect(find.text('How to get it'), findsOneWidget);
+      // No source to pick: the file says what it is.
+      expect(find.byType(ChoiceChip), findsNothing);
+      expect(find.text('Where is it from?'), findsNothing);
       expect(find.text('Choose file'), findsOneWidget);
       expect(
         find.textContaining('PDF, Excel (.xls, .xlsx) and CSV'),
@@ -200,12 +195,23 @@ void main() {
       );
       // Sharing a file in is offered as the quicker way.
       expect(find.textContaining('tap Share on the'), findsOneWidget);
+    });
 
-      // Picking a wallet changes what the card describes.
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Khalti'));
-      await tester.pump();
+    testWidgets('the download guides are one tap away, for every source', (
+      tester,
+    ) async {
+      await pump(tester, review: false);
+
+      await tester.tap(find.text('How to download a statement'));
+      await tester.pumpAndSettle();
+      for (final id in <String>['bank', 'esewa', 'khalti', 'other']) {
+        expect(find.byKey(ValueKey<String>('guide-$id')), findsOneWidget);
+      }
+
+      await tester.tap(find.byKey(const ValueKey<String>('guide-khalti')));
+      await tester.pumpAndSettle();
+      expect(find.byType(StatementGuideScreen), findsOneWidget);
       expect(find.text('Khalti statement'), findsOneWidget);
-      expect(find.textContaining('khalti.com'), findsOneWidget);
     });
 
     testWidgets('the review shows date, description, amount and direction', (
@@ -271,11 +277,19 @@ void main() {
         find.text('2026-09-30 · Debit · eSewa · Already imported'),
         findsOneWidget,
       );
-      expect(find.text('Import 0'), findsOneWidget);
       final boxes = tester.widgetList<Checkbox>(find.byType(Checkbox));
       expect(boxes.every((box) => box.value == false), isTrue);
       expect(boxes.every((box) => box.onChanged == null), isTrue);
       expect(transactions.statementMatchKeys(), hasLength(2));
+
+      // Said outright, with a way out, instead of a button that does nothing.
+      expect(find.byKey(const ValueKey<String>('nothing-new')), findsOneWidget);
+      expect(find.text('Nothing new to import'), findsOneWidget);
+      expect(find.textContaining('All 2 transactions'), findsOneWidget);
+      expect(find.text('0 of 0 selected'), findsOneWidget);
+      expect(find.text('Import 0'), findsNothing);
+      expect(find.text('Done'), findsOneWidget);
+      expect(find.text('Another file'), findsOneWidget);
     });
 
     testWidgets('a row imported by an older version is still recognised', (
@@ -299,9 +313,71 @@ void main() {
 
     testWidgets('a row can be left out by unticking it', (tester) async {
       await pump(tester);
-      await tester.tap(find.byType(Checkbox).first);
+      expect(find.text('2 of 2 selected'), findsOneWidget);
+      // The first box is Select all; the rows follow.
+      await tester.tap(find.byType(Checkbox).at(1));
       await tester.pump();
       expect(find.text('Import 1'), findsOneWidget);
+      expect(find.text('1 of 2 selected'), findsOneWidget);
+      // Some but not all: Select all shows a dash.
+      expect(tester.widget<Checkbox>(find.byType(Checkbox).first).value, null);
+    });
+
+    testWidgets('tapping a row ticks it, not only its box', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('Paid for MINI MART'));
+      await tester.pump();
+      expect(find.text('Import 1'), findsOneWidget);
+      await tester.tap(find.text('Paid for MINI MART'));
+      await tester.pump();
+      expect(find.text('Import 2'), findsOneWidget);
+    });
+
+    testWidgets('Select all ticks every row, and unticks them all', (
+      tester,
+    ) async {
+      await pump(tester);
+      expect(tester.widget<Checkbox>(find.byType(Checkbox).first).value, true);
+
+      await tester.tap(find.text('Select all'));
+      await tester.pump();
+      expect(find.text('Import 0'), findsOneWidget);
+      expect(find.text('0 of 2 selected'), findsOneWidget);
+      final none = tester.widgetList<Checkbox>(find.byType(Checkbox));
+      expect(none.every((box) => box.value == false), isTrue);
+
+      await tester.tap(find.text('Select all'));
+      await tester.pump();
+      expect(find.text('Import 2'), findsOneWidget);
+      final all = tester.widgetList<Checkbox>(find.byType(Checkbox));
+      expect(all.every((box) => box.value == true), isTrue);
+    });
+
+    testWidgets('Select all leaves out what is already in the app', (
+      tester,
+    ) async {
+      await pump(tester, review: false);
+      await tester.runAsync(
+        () => transactions.create(
+          title: 'Paid for MINI MART',
+          amount: 50,
+          type: TransactionType.expense,
+          occurredAt: DateTime(2026, 9, 30, 19, 11, 27),
+        ),
+      );
+      await _open(tester, transactions);
+      expect(find.text('1 of 1 selected'), findsOneWidget);
+
+      await tester.tap(find.text('Select all'));
+      await tester.pump();
+      await tester.tap(find.text('Select all'));
+      await tester.pump();
+      expect(find.text('Import 1'), findsOneWidget);
+      // The saved row cannot be ticked by tapping it either.
+      await tester.tap(find.text('Paid for MINI MART'));
+      await tester.pump();
+      expect(find.text('Import 1'), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('nothing-new')), findsNothing);
     });
   });
 

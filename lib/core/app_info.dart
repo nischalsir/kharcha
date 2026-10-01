@@ -11,7 +11,7 @@ class AppInfo {
 
   const AppInfo._();
 
-  static const String version = '1.0.17';
-  static const String buildNumber = '19';
+  static const String version = '1.0.18';
+  static const String buildNumber = '20';
   static const String applicationId = 'com.nischalpandey.kharcha';
 }

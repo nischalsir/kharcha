@@ -38,6 +38,14 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'Import a statement without choosing where it is from',
+      'कहाँबाट हो नछानी स्टेटमेन्ट आयात गर्नुहोस्',
+    ),
+    (
+      'Select all on the import review; tap a row to tick it',
+      'आयात समीक्षामा "सबै छान्नुहोस्"; पङ्क्ति थिचेर छान्नुहोस्',
+    ),
+    (
       'Profile has its own page, opened from More; Settings is settings only',
       'प्रोफाइलको आफ्नै पृष्ठ, "थप" बाट खुल्छ; सेटिङमा सेटिङ मात्र',
     ),

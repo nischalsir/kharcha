@@ -57,12 +57,12 @@ Most expense trackers show you a number. Kharcha has a little flame called Flame
 
 ## 📄 Statement import
 
-- **Bank, eSewa, Khalti or another wallet.** Pick the source and follow its own step-by-step guide to download the statement.
+- **Bank, eSewa, Khalti or another wallet.** Just choose the file: Kharcha works out whose statement it is from the file itself. Each source has a step-by-step guide for downloading it.
 - **PDF, Excel and CSV.** Bank PDFs are read by their column headings, not by one bank's layout, so statements from many Nepali banks work.
 - **Checked, not guessed.** Rows are checked against the statement's own running balance. Rows and pages that cannot be read are listed for you instead of being filled in.
 - **Bikram Sambat dates are converted**, and entries you already have are spotted as duplicates.
 - **Share straight into Kharcha.** In your bank app or file manager, tap *Share* or *Open with* on a statement and choose Kharcha. It opens in the importer.
-- **You review every row** before anything is saved, and the statement file itself is never stored.
+- **You review every row** before anything is saved, with *Select all* to tick or untick them at once. The statement file itself is never stored.
 
 ## 🤝 Friends & Pasal
 
