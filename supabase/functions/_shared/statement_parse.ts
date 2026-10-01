@@ -424,20 +424,33 @@ export function parseMoneyCell(
 }
 
 type GenericColumn =
-  | 'date' | 'description' | 'debit' | 'credit' | 'amount' | 'type' | 'ref'
-  | 'status';
+  | 'date' | 'time' | 'description' | 'debit' | 'credit' | 'amount' | 'type'
+  | 'ref' | 'status';
 
 const HEADERS: Record<GenericColumn, RegExp> = {
   date: /^(transaction |txn |tran |posting |value )?date( ?time)?$|^date \(?ad\)?$|^miti$/,
+  // Some exports (Khalti's) keep the time of day in a column of its own.
+  time: /^(transaction |txn |tran )?time$/,
   description:
     /^(transaction )?(description|particulars?|narration|remarks?|details?)$|^desc$|^(service|purpose|title|merchant|activity)( name)?$/,
-  debit: /^(debit|withdraw(al)?s?|dr|paid out|money out)( amount)?( \(?(npr|rs)\)?)?$/,
-  credit: /^(credit|deposits?|cr|paid in|money in)( amount)?( \(?(npr|rs)\)?)?$/,
+  // `Amount(-) Rs` and `Amount(+) Rs` are how Khalti names money out and in.
+  debit:
+    /^(debit|withdraw(al)?s?|dr|paid out|money out)( amount)?( \(?(npr|rs)\)?)?$|^amount ?\((-|dr)\)( \(?(npr|rs)\)?)?$/,
+  credit:
+    /^(credit|deposits?|cr|paid in|money in)( amount)?( \(?(npr|rs)\)?)?$|^amount ?\((\+|cr)\)( \(?(npr|rs)\)?)?$/,
   amount: /^(transaction |txn )?amount( \(?(npr|rs)\)?)?$/,
   type: /^(transaction |txn )?type$|^dr ?\/ ?cr$|^cr ?\/ ?dr$|^direction$/,
   ref: /^(reference|ref|transaction|txn|cheque|chq)( ?(code|no|number|id))?$/,
   status: /^(transaction |txn )?(status|state)$/,
 };
+
+/**
+ * A column that says what the row was: `Description`, `Particulars`. Where a
+ * sheet has one, it is used in preference to a looser match that happens to
+ * come first, such as Khalti's mostly empty `Service` column.
+ */
+const DESCRIPTION_PROPER =
+  /^(transaction )?(description|particulars?|narration|details?)$|^desc$/;
 
 /** A status that says the money did not move. */
 const NOT_COMPLETED =
@@ -469,14 +482,28 @@ export function parseGenericRows(
 
   let headerIndex = -1;
   let columns: Partial<Record<GenericColumn, number>> = {};
+  // A second column that describes the row, read when the first is empty.
+  let otherDescription: number | undefined;
   for (let i = 0; i < Math.min(rows.length, 40); i++) {
     const found: Partial<Record<GenericColumn, number>> = {};
+    let proper = false;
+    let other: number | undefined;
     (rows[i] ?? []).forEach((cell, index) => {
       const key = headerKey(cell);
       if (!key) return;
+      if (
+        found.description !== undefined && !proper &&
+        DESCRIPTION_PROPER.test(key)
+      ) {
+        other = found.description;
+        found.description = index;
+        proper = true;
+        return;
+      }
       for (const name of Object.keys(HEADERS) as GenericColumn[]) {
         if (found[name] === undefined && HEADERS[name].test(key)) {
           found[name] = index;
+          if (name === 'description') proper = DESCRIPTION_PROPER.test(key);
           return;
         }
       }
@@ -486,6 +513,7 @@ export function parseGenericRows(
     if (found.date !== undefined && hasMoney) {
       headerIndex = i;
       columns = found;
+      otherDescription = other;
       break;
     }
   }
@@ -499,8 +527,16 @@ export function parseGenericRows(
     const line = row.map(text).filter((c) => c).join(' | ').slice(0, 120);
     if (!line) continue;
 
-    const dateText = cell('date');
-    const description = tidy(cell('description'));
+    // The time of day, when it has a column of its own and the date has none.
+    const timeText = cell('time');
+    const dateText =
+      /\d:\d/.test(cell('date')) || !/^\d{1,2}:\d{2}/.test(timeText)
+        ? cell('date')
+        : `${cell('date')} ${timeText}`.trim();
+    const description = tidy(
+      cell('description') ||
+        (otherDescription === undefined ? '' : text(row[otherDescription])),
+    );
     // Balance and total lines sit in the table but are not transactions.
     if (/^(opening|closing) balance|^total|^grand total|^balance (b\/f|c\/f)/i.test(description)) {
       continue;
@@ -633,9 +669,16 @@ export function parseSheet(
       provider: 'eSewa',
     };
   }
+  // Khalti's transaction history has no title above its table; it is known
+  // by its own column names.
+  const isKhalti = rows.slice(0, 40).some((row) => {
+    const labels = (row ?? []).map(headerKey);
+    return labels.includes('transaction state') &&
+      labels.includes('amount(-) rs') && labels.includes('amount(+) rs');
+  });
   // The file's own words outrank what the user picked: a wallet names itself
   // in the lines above its table.
-  const named = sheetSource(rows);
+  const named = isKhalti ? 'khalti' : sheetSource(rows);
   const source: StatementSourceId = named ?? hint ?? 'bank';
   const method = source === 'khalti' || source === 'esewa' ? source : undefined;
   const entries = parseGenericRows(rows, skipped, method);
@@ -643,7 +686,8 @@ export function parseSheet(
     entries,
     skipped,
     source: entries.length > 0 || skipped.length > 0 ? source : 'unknown',
-    format: 'sheet',
+    format: isKhalti ? 'khalti-sheet' : 'sheet',
+    ...(isKhalti ? { provider: 'Khalti' } : {}),
   };
 }
 

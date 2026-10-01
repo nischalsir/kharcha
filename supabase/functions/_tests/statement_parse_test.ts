@@ -325,3 +325,76 @@ Deno.test('parseSheet tells eSewa from a bank export', () => {
   assertEquals(bank.source, 'bank');
   assertEquals(bank.entries[0].method, undefined);
 });
+
+// Khalti's "Transaction History" export: no title above the table, the time
+// in its own column, and money out and in under Amount(-) Rs / Amount(+) Rs.
+const KHALTI_HEADER = [
+  'Transaction ID', 'Transaction Type', 'Transaction State', 'Transaction Date',
+  'Transaction Time', 'Service', 'Description', 'From', 'To', 'Username',
+  'Fullname', 'Branch', 'Purpose', 'Remarks', 'Reference', 'Amount(-) Rs',
+  'Amount(+) Rs', 'Balance',
+];
+const khaltiRow = (
+  id: string, type: string, state: string, time: string, description: string,
+  out: string, into: string, balance: string, service = '',
+) => [
+  id, type, state, '2026-09-07', time, service, description, 'A (9800000000)',
+  'B (9811111111)', '', '', '', 'Personal Use', 'done', '', out, into, balance,
+];
+
+Deno.test('Khalti transaction history: read by its own column names', () => {
+  const rows = [
+    KHALTI_HEADER,
+    khaltiRow('K5', 'Cashback', 'Completed', '16:32:32', 'Khalti has provided the cashback of Rs 10.0.', '', '10', '10'),
+    khaltiRow('K4', 'Fee', 'Completed', '16:32:31', 'Fee of amount Rs 10.0 has been imposed.', '10', '', '0'),
+    khaltiRow('K3', 'Withdraw', 'Success', '16:32:30', 'Withdraw of Rs 200.0 to Some Bank Limited .', '200', '', '10'),
+    khaltiRow('K2', 'Transfer', 'Completed', '16:31:40', 'Transfer of Rs 200.0 from A (9800000000)', '', '200', '200'),
+  ];
+  const parsed = parseSheet(rows);
+  assertEquals(parsed.source, 'khalti');
+  assertEquals(parsed.provider, 'Khalti');
+  assertEquals(parsed.format, 'khalti-sheet');
+  assertEquals(parsed.skipped, []);
+  assertEquals(
+    parsed.entries.map((e) => [e.occurred_at, e.type, e.amount, e.ref, e.method]),
+    [
+      ['2026-09-07 16:32:32', 'income', 10, 'K5', 'khalti'],
+      ['2026-09-07 16:32:31', 'expense', 10, 'K4', 'khalti'],
+      ['2026-09-07 16:32:30', 'expense', 200, 'K3', 'khalti'],
+      ['2026-09-07 16:31:40', 'income', 200, 'K2', 'khalti'],
+    ],
+  );
+  // The Description column is used, not the empty Service column before it.
+  assertEquals(
+    parsed.entries[3].description,
+    'Transfer of Rs 200.0 from A (9800000000)',
+  );
+});
+
+Deno.test('Khalti transaction history: a failed payment moved no money', () => {
+  const rows = [
+    KHALTI_HEADER,
+    khaltiRow('K1', 'Payment', 'Failed', '10:00:00', 'Payment of Rs 500.0', '500', '', '0'),
+    khaltiRow('K2', 'Payment', 'Completed', '10:05:00', '', '50', '', '0', 'Mobile Topup'),
+  ];
+  const parsed = parseSheet(rows);
+  assertEquals(parsed.entries.length, 1);
+  // With no description on the row, the service says what it was.
+  assertEquals(parsed.entries[0].description, 'Mobile Topup');
+  assertEquals(parsed.entries[0].occurred_at, '2026-09-07 10:05:00');
+});
+
+Deno.test('a separate time column is joined to the date, for any sheet', () => {
+  const skipped: SkippedRow[] = [];
+  const entries = parseGenericRows([
+    ['Date', 'Time', 'Particulars', 'Debit', 'Credit'],
+    ['2026-01-05', '09:15:00', 'Tea', '50', ''],
+    // A date that already has its time is left as it is.
+    ['2026-01-06 18:00:00', '07:00:00', 'Salary', '', '900'],
+  ], skipped);
+  assertEquals(skipped, []);
+  assertEquals(entries.map((e) => e.occurred_at), [
+    '2026-01-05 09:15:00',
+    '2026-01-06 18:00:00',
+  ]);
+});
