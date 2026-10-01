@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/statement_entry.dart';
+import '../../services/app_images.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/primary_button.dart';
 
@@ -31,6 +32,11 @@ class GuideStep {
 
   static const String _base =
       'https://res.cloudinary.com/dh3rzo7bt/image/upload';
+
+  /// The picture width asked for on a screen [logicalWidth] wide. Stepped,
+  /// so that the preloader and the slide agree on one address.
+  static int pixelWidthFor(double logicalWidth, double devicePixelRatio) =>
+      (((logicalWidth * devicePixelRatio) / 200).ceil() * 200).clamp(400, 1600);
 
   /// The slide picture, sized for the screen it is shown on.
   String urlFor(int pixelWidth) =>
@@ -101,11 +107,12 @@ class StatementGuides {
       title: 'Import it into Kharcha',
       titleNe: 'खर्चामा आयात गर्नुहोस्',
       body:
-          'Come back here, choose the file you saved, check the list of '
+          'Go back to the import page, tap Choose file and pick the file you '
+          'saved, then check the list of '
           'transactions and confirm. Importing the same statement twice does '
           'not create duplicates.',
       bodyNe:
-          'यहाँ फर्केर सुरक्षित गरेको फाइल छान्नुहोस्, कारोबारको सूची जाँचेर '
+          'आयात पृष्ठमा फर्केर सुरक्षित गरेको फाइल छान्नुहोस्, कारोबारको सूची जाँचेर '
           'पुष्टि गर्नुहोस्। एउटै स्टेटमेन्ट दुई पटक आयात गर्दा दोहोरिँदैन।',
     ),
   ];
@@ -163,11 +170,12 @@ class StatementGuides {
       title: 'Import it into Kharcha',
       titleNe: 'खर्चामा आयात गर्नुहोस्',
       body:
-          'Come back here and choose the file. Money you paid becomes '
+          'Go back to the import page and tap Choose file. Money you paid '
+          'becomes '
           'expenses, money you received becomes income, and you choose which '
           'rows to keep.',
       bodyNe:
-          'यहाँ फर्केर फाइल छान्नुहोस्। तिरेको रकम खर्च र पाएको रकम आम्दानी '
+          'आयात पृष्ठमा फर्केर फाइल छान्नुहोस्। तिरेको रकम खर्च र पाएको रकम आम्दानी '
           'बन्छ, र कुन पङ्क्ति राख्ने तपाईंले छान्नुहुन्छ।',
     ),
   ];
@@ -178,8 +186,8 @@ class StatementGuides {
 
 /// Step-by-step slides showing how to get a statement file to import.
 ///
-/// Pops with `true` when the user finishes on "Choose file", so the caller
-/// can go straight to picking the file.
+/// A guide only: "Done" on the last step, like closing it, goes back to the
+/// page it was opened from.
 class StatementGuideScreen extends StatefulWidget {
   const StatementGuideScreen({super.key, required this.source});
 
@@ -231,7 +239,7 @@ class _StatementGuideScreenState extends State<StatementGuideScreen> {
           leading: IconButton(
             tooltip: context.t('Close', 'बन्द गर्नुहोस्'),
             icon: Icon(Icons.close_rounded, color: theme.colorScheme.onSurface),
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context),
           ),
           title: Text(
             isEsewa
@@ -283,13 +291,13 @@ class _StatementGuideScreenState extends State<StatementGuideScreen> {
                       flex: 2,
                       child: PrimaryButton(
                         label: last
-                            ? context.t('Choose file', 'फाइल छान्नुहोस्')
+                            ? context.t('Done', 'सम्पन्न')
                             : context.t('Next', 'अर्को'),
                         icon: last
-                            ? Icons.upload_file_rounded
+                            ? Icons.check_rounded
                             : Icons.arrow_forward_rounded,
                         onPressed: last
-                            ? () => Navigator.pop(context, true)
+                            ? () => Navigator.pop(context)
                             : () => _go(_index + 1),
                       ),
                     ),
@@ -316,11 +324,10 @@ class _Slide extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final pixels =
-            ((constraints.maxWidth * MediaQuery.devicePixelRatioOf(context)) /
-                    200)
-                .ceil() *
-            200;
+        final pixels = GuideStep.pixelWidthFor(
+          constraints.maxWidth,
+          MediaQuery.devicePixelRatioOf(context),
+        );
         final placeholder = ColoredBox(
           color: theme.colorScheme.primary.withValues(alpha: 0.10),
           child: Center(
@@ -341,8 +348,8 @@ class _Slide extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
                 child: AspectRatio(
                   aspectRatio: 16 / 11,
-                  child: Image.network(
-                    step.urlFor(pixels.clamp(400, 1600)),
+                  child: Image(
+                    image: AppImages.provider(step.urlFor(pixels)),
                     fit: BoxFit.cover,
                     // The picture only illustrates the text beside it.
                     excludeFromSemantics: true,

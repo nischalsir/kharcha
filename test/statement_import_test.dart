@@ -308,12 +308,12 @@ void main() {
               builder: (context) => Scaffold(
                 body: TextButton(
                   onPressed: () async {
-                    final done = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute<bool>(
+                    await Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
                         builder: (_) => StatementGuideScreen(source: source),
                       ),
                     );
-                    _guideResult = done;
+                    _guideClosed = true;
                   },
                   child: const Text('open'),
                 ),
@@ -350,10 +350,10 @@ void main() {
       expect(find.text('Step 1 of 5'), findsOneWidget);
     });
 
-    testWidgets('the last step hands over to choosing the file', (
+    testWidgets('Done on the last step goes back to the previous page', (
       tester,
     ) async {
-      _guideResult = null;
+      _guideClosed = false;
       await pump(tester, StatementSource.esewa);
       expect(find.text('eSewa statement'), findsOneWidget);
 
@@ -364,17 +364,21 @@ void main() {
       expect(find.text('Step 5 of 5'), findsOneWidget);
       expect(find.text('Import it into Kharcha'), findsOneWidget);
 
-      await tester.tap(find.text('Choose file'));
+      expect(find.text('Choose file'), findsNothing);
+      await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
-      expect(_guideResult, isTrue);
+      expect(_guideClosed, isTrue);
+      expect(find.text('open'), findsOneWidget);
+      expect(find.byType(StatementGuideScreen), findsNothing);
     });
 
-    testWidgets('closing the guide does not start an import', (tester) async {
-      _guideResult = null;
+    testWidgets('closing the guide goes back too', (tester) async {
+      _guideClosed = false;
       await pump(tester, StatementSource.bank);
       await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
-      expect(_guideResult, isFalse);
+      expect(_guideClosed, isTrue);
+      expect(find.byType(StatementGuideScreen), findsNothing);
     });
 
     test('every slide has a picture id, a title and an explanation', () {
@@ -399,7 +403,7 @@ void main() {
   });
 }
 
-bool? _guideResult;
+bool _guideClosed = false;
 
 Future<void> _open(
   WidgetTester tester,

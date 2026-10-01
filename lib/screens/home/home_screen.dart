@@ -10,6 +10,7 @@ import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/guest_upgrade_screen.dart';
 import '../../providers/dashboard_provider.dart';
+import '../../services/app_images.dart';
 import '../../widgets/common/ai_mood_badge.dart';
 import '../../widgets/common/animated_number.dart';
 import '../../widgets/common/glass_card.dart';
@@ -379,8 +380,8 @@ class _HeaderAvatar extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: url != null
-          ? Image.network(
-              url!,
+          ? Image(
+              image: AppImages.provider(url!),
               width: size,
               height: size,
               // Cover: fills the circle and crops the overflow, never

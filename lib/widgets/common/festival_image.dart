@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../services/app_images.dart';
+
 /// A festival photograph served from Cloudinary, sized for where it is shown.
 ///
 /// Cloudinary delivers it as WebP/AVIF at the exact pixel width the widget
@@ -37,12 +39,18 @@ class FestivalImage extends StatelessWidget {
     return '$_base/f_auto,q_auto,c_fill,g_auto,w_$pixelWidth/kharcha/festivals/$id.jpg';
   }
 
+  /// The picture width asked for when shown [logicalWidth] wide. Rounded up
+  /// to a 100px step so nearby sizes share one cached rendition, and so the
+  /// preloader and the widget agree on one address.
+  static int pixelWidthFor(double logicalWidth, double devicePixelRatio) =>
+      ((logicalWidth * devicePixelRatio) / 100).ceil() * 100;
+
   @override
   Widget build(BuildContext context) {
-    final dpr = MediaQuery.devicePixelRatioOf(context);
-    final logicalWidth = width ?? MediaQuery.sizeOf(context).width;
-    // Rounded up to a 100px step so nearby sizes share one cached rendition.
-    final pixelWidth = ((logicalWidth * dpr) / 100).ceil() * 100;
+    final pixelWidth = pixelWidthFor(
+      width ?? MediaQuery.sizeOf(context).width,
+      MediaQuery.devicePixelRatioOf(context),
+    );
 
     Widget bundled() => Image.asset(
       assetPath,
@@ -54,12 +62,15 @@ class FestivalImage extends StatelessWidget {
     );
     if (_missing.contains(assetPath)) return bundled();
 
-    return Image.network(
-      urlFor(assetPath, pixelWidth),
+    return Image(
+      image: ResizeImage.resizeIfNeeded(
+        pixelWidth,
+        null,
+        AppImages.provider(urlFor(assetPath, pixelWidth)),
+      ),
       width: width,
       height: height,
       fit: BoxFit.cover,
-      cacheWidth: pixelWidth,
       frameBuilder: (context, child, frame, sync) => AnimatedOpacity(
         opacity: sync || frame != null ? 1 : 0,
         duration: const Duration(milliseconds: 200),

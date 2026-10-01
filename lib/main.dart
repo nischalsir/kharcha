@@ -51,6 +51,8 @@ import 'services/root_shell.dart';
 import 'services/biometric_service.dart';
 import 'services/cache_service.dart';
 import 'services/account_avatar_cache.dart';
+import 'services/app_images.dart';
+import 'services/image_preload.dart';
 import 'services/nepali_date_service.dart';
 import 'services/pasal_image_store.dart';
 import 'services/push_notification_service.dart';
@@ -86,6 +88,7 @@ Future<void> main() async {
       publishableKey: Env.supabaseAnonKey,
     );
   }
+  AppImages.enableDiskCache();
   final env = await AppEnvironment.bootstrap();
   runApp(KharchaApp(env: env));
 }
@@ -290,6 +293,24 @@ class _AuthWrapperState extends State<_AuthWrapper>
     _auth = auth;
     _installPushWiring(auth);
     _installUpdateCheck(auth);
+    // After the first frame, so fetching pictures never delays the app
+    // appearing.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _preloadImages());
+  }
+
+  /// Fetches the app's pictures into its on-disk cache, so the pages that
+  /// show them open instantly from then on. Runs when the app opens and
+  /// again once an account is ready; what is already stored is skipped.
+  void _preloadImages() {
+    if (!mounted) return;
+    final media = MediaQuery.maybeOf(context);
+    final auth = _auth;
+    if (media == null || auth == null) return;
+    ImagePreload.run(
+      screenWidth: media.size.width,
+      devicePixelRatio: media.devicePixelRatio,
+      signedIn: auth.isAuthenticated,
+    );
   }
 
   /// Starts the one update check of this launch and offers the update prompt
@@ -455,6 +476,7 @@ class _AuthWrapperState extends State<_AuthWrapper>
       if (mounted && auth.isAuthenticated && auth.userId == userId) {
         setState(() => _readyUserId = userId);
         _scheduleUpdateOffer();
+        _preloadImages();
       }
     }
   }

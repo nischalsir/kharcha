@@ -52,13 +52,12 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
     }
   }
 
-  Future<void> _openGuide(StatementSource source) async {
-    final chooseFile = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+  void _openGuide(StatementSource source) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
         builder: (_) => StatementGuideScreen(source: source),
       ),
     );
-    if (chooseFile == true && mounted) await _pickAndParse();
   }
 
   Future<void> _pickAndParse() async {

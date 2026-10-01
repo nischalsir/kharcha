@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/biometric_service.dart';
 import '../../models/financial_summary.dart';
+import '../../services/app_images.dart';
 import 'flame_mascot.dart';
 import 'pressable_scale.dart';
 
@@ -214,6 +215,9 @@ class AuthBrand extends StatelessWidget {
   final String subtitle;
   final Widget? leading;
 
+  /// How wide the logo is drawn.
+  static const double logoSize = 76;
+
   /// Flamey, the app's logo, served by Cloudinary at the size it is shown.
   /// Replacing the image there under the same id changes the logo on the
   /// sign-in and sign-up screens without an app update.
@@ -227,7 +231,7 @@ class AuthBrand extends StatelessWidget {
     final scheme = theme.colorScheme;
     final glass = context.glass;
 
-    const double size = 76;
+    const double size = logoSize;
     // Offline, or before the picture arrives: Flamey drawn by the app itself
     // on the brand's own tile, so the mark is never an empty box.
     final drawn = DecoratedBox(
@@ -261,8 +265,8 @@ class AuthBrand extends StatelessWidget {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.network(
-        AuthBrand.logoUrl(pixels),
+      child: Image(
+        image: AppImages.provider(AuthBrand.logoUrl(pixels)),
         width: size,
         height: size,
         fit: BoxFit.cover,

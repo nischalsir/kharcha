@@ -15,6 +15,7 @@ import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/push_provider.dart';
 import '../../services/account_avatar_cache.dart';
+import '../../services/app_images.dart';
 import '../../services/biometric_service.dart';
 import '../../services/push_notification_service.dart';
 import '../../services/supabase_service.dart';
@@ -1465,8 +1466,8 @@ class _Avatar extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final image = url == null
         ? null
-        : Image.network(
-            url!,
+        : Image(
+            image: AppImages.provider(url!),
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => _placeholder(theme, colorScheme),
             loadingBuilder: (context, child, progress) {

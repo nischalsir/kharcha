@@ -3,11 +3,52 @@ import 'package:provider/provider.dart';
 
 import '../../core/router/route_paths.dart';
 import '../../providers/app_settings_provider.dart';
+import '../../services/app_images.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/primary_button.dart';
 
 class IntroductionScreen extends StatefulWidget {
   const IntroductionScreen({super.key});
+
+  /// The slides, in order. Also read by the image preloader.
+  static const List<OnboardingPage> pages = <OnboardingPage>[
+    OnboardingPage(
+      title: 'Track Every Expense',
+      imageId: 'qiwpmjgzfclytnrv5tgh',
+      description:
+          'Log your daily spending in seconds. Categorize expenses, add '
+          'notes, and never wonder where your money went.',
+      illustration: Icons.receipt_long_rounded,
+      color: Color(0xFF10B981),
+    ),
+    OnboardingPage(
+      title: 'Smart Budgets',
+      imageId: 'stwv5wtm46f3pfjftb13',
+      description:
+          'Set monthly budgets per category. Get alerts before you overspend '
+          'and visualize your spending patterns.',
+      illustration: Icons.pie_chart_rounded,
+      color: Color(0xFF3B82F6),
+    ),
+    OnboardingPage(
+      title: 'Split with Friends',
+      imageId: 'b3qorzldimac95asnxng',
+      description:
+          'Track shared expenses with friends and Pasal (group expenses). '
+          'Settle up instantly with clear balances.',
+      illustration: Icons.people_alt_rounded,
+      color: Color(0xFFF59E0B),
+    ),
+    OnboardingPage(
+      title: 'Works Offline',
+      imageId: 'yhq42j7ar5npx5ncybxx',
+      description:
+          'Your data stays on your device. Sync securely with Supabase when '
+          'online. Privacy first, always.',
+      illustration: Icons.cloud_sync_rounded,
+      color: Color(0xFF8B5CF6),
+    ),
+  ];
 
   @override
   State<IntroductionScreen> createState() => _IntroductionScreenState();
@@ -17,43 +58,18 @@ class _IntroductionScreenState extends State<IntroductionScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  final List<OnboardingPage> _pages = [
-    OnboardingPage(
-      title: 'Track Every Expense',
-      imageId: 'qiwpmjgzfclytnrv5tgh',
-      description: 'Log your daily spending in seconds. Categorize expenses, add notes, and never wonder where your money went.',
-      illustration: Icons.receipt_long_rounded,
-      color: const Color(0xFF10B981),
-    ),
-    OnboardingPage(
-      title: 'Smart Budgets',
-      imageId: 'stwv5wtm46f3pfjftb13',
-      description: 'Set monthly budgets per category. Get alerts before you overspend and visualize your spending patterns.',
-      illustration: Icons.pie_chart_rounded,
-      color: const Color(0xFF3B82F6),
-    ),
-    OnboardingPage(
-      title: 'Split with Friends',
-      imageId: 'b3qorzldimac95asnxng',
-      description: 'Track shared expenses with friends and Pasal (group expenses). Settle up instantly with clear balances.',
-      illustration: Icons.people_alt_rounded,
-      color: const Color(0xFFF59E0B),
-    ),
-    OnboardingPage(
-      title: 'Works Offline',
-      imageId: 'yhq42j7ar5npx5ncybxx',
-      description: 'Your data stays on your device. Sync securely with Supabase when online. Privacy first, always.',
-      illustration: Icons.cloud_sync_rounded,
-      color: const Color(0xFF8B5CF6),
-    ),
-  ];
+  List<OnboardingPage> get _pages => IntroductionScreen.pages;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Warm the first two slides so swiping never waits on the network.
     for (final page in _pages.take(2)) {
-      precacheImage(NetworkImage(page.imageUrl), context, onError: (_, _) {});
+      precacheImage(
+        AppImages.provider(page.imageUrl),
+        context,
+        onError: (_, _) {},
+      );
     }
   }
 
@@ -61,7 +77,7 @@ class _IntroductionScreenState extends State<IntroductionScreen> {
     setState(() => _currentPage = index);
     if (index + 1 < _pages.length) {
       precacheImage(
-        NetworkImage(_pages[index + 1].imageUrl),
+        AppImages.provider(_pages[index + 1].imageUrl),
         context,
         onError: (_, _) {},
       );
@@ -256,8 +272,8 @@ class _OnboardingPageContent extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                     ),
-                    Image.network(
-                      page.imageUrl,
+                    Image(
+                      image: AppImages.provider(page.imageUrl),
                       width: 260,
                       height: 260,
                       fit: BoxFit.contain,
@@ -269,11 +285,8 @@ class _OnboardingPageContent extends StatelessWidget {
                             child: child,
                           ),
                       // First launch can be offline: show the icon instead.
-                      errorBuilder: (_, _, _) => Icon(
-                        page.illustration,
-                        size: 72,
-                        color: page.color,
-                      ),
+                      errorBuilder: (_, _, _) =>
+                          Icon(page.illustration, size: 72, color: page.color),
                     ),
                   ],
                 ),

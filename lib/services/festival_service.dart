@@ -1134,6 +1134,14 @@ class FestivalService {
     return combined;
   }
 
+  /// Where every festival's photograph is looked up, bundled or uploaded.
+  /// The same rule as [Festival.imagePath]; used to fetch them ahead of time.
+  static Set<String> get imagePaths => <String>{
+    for (final entry in allEntries)
+      festivalImageCredits[entry.id]?.assetPath ??
+          'assets/images/festivals/${entry.id}.jpg',
+  };
+
   /// Attribution line for a bundled photograph, e.g.
   /// `Photo: Jane Doe, CC BY-SA 4.0 — Wikimedia Commons`.
   static String creditLine(FestivalImageCredit credit) =>

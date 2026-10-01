@@ -38,6 +38,14 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'Pictures are saved on your phone, so pages open faster',
+      'तस्बिरहरू फोनमै सुरक्षित हुन्छन्, पृष्ठ छिटो खुल्छन्',
+    ),
+    (
+      'Statement guide ends with Done and returns you to the page',
+      'स्टेटमेन्ट मार्गदर्शन “सम्पन्न” मा सकिन्छ र पृष्ठमा फर्काउँछ',
+    ),
+    (
       'Import bank and eSewa statements: PDF, Excel or CSV',
       'बैंक र eSewa स्टेटमेन्ट आयात: PDF, Excel वा CSV',
     ),
