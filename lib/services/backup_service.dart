@@ -43,6 +43,8 @@ class BackupService {
       'app': _appTag,
       'format': formatVersion,
       'exported_at': DateTime.now().toUtc().toIso8601String(),
+      // Whose data this is, so it can only be restored into that account.
+      if (sync.cacheOwner != null) 'owner': sync.cacheOwner,
       'tables': tables,
     };
   }
@@ -52,7 +54,8 @@ class BackupService {
   }
 
   /// Pretty-printed JSON for the current data.
-  String exportToJson() => const JsonEncoder.withIndent('  ').convert(snapshot());
+  String exportToJson() =>
+      const JsonEncoder.withIndent('  ').convert(snapshot());
 
   /// Writes a timestamped backup into the app documents folder and returns it.
   Future<File> exportToFile() async {
@@ -144,6 +147,21 @@ class BackupService {
       throw const AppFailure(
         FailureKind.invalidData,
         'This backup was not created by Kharcha.',
+      );
+    }
+    // A backup is one account's data. Restoring it into another would put
+    // one person's records under someone else's name, so it is refused.
+    // Backups made before the owner was recorded are accepted as before.
+    final owner = decoded['owner'];
+    final current = sync.cacheOwner;
+    if (owner is String &&
+        owner.isNotEmpty &&
+        current != null &&
+        owner != current) {
+      throw const AppFailure(
+        FailureKind.invalidData,
+        'This backup belongs to a different account. Sign in to that '
+        'account to restore it.',
       );
     }
     final tables = decoded['tables'];

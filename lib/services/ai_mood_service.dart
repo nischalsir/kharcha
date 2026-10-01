@@ -124,7 +124,7 @@ class AiMoodService {
         message: _pick(const <String>[
           'Zzz… it\'s late. Your money will still be here in the morning 🌙',
           'Yawn… time to rest. We\'ll count coins tomorrow 😴',
-          'Shhh, the flame is napping. Good night! 🌙',
+          'Shhh, Flamey is napping. Good night! 🌙',
         ]),
         tone: level.tone,
         face: MoodFace.sleepy,
@@ -372,7 +372,7 @@ class AiMoodService {
             '🔥',
             'Cha-ching',
             MoodFace.excited,
-            'Cha-ching! $money in$into. The flame is on FIRE 🔥',
+            'Cha-ching! $money in$into. Flamey is on FIRE 🔥',
           ),
           _Line(
             '🎊',
@@ -979,7 +979,7 @@ enum _MoodLevel {
     face: MoodFace.happy,
     lines: <String>[
       'Income is ahead of spending. Nice work! 😄',
-      'We\'re saving this month — the flame feels great 🔥',
+      'We\'re saving this month — Flamey feels great 🔥',
       'Good balance so far. Keep the spending light 👍',
       'More coming in than going out. That’s the whole game 🙌',
       'Comfortably ahead this month. Keep doing what you’re doing 😊',

@@ -5,9 +5,13 @@
 /// install claim an update is available. `test/app_info_test.dart` fails
 /// the build if the two drift apart, so bump both together.
 class AppInfo {
+  /// The name of the app's assistant, the flame mascot. Used wherever the
+  /// app speaks about it, so it is spelt one way everywhere.
+  static const String assistantName = 'Flamey';
+
   const AppInfo._();
 
-  static const String version = '1.0.12';
-  static const String buildNumber = '14';
+  static const String version = '1.0.13';
+  static const String buildNumber = '15';
   static const String applicationId = 'com.nischalpandey.kharcha';
 }

@@ -139,7 +139,7 @@ class DayInsightCard extends StatelessWidget {
               TextButton.icon(
                 onPressed: () => _openChat(context),
                 icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
-                label: Text(context.t('Ask AI', 'AI लाई सोध्नुहोस्')),
+                label: Text(context.t('Ask Flamey', 'Flamey लाई सोध्नुहोस्')),
                 style: TextButton.styleFrom(
                   foregroundColor: theme.colorScheme.primary,
                   padding: const EdgeInsets.symmetric(horizontal: 4),

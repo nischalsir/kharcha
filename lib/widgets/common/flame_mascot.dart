@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/app_info.dart';
 import '../../models/financial_summary.dart';
 
 /// The app's AI mascot: a small flame with a face whose expression follows the
@@ -91,7 +92,7 @@ class _FlameMascotState extends State<FlameMascot>
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'AI assistant',
+      label: AppInfo.assistantName,
       image: true,
       child: SizedBox(
         width: widget.size,

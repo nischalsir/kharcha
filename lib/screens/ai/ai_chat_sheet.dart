@@ -30,7 +30,8 @@ class _AiChatSheetState extends State<AiChatSheet> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialQuestion != null && widget.initialQuestion!.trim().isNotEmpty) {
+    if (widget.initialQuestion != null &&
+        widget.initialQuestion!.trim().isNotEmpty) {
       _controller.text = widget.initialQuestion!.trim();
     }
   }
@@ -125,8 +126,7 @@ class _AiChatSheetState extends State<AiChatSheet> {
                             _bubble(theme, provider.chat[index]),
                       ),
               ),
-              if (provider.chat.isNotEmpty)
-                _suggestionRow(theme, provider),
+              if (provider.chat.isNotEmpty) _suggestionRow(theme, provider),
               _input(theme, provider),
             ],
           ),
@@ -173,9 +173,10 @@ class _AiChatSheetState extends State<AiChatSheet> {
                   children: <Widget>[
                     Flexible(
                       child: Text(
-                        'Ask about your money',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        'Ask Flamey about your money',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -203,8 +204,9 @@ class _AiChatSheetState extends State<AiChatSheet> {
                 ),
                 Text(
                   mood?.message ?? 'Answers use only your own spending data',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: glass.textSecondary),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: glass.textSecondary,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -232,8 +234,9 @@ class _AiChatSheetState extends State<AiChatSheet> {
         children: <Widget>[
           Text(
             'Try asking:',
-            style: theme.textTheme.labelMedium
-                ?.copyWith(color: glass.textSecondary),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: glass.textSecondary,
+            ),
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -308,10 +311,7 @@ class _AiChatSheetState extends State<AiChatSheet> {
                   SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: fg,
-                    ),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: fg),
                   ),
                   const SizedBox(width: 8),
                   Text(message.text, style: TextStyle(color: fg)),
@@ -333,9 +333,10 @@ class _AiChatSheetState extends State<AiChatSheet> {
               minLines: 1,
               maxLines: 4,
               textInputAction: TextInputAction.send,
-              onSubmitted: (value) => provider.chatSending ? null : _send(value),
+              onSubmitted: (value) =>
+                  provider.chatSending ? null : _send(value),
               decoration: InputDecoration(
-                hintText: 'Ask about your spending…',
+                hintText: 'Ask Flamey about your spending…',
                 fillColor: MornyeTheme.controlFill(context),
               ),
             ),

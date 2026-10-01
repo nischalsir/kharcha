@@ -24,9 +24,9 @@ class CloudBackupFile {
 /// Stores Kharcha backups in the app's Supabase Storage bucket.
 ///
 /// Files live under `<user-id>/backups/`, the same per-user folder scheme used
-/// for avatars, so the existing storage policies cover them. Sign-in reuses the
-/// app's normal session (anonymous or the configured sync account), so there is
-/// nothing extra to configure.
+/// for avatars, so the existing storage policies restrict each folder to its
+/// owner. Every call acts as the signed-in account and nobody else: there is
+/// no shared backup account.
 class SupabaseBackupService {
   SupabaseBackupService({SupabaseService? remote})
     : _remote = remote ?? SupabaseService();
@@ -132,7 +132,16 @@ class SupabaseBackupService {
 
   /// Downloads a backup's raw JSON text.
   Future<String> download(CloudBackupFile file) async {
-    await _ensureUser();
+    final uid = await _ensureUser();
+    // Only ever the signed-in account's own folder. Storage policies enforce
+    // this as well; checking here means a stale list entry from another
+    // account is refused before any request is made.
+    if (!file.path.startsWith('${_folderFor(uid)}/')) {
+      throw const AppFailure(
+        FailureKind.invalidData,
+        'This backup belongs to a different account.',
+      );
+    }
     try {
       final bytes = await _client.storage.from(bucket).download(file.path);
       return utf8.decode(bytes);

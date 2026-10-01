@@ -1,6 +1,7 @@
+import '../../core/app_info.dart';
+
 import 'package:flutter/material.dart';
 
-import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/financial_summary.dart';
 import 'flame_mascot.dart';
@@ -29,19 +30,24 @@ class _AiMoodBadgeState extends State<AiMoodBadge>
     duration: const Duration(milliseconds: 520),
   );
 
-  late final Animation<double> _scale = TweenSequence<double>(<
-      TweenSequenceItem<double>>[
-    TweenSequenceItem<double>(
-      tween: Tween<double>(begin: 1.0, end: 1.28)
-          .chain(CurveTween(curve: Curves.easeOutBack)),
-      weight: 42,
-    ),
-    TweenSequenceItem<double>(
-      tween: Tween<double>(begin: 1.28, end: 1.0)
-          .chain(CurveTween(curve: Curves.easeOutCubic)),
-      weight: 58,
-    ),
-  ]).animate(_pop);
+  late final Animation<double> _scale = TweenSequence<double>(
+    <TweenSequenceItem<double>>[
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 1.0,
+          end: 1.28,
+        ).chain(CurveTween(curve: Curves.easeOutBack)),
+        weight: 42,
+      ),
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 1.28,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 58,
+      ),
+    ],
+  ).animate(_pop);
 
   String? _lastSignature;
 
@@ -63,10 +69,9 @@ class _AiMoodBadgeState extends State<AiMoodBadge>
     }
   }
 
-  static String? _signatureOf(AiMood? mood) =>
-      mood == null
-          ? null
-          : '${mood.label}|${mood.face.name}|${mood.tone.name}|${mood.message}';
+  static String? _signatureOf(AiMood? mood) => mood == null
+      ? null
+      : '${mood.label}|${mood.face.name}|${mood.tone.name}|${mood.message}';
 
   @override
   void dispose() {
@@ -83,8 +88,8 @@ class _AiMoodBadgeState extends State<AiMoodBadge>
     return Semantics(
       button: current != null,
       label: current == null
-          ? context.t('AI assistant', 'AI सहायक')
-          : '${context.t('AI assistant', 'AI सहायक')}: ${current.label}',
+          ? AppInfo.assistantName
+          : '${AppInfo.assistantName}: ${current.label}',
       child: PressableScale(
         onTap: current == null ? null : () => _showMood(context, current),
         child: Padding(
@@ -151,7 +156,7 @@ class _AiMoodBadgeState extends State<AiMoodBadge>
                 Padding(
                   padding: const EdgeInsets.only(left: 8),
                   child: Text(
-                    context.t('AI', 'AI'),
+                    AppInfo.assistantName,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: glass.textTertiary,
                     ),

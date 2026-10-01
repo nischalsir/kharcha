@@ -22,6 +22,7 @@ import '../../widgets/common/auth_widgets.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/theme_mode_selector.dart';
 import 'avatar_crop_screen.dart';
 import 'backup_restore_screen.dart';
 import 'change_password_screen.dart';
@@ -83,29 +84,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _SectionHeader(title: context.t('Appearance', 'देखावट')),
                 const SizedBox(height: 8),
                 GlassCard(
-                  child: Column(
-                    children: <Widget>[
-                      _ThemeTile(
-                        label: context.t('Light', 'उज्यालो'),
-                        selected: provider.themeMode == ThemeMode.light,
-                        onTap: () =>
-                            provider.updateThemeMode(AppThemeMode.light),
-                      ),
-                      const Divider(height: 1),
-                      _ThemeTile(
-                        label: context.t('Dark', 'अँध्यारो'),
-                        selected: provider.themeMode == ThemeMode.dark,
-                        onTap: () =>
-                            provider.updateThemeMode(AppThemeMode.dark),
-                      ),
-                      const Divider(height: 1),
-                      _ThemeTile(
-                        label: context.t('System', 'प्रणाली'),
-                        selected: provider.themeMode == ThemeMode.system,
-                        onTap: () =>
-                            provider.updateThemeMode(AppThemeMode.system),
-                      ),
-                    ],
+                  padding: const EdgeInsets.all(6),
+                  child: ThemeModeSelector(
+                    mode: provider.settings.themeMode,
+                    onChanged: provider.updateThemeMode,
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -750,31 +732,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _ThemeTile extends StatelessWidget {
-  const _ThemeTile({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ListTile(
-      title: Text(label, style: theme.textTheme.titleMedium),
-      trailing: selected
-          ? Icon(Icons.check_circle_rounded, color: theme.colorScheme.primary)
-          : const SizedBox(width: 24),
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-    );
-  }
-}
-
 class _SettingTile extends StatelessWidget {
   const _SettingTile({
     required this.icon,
@@ -888,8 +845,8 @@ class _NotificationSettingsCardState extends State<_NotificationSettingsCard> {
     showMessage(
       context,
       value
-          ? 'AI will notify you about important things only.'
-          : 'AI notifications are off.',
+          ? 'Flamey will notify you about important things only.'
+          : 'Flamey’s notifications are off.',
     );
   }
 
@@ -987,7 +944,10 @@ class _NotificationSettingsCardState extends State<_NotificationSettingsCard> {
               ),
             ),
             title: Text(
-              context.t('AI insights & alerts', 'AI सुझाव र चेतावनी'),
+              context.t(
+                'Flamey’s insights & alerts',
+                'Flamey का सुझाव र चेतावनी',
+              ),
               style: theme.textTheme.titleMedium,
             ),
             subtitle: Text(
@@ -1026,7 +986,7 @@ class _NotificationSettingsCardState extends State<_NotificationSettingsCard> {
             ),
             subtitle: Text(
               context.t(
-                'Good morning at 6, good night at 10, and a few AI tips in between',
+                'Good morning at 6, good night at 10, and a few tips from Flamey in between',
                 'बिहान ६ बजे शुभ प्रभात, राति १० बजे शुभ रात्रि, र बीचमा केही AI सुझाव',
               ),
               style: theme.textTheme.bodySmall?.copyWith(

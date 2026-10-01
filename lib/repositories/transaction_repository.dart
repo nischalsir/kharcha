@@ -168,11 +168,14 @@ class TransactionRepository extends CachedRepository<TransactionModel> {
     String? notes,
     String? attachmentPath,
     String? recurringId,
+    String? id,
   }) {
     final now = DateTime.now();
     return save(
       TransactionModel(
-        id: newId(),
+        // A caller that can name the record (a statement import) passes its
+        // own id, so writing it twice is one record, not two.
+        id: id ?? newId(),
         title: title,
         amount: amount,
         type: type,

@@ -36,6 +36,20 @@ class AuthProvider extends ChangeNotifier {
   /// for a different account, and dropped at sign-out.
   String? _trustedUserId;
 
+  bool _signingOut = false;
+  bool _signingIn = false;
+  String? _signingInEmail;
+
+  /// True from the moment sign-out is requested until the session is gone.
+  bool get isSigningOut => _signingOut;
+
+  /// True while a sign-in request is in flight.
+  bool get isSigningIn => _signingIn;
+
+  /// The account being signed in to, for the "Signing in as" screen. Null for
+  /// a guest sign-in.
+  String? get signingInEmail => _signingInEmail;
+
   /// Email of a fingerprint sign-in that is still in flight. Its auth event
   /// can arrive before the call returns, and without this the code screen
   /// would flash up for that instant.
@@ -391,6 +405,8 @@ class AuthProvider extends ChangeNotifier {
     required String password,
     bool trustedDevice = false,
   }) async {
+    _signingIn = true;
+    _signingInEmail = email.trim();
     _setLoading(true);
     _clearError();
     _forgetTrust();
@@ -415,6 +431,8 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       rethrow;
     } finally {
+      _signingIn = false;
+      _signingInEmail = null;
       _setLoading(false);
     }
   }
@@ -488,6 +506,8 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> signInAnonymously() async {
+    _signingIn = true;
+    _signingInEmail = null;
     _setLoading(true);
     _clearError();
 
@@ -503,6 +523,7 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       rethrow;
     } finally {
+      _signingIn = false;
       _setLoading(false);
     }
   }
@@ -531,6 +552,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    // A second tap while the first is still tidying up does nothing.
+    if (_signingOut) return;
+    _signingOut = true;
     _setLoading(true);
 
     try {
@@ -548,6 +572,7 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       rethrow;
     } finally {
+      _signingOut = false;
       _setLoading(false);
     }
   }

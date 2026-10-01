@@ -38,6 +38,28 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'Import bank and eSewa statements: PDF, Excel or CSV',
+      'बैंक र eSewa स्टेटमेन्ट आयात: PDF, Excel वा CSV',
+    ),
+    (
+      'Step-by-step guide for downloading your statement',
+      'स्टेटमेन्ट डाउनलोड गर्ने चरणबद्ध मार्गदर्शन',
+    ),
+    (
+      'Importing the same statement twice adds nothing twice',
+      'एउटै स्टेटमेन्ट दोहोर्‍याएर आयात गर्दा कारोबार दोहोरिँदैन',
+    ),
+    ('Meet Flamey, your money buddy', 'Flamey, तपाईंको पैसाको साथी'),
+    (
+      'Clear “Signing in” and “Signing out” screens',
+      'स्पष्ट “साइन इन” र “साइन आउट” स्क्रिन',
+    ),
+    (
+      'A backup can only be restored into the account that made it',
+      'ब्याकअप बनाउने खातामा मात्र पुनर्स्थापना हुन्छ',
+    ),
+    ('Theme choices side by side', 'थिम विकल्प एउटै पङ्क्तिमा'),
+    (
       'Update prompt with Download, Later and Don’t remind',
       'डाउनलोड, पछि र नसम्झाउने विकल्पसहित अपडेट सूचना',
     ),

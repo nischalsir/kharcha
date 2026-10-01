@@ -217,7 +217,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.bySemanticsLabel('AI assistant'), findsOneWidget);
+      expect(find.bySemanticsLabel('Flamey'), findsOneWidget);
     });
 
     testWidgets('respects reduced motion', (tester) async {

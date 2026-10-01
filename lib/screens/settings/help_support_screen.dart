@@ -4,6 +4,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/statement_entry.dart';
+import '../payments/statement_guide_screen.dart';
+import '../payments/statement_import_screen.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
@@ -93,10 +96,10 @@ class HelpSupportScreen extends StatelessWidget {
         ),
       ),
       (
-        context.t('How does the AI work?', 'AI ले कसरी काम गर्छ?'),
+        context.t('How does Flamey work?', 'Flamey ले कसरी काम गर्छ?'),
         context.t(
           'A secure server makes a small summary of your own spending and '
-              'asks the AI for a suggestion. The flame’s mood comes from '
+              'asks the AI for a suggestion. Flamey’s mood comes from '
               'how much of this month’s income you have kept.',
           'सुरक्षित सर्भरले तपाईंको खर्चको सानो सारांश बनाएर AI सँग सुझाव '
               'माग्छ। ज्वालाको मुड यस महिनाको आम्दानीबाट कति बचत भयो भन्नेमा '
@@ -218,6 +221,18 @@ class HelpSupportScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
+                context.t(
+                  'Import bank / eSewa statement',
+                  'बैंक / eSewa स्टेटमेन्ट आयात',
+                ),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const _StatementImportHelp(),
+              const SizedBox(height: 24),
+              Text(
                 context.t('Frequently asked', 'धेरै सोधिने प्रश्न'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
@@ -325,6 +340,144 @@ class _ContactTile extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// How statement import works, and the ways into it.
+class _StatementImportHelp extends StatelessWidget {
+  const _StatementImportHelp();
+
+  void _guide(BuildContext context, StatementSource source) {
+    Navigator.of(context)
+        .push<bool>(
+          MaterialPageRoute<bool>(
+            builder: (_) => StatementGuideScreen(source: source),
+          ),
+        )
+        .then((chooseFile) {
+          if (chooseFile == true && context.mounted) _import(context);
+        });
+  }
+
+  void _import(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const StatementImportScreen()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+
+    Widget point(IconData icon, String text) => Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon, size: 18, color: theme.colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: glass.textSecondary,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          point(
+            Icons.auto_awesome_rounded,
+            context.t(
+              'Download a statement from your bank or eSewa, choose the file, '
+                  'and Kharcha turns its rows into expenses and income. You '
+                  'check the list first; nothing is added until you confirm.',
+              'आफ्नो बैंक वा eSewa बाट स्टेटमेन्ट डाउनलोड गरी फाइल छान्नुहोस्, '
+                  'खर्चाले त्यसका पङ्क्तिलाई खर्च र आम्दानीमा बदल्छ। पहिले '
+                  'सूची जाँच्नुहुन्छ; पुष्टि नगरी केही थपिँदैन।',
+            ),
+          ),
+          point(
+            Icons.insert_drive_file_outlined,
+            context.t(
+              'File types: Excel (.xls, .xlsx), CSV and PDF, up to 5 MB. '
+                  'Excel or CSV reads most reliably. A PDF that is not laid '
+                  'out as a table is refused rather than guessed at.',
+              'फाइल प्रकार: Excel (.xls, .xlsx), CSV र PDF, ५ MB सम्म। Excel '
+                  'वा CSV सबैभन्दा भरपर्दो हुन्छ। तालिकाजस्तो नभएको PDF '
+                  'अनुमान नगरी अस्वीकार गरिन्छ।',
+            ),
+          ),
+          point(
+            Icons.list_alt_rounded,
+            context.t(
+              'What is imported: the date, the description, the amount and '
+                  'whether it was money in or out. Balances and totals are '
+                  'ignored.',
+              'के आयात हुन्छ: मिति, विवरण, रकम र पैसा आएको वा गएको। ब्यालेन्स '
+                  'र जम्मा रकम बेवास्ता गरिन्छ।',
+            ),
+          ),
+          point(
+            Icons.verified_outlined,
+            context.t(
+              'No duplicates: each row is recognised if you import the same '
+                  'statement again, shown as already imported and left out.',
+              'दोहोरो हुँदैन: एउटै स्टेटमेन्ट फेरि आयात गर्दा हरेक पङ्क्ति '
+                  'चिनिन्छ, पहिल्यै आयात भएको देखाइन्छ र छोडिन्छ।',
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _guide(context, StatementSource.bank),
+                  icon: const Icon(Icons.account_balance_rounded, size: 18),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(context.t('Bank steps', 'बैंक चरण')),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _guide(context, StatementSource.esewa),
+                  icon: const Icon(
+                    Icons.account_balance_wallet_rounded,
+                    size: 18,
+                  ),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(context.t('eSewa steps', 'eSewa चरण')),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => _import(context),
+              icon: const Icon(Icons.upload_file_rounded, size: 18),
+              label: Text(
+                context.t('Import a statement', 'स्टेटमेन्ट आयात गर्नुहोस्'),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

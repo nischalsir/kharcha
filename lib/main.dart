@@ -57,6 +57,7 @@ import 'services/push_notification_service.dart';
 import 'services/sync_service.dart';
 import 'services/update_service.dart';
 import 'widgets/common/app_bottom_nav.dart';
+import 'widgets/common/account_transition.dart';
 import 'widgets/common/glass_background.dart';
 import 'widgets/common/update_dialog.dart';
 
@@ -160,7 +161,11 @@ class KharchaApp extends StatelessWidget {
             // Material sits above the Navigator so every route has one.
             builder: (context, child) => Material(
               type: MaterialType.transparency,
-              child: child ?? const SizedBox.shrink(),
+              // Above the navigator, so the signing in / out screen covers
+              // every route and dialog, not just the page underneath.
+              child: AccountTransitionOverlay(
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
             onGenerateRoute: _generateRoute,
             home: const _AuthWrapper(),
@@ -260,6 +265,11 @@ class _AuthWrapperState extends State<_AuthWrapper>
   /// sign-in start the work once.
   String? _preparingUserId;
 
+  /// Set once this launch has shown the signed-out state. From then on an
+  /// account being prepared is one the user just signed in to, and is
+  /// announced by name; before that it is the session restored at startup.
+  bool _signedOutSeen = false;
+
   UpdateProvider? _updates;
 
   @override
@@ -344,6 +354,7 @@ class _AuthWrapperState extends State<_AuthWrapper>
       final userId = auth.userId;
       if (!auth.isAuthenticated || userId == null) {
         _readyUserId = null;
+        if (!auth.isInitializing) _signedOutSeen = true;
         return;
       }
       if (_readyUserId == userId || _preparingUserId == userId) return;
@@ -372,10 +383,17 @@ class _AuthWrapperState extends State<_AuthWrapper>
           await biometric.rememberMe() ? email : null,
         );
       }
-      // Save this account's picture for the fingerprint account chooser,
-      // while it can still be fetched. Only for accounts that will be listed
-      // there, and bounded so it cannot hold up signing out.
-      if (email != null && await biometric.isEnabledFor(email)) {
+      // Save this account's picture for the sign-in screens (the fingerprint
+      // account chooser and "Signing in as"), while it can still be fetched.
+      // Only for accounts this device is asked to remember, and bounded so
+      // it cannot hold up signing out.
+      final keepsAccount =
+          email != null &&
+          (await biometric.rememberMe() || await biometric.isEnabledFor(email));
+      if (email != null && !keepsAccount) {
+        await avatars.remove(email);
+      }
+      if (email != null && keepsAccount) {
         try {
           await avatars
               .capture(email, await auth.signedAvatarUrl())
@@ -550,7 +568,9 @@ class _AuthWrapperState extends State<_AuthWrapper>
         // yet. Showing the shell now would build it from the previous
         // account's data.
         if (_readyUserId != authProvider.userId) {
-          return GlassBackground(child: const _BootLoading());
+          return _signedOutSeen
+              ? AccountTransitionView.signingIn(email: authProvider.userEmail)
+              : GlassBackground(child: const _BootLoading());
         }
 
         // Keyed by account, so switching rebuilds every screen from scratch

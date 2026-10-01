@@ -1,0 +1,121 @@
+name: Release
+
+# Builds the signed APK and App Bundle for a version tag and attaches both to
+# its GitHub Release, which is also where the app's update check looks.
+#
+# Needs two repository secrets, because the signing key is never committed:
+#   ANDROID_KEYSTORE_BASE64   base64 of android/app/kharcha-release.jks
+#   ANDROID_KEY_PROPERTIES    the contents of android/key.properties
+# Without them the job stops before building: a debug-signed build cannot
+# update an installed app, so it must never be published.
+#
+# The same release can be made from a developer machine with tool/release.ps1.
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and publish, e.g. v1.0.13
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: The tag, pubspec.yaml and app_info.dart agree on the version
+        run: |
+          version_line=$(grep -E '^version: ' pubspec.yaml)
+          version=${version_line#version: }
+          name=${version%%+*}
+          build=${version##*+}
+          if [ "v$name" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match pubspec version $name"
+            exit 1
+          fi
+          grep -q "version = '$name'" lib/core/app_info.dart || {
+            echo "::error::lib/core/app_info.dart is not at $name"; exit 1; }
+          grep -q "buildNumber = '$build'" lib/core/app_info.dart || {
+            echo "::error::lib/core/app_info.dart is not at build $build"; exit 1; }
+          echo "VERSION_NAME=$name" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$build" >> "$GITHUB_ENV"
+
+      - name: Restore the signing key
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          if [ -z "$KEYSTORE" ] || [ -z "$KEY_PROPERTIES" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 and ANDROID_KEY_PROPERTIES must be set as repository secrets."
+            exit 1
+          fi
+          echo "$KEYSTORE" | base64 --decode > android/app/kharcha-release.jks
+          printf '%s\n' "$KEY_PROPERTIES" > android/key.properties
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter analyze lib test
+      - run: flutter test
+
+      - name: Build the APK and the App Bundle
+        run: |
+          flutter build apk --release
+          flutter build appbundle --release
+
+      - name: Check the build is what the tag says, and release-signed
+        run: |
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          apk=build/app/outputs/flutter-apk/app-release.apk
+          package=$("$tools/aapt2" dump badging "$apk" | grep '^package:')
+          echo "$package"
+          echo "$package" | grep -q "name='com.nischalpandey.kharcha'"
+          echo "$package" | grep -q "versionName='$VERSION_NAME'"
+          echo "$package" | grep -q "versionCode='$VERSION_CODE'"
+          signer=$("$tools/apksigner" verify --print-certs "$apk" | grep 'certificate DN')
+          echo "$signer"
+          if echo "$signer" | grep -q 'Android Debug'; then
+            echo "::error::The APK is debug-signed."
+            exit 1
+          fi
+          mkdir -p dist
+          cp "$apk" "dist/kharcha-$TAG.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "dist/kharcha-$TAG.aab"
+
+      - name: Remove the signing key
+        if: always()
+        run: rm -f android/app/kharcha-release.jks android/key.properties
+
+      - name: Attach both files to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --title "Kharcha $TAG" --generate-notes --latest
+          fi
+          gh release view "$TAG" --json assets --jq '.assets[].name'

@@ -197,7 +197,7 @@ export function buildChatUserPrompt(
 export const BUDDY_PROMPT_VERSION = "daily-buddy-v2";
 
 export const BUDDY_SYSTEM_PROMPT = `
-You are "Flame", the cute little fire mascot of Kharcha, a Nepali expense
+You are "Flamey", the cute little fire mascot of Kharcha, a Nepali expense
 tracker. You send ONE short push notification.
 
 Rules:

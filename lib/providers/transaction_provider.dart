@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../core/constants/app_constants.dart';
 import '../core/errors/app_failure.dart';
 import '../models/payment_method.dart';
+import '../models/statement_entry.dart';
 import '../models/sync_models.dart';
 import '../models/transaction_model.dart';
 import '../repositories/transaction_repository.dart';
@@ -12,10 +13,7 @@ import '../services/cache_service.dart';
 import 'cache_aware.dart';
 
 class TransactionProvider extends ChangeNotifier with CacheAware {
-  TransactionProvider({
-    required this._cache,
-    required this._repository,
-  }) {
+  TransactionProvider({required this._cache, required this._repository}) {
     attachCache();
   }
 
@@ -158,9 +156,11 @@ class TransactionProvider extends ChangeNotifier with CacheAware {
     PaymentMethod paymentMethod = PaymentMethod.cash,
     String? notes,
     String? attachmentPath,
+    String? id,
   }) {
     return _guarded(
       () => _repository.create(
+        id: id,
         title: title,
         amount: amount,
         type: type,
@@ -173,6 +173,21 @@ class TransactionProvider extends ChangeNotifier with CacheAware {
       ),
     );
   }
+
+  /// Whether a transaction with this id is already saved.
+  bool exists(String id) => _repository.byId(id) != null;
+
+  /// One key per saved transaction, for recognising statement rows that were
+  /// imported before imports had stable ids.
+  Set<String> statementMatchKeys() => <String>{
+    for (final item in _repository.all())
+      StatementEntry.matchKeyFor(
+        occurredAt: item.occurredAt,
+        amount: item.amount,
+        type: item.type,
+        title: item.title,
+      ),
+  };
 
   Future<bool> update(TransactionModel item) {
     return _guarded(() => _repository.save(item));

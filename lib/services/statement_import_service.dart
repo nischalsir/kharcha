@@ -7,9 +7,9 @@ import '../core/config/env.dart';
 import '../core/errors/app_failure.dart';
 import '../models/statement_entry.dart';
 
-/// Uploads a statement file (bank PDF or eSewa XLS) to the `parse-statement`
-/// Edge Function and returns the parsed rows for review. File parsing happens
-/// server-side.
+/// Uploads a statement file (PDF, Excel or CSV, from a bank or eSewa) to the
+/// `parse-statement` Edge Function and returns what it read for review. File
+/// parsing happens server-side; nothing is saved until the user confirms.
 class StatementImportService {
   StatementImportService({this._client});
 
@@ -21,7 +21,7 @@ class StatementImportService {
   /// client-side with a clear message instead of a network error.
   static const int maxFileBytes = 5 * 1024 * 1024;
 
-  Future<List<StatementEntry>> parseStatement(Uint8List bytes) async {
+  Future<StatementParseResult> parseStatement(Uint8List bytes) async {
     if (bytes.length > maxFileBytes) {
       throw const AppFailure(
         FailureKind.invalidData,
@@ -54,12 +54,7 @@ class StatementImportService {
           'Could not read the statement.',
         );
       }
-      final entries = <StatementEntry>[];
-      for (final raw in data['entries'] as List) {
-        if (raw is! Map) continue;
-        entries.add(StatementEntry.fromJson(Map<String, dynamic>.from(raw)));
-      }
-      return entries;
+      return StatementParseResult.fromJson(Map<String, dynamic>.from(data));
     } on AppFailure {
       rethrow;
     } on FunctionException catch (error) {
@@ -75,8 +70,4 @@ class StatementImportService {
       throw AppFailure.from(error);
     }
   }
-
-  @Deprecated('Use parseStatement instead')
-  Future<List<StatementEntry>> parsePdf(Uint8List bytes) =>
-      parseStatement(bytes);
 }
