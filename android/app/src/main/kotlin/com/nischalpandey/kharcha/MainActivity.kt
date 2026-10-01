@@ -1,9 +1,11 @@
 package com.nischalpandey.kharcha
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import androidx.activity.result.contract.ActivityResultContracts
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -18,6 +20,31 @@ class MainActivity : FlutterFragmentActivity() {
     /** The intent this activity was opened with, until Dart has asked for it. */
     private var launchIntent: Intent? = null
     private val copier = Executors.newSingleThreadExecutor()
+
+    /** The Dart call waiting for the contact picker to close. */
+    private var contactResult: MethodChannel.Result? = null
+
+    // Registered while the activity is being created, as Android requires.
+    private val contactPicker = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { outcome ->
+        val pending = contactResult
+        contactResult = null
+        val uri = outcome.data?.data
+        if (pending != null) {
+            if (outcome.resultCode != RESULT_OK || uri == null) {
+                // The user backed out: nothing was chosen.
+                pending.success(null)
+            } else {
+                val contact = ContactPicks.read(this, uri)
+                if (contact == null) {
+                    pending.error("unreadable", "The contact could not be read.", null)
+                } else {
+                    pending.success(contact)
+                }
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Only a fresh start carries a share to act on. After a rotation or a
@@ -106,6 +133,30 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
+        // One phone number chosen from the phone's contacts.
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CONTACTS_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "pickPhone" -> {
+                    if (contactResult != null) {
+                        result.error("busy", "The contact picker is already open.", null)
+                    } else {
+                        contactResult = result
+                        try {
+                            contactPicker.launch(ContactPicks.intent())
+                        } catch (error: ActivityNotFoundException) {
+                            contactResult = null
+                            result.error("no_app", "No contacts app was found.", null)
+                        }
+                    }
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+
         // A statement shared into the app from a bank app or a file manager.
         incomingChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -167,5 +218,7 @@ class MainActivity : FlutterFragmentActivity() {
             "com.nischalpandey.kharcha/app_config"
         const val APP_UPDATE_CHANNEL =
             "com.nischalpandey.kharcha/app_update"
+        const val CONTACTS_CHANNEL =
+            "com.nischalpandey.kharcha/contacts"
     }
 }

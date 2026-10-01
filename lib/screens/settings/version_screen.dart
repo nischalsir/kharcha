@@ -38,6 +38,14 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'Pick a phone number from your contacts for a friend or a pasal',
+      'साथी वा पसलका लागि सम्पर्कबाट फोन नम्बर छान्नुहोस्',
+    ),
+    (
+      'Phone numbers with a country code, like +977 9812345678',
+      'देश कोडसहितका फोन नम्बर, जस्तै +977 9812345678',
+    ),
+    (
       'Reports export as PDF or CSV: save to your phone or share',
       'प्रतिवेदन PDF वा CSV मा निर्यात: फोनमा सुरक्षित वा साझा गर्नुहोस्',
     ),

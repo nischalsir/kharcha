@@ -68,6 +68,7 @@ Most expense trackers show you a number. Kharcha has a little flame called Flame
 
 - **Who owes whom:** track money you lent or borrowed, with partial payments and overdue nudges.
 - **Pasal khata:** keep your local shop's credit book, item by item with photos, and record what you've paid off.
+- **Numbers from your contacts:** tap the contacts icon to pick a friend's or a shop's number. Only the number you tap is read, so no contacts permission is asked for, and numbers with a country code (`+977 98XXXXXXXX`) are kept tidy.
 
 ## 🔔 Reminders that matter
 

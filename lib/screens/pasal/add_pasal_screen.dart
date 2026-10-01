@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../models/pasal_model.dart';
 import '../../providers/pasal_provider.dart';
+import '../../widgets/common/contact_pick_button.dart';
 import '../../widgets/common/primary_button.dart';
+
 import 'package:flutter/services.dart';
 
 class AddPasalScreen extends StatefulWidget {
@@ -47,6 +49,8 @@ class _AddPasalScreenState extends State<AddPasalScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    // Saved in one shape, however it was typed or stored in the contact.
+    final phone = readPhoneField(_phone.text).number;
     setState(() => _saving = true);
     final provider = context.read<PasalProvider>();
     final existing = widget.existing;
@@ -54,7 +58,7 @@ class _AddPasalScreenState extends State<AddPasalScreen> {
         ? await provider.createPasal(
             name: _name.text,
             ownerName: _owner.text.trim().isEmpty ? null : _owner.text.trim(),
-            phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
+            phone: phone,
             address: _address.text.trim().isEmpty ? null : _address.text.trim(),
             notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
           )
@@ -63,8 +67,7 @@ class _AddPasalScreenState extends State<AddPasalScreen> {
               name: _name.text.trim(),
               ownerName: () =>
                   _owner.text.trim().isEmpty ? null : _owner.text.trim(),
-              phone: () =>
-                  _phone.text.trim().isEmpty ? null : _phone.text.trim(),
+              phone: () => phone,
               address: () =>
                   _address.text.trim().isEmpty ? null : _address.text.trim(),
               notes: () =>
@@ -112,7 +115,17 @@ class _AddPasalScreenState extends State<AddPasalScreen> {
               TextFormField(
                 controller: _phone,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Phone'),
+                inputFormatters: phoneInputFormatters(),
+                decoration: InputDecoration(
+                  labelText: 'Phone',
+                  hintText: '98XXXXXXXX or +977 98XXXXXXXX',
+                  // Fills the number, and the owner's name when it is
+                  // still empty.
+                  suffixIcon: ContactPickButton(phone: _phone, name: _owner),
+                ),
+                validator: (value) => readPhoneField(value ?? '').invalid
+                    ? invalidPhoneMessage(context)
+                    : null,
               ),
               const SizedBox(height: 14),
               TextFormField(

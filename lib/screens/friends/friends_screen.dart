@@ -6,6 +6,7 @@ import '../../core/utils/currency_formatter.dart';
 import '../../models/friend_credit_model.dart';
 import '../../models/friend_model.dart';
 import '../../providers/friend_provider.dart';
+import '../../widgets/common/contact_pick_button.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
@@ -311,12 +312,18 @@ class _FriendFormState extends State<_FriendForm> {
       showMessage(context, 'Enter a name');
       return;
     }
+    // Saved in one shape, however it was typed or stored in the contact.
+    final phone = readPhoneField(_phone.text);
+    if (phone.invalid) {
+      showMessage(context, invalidPhoneMessage(context));
+      return;
+    }
     setState(() => _saving = true);
     final provider = context.read<FriendProvider>();
     final navigator = Navigator.of(context);
     final ok = await provider.createFriend(
       name: name,
-      phone: blankToNull(_phone.text),
+      phone: phone.number,
       notes: blankToNull(_notes.text),
     );
     if (!mounted) return;
@@ -346,7 +353,12 @@ class _FriendFormState extends State<_FriendForm> {
         TextField(
           controller: _phone,
           keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(hintText: '98XXXXXXXX'),
+          inputFormatters: phoneInputFormatters(),
+          decoration: InputDecoration(
+            hintText: '98XXXXXXXX or +977 98XXXXXXXX',
+            // Fills the number, and the name when it is still empty.
+            suffixIcon: ContactPickButton(phone: _phone, name: _name),
+          ),
         ),
         const FieldLabel('Notes (optional)'),
         TextField(
