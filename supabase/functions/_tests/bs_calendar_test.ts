@@ -40,3 +40,9 @@ Deno.test("day arithmetic", () => {
   assertEquals(addDays("2026-12-31", 1), "2027-01-01");
   assertEquals(daysBetween("2026-10-01", "2026-10-18"), 17);
 });
+
+Deno.test("projected years follow the app's calendar (nepali_utils)", () => {
+  assertEquals(daysInBsMonth(2087, 4), 32);
+  assertEquals(fromBs(2088, 1, 1), "2031-04-14");
+  assertEquals(fromBs(2090, 1, 1), "2033-04-14");
+});
