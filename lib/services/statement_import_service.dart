@@ -7,9 +7,8 @@ import '../core/config/env.dart';
 import '../core/errors/app_failure.dart';
 import '../models/statement_entry.dart';
 
-/// Uploads a statement PDF to the `parse-statement` Edge Function and returns
-/// the parsed rows for review. The PDF text extraction happens server-side, so
-/// the app ships no parser library.
+/// Uploads a statement file (PDF or XLS) to the `parse-statement` Edge Function
+/// and returns the parsed rows for review. File parsing happens server-side.
 class StatementImportService {
   StatementImportService({this._client});
 
@@ -19,13 +18,13 @@ class StatementImportService {
 
   /// Roughly the Supabase Functions payload ceiling; refuse bigger files
   /// client-side with a clear message instead of a network error.
-  static const int maxPdfBytes = 5 * 1024 * 1024;
+  static const int maxFileBytes = 5 * 1024 * 1024;
 
-  Future<List<StatementEntry>> parsePdf(Uint8List bytes) async {
-    if (bytes.length > maxPdfBytes) {
+  Future<List<StatementEntry>> parseStatement(Uint8List bytes) async {
+    if (bytes.length > maxFileBytes) {
       throw const AppFailure(
         FailureKind.invalidData,
-        'That PDF is too large. Statements up to 5 MB are supported.',
+        'That file is too large. Statements up to 5 MB are supported.',
       );
     }
     if (!Env.hasSupabase) {
@@ -45,7 +44,7 @@ class StatementImportService {
     try {
       final response = await client.functions.invoke(
         functionName,
-        body: <String, dynamic>{'pdfBase64': base64Encode(bytes)},
+        body: <String, dynamic>{'fileBase64': base64Encode(bytes)},
       );
       final data = response.data;
       if (data is! Map || data['entries'] is! List) {
@@ -69,10 +68,14 @@ class StatementImportService {
           : null;
       throw AppFailure(
         FailureKind.syncFailed,
-        message ?? 'Could not read this PDF.',
+        message ?? 'Could not read this file.',
       );
     } catch (error) {
       throw AppFailure.from(error);
     }
   }
+
+  @Deprecated('Use parseStatement instead')
+  Future<List<StatementEntry>> parsePdf(Uint8List bytes) =>
+      parseStatement(bytes);
 }

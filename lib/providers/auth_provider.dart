@@ -77,7 +77,9 @@ class AuthProvider extends ChangeNotifier {
       await client.auth.updateUser(
         UserAttributes(
           email: email,
-          data: fullName == null ? null : <String, dynamic>{'full_name': fullName},
+          data: fullName == null
+              ? null
+              : <String, dynamic>{'full_name': fullName},
         ),
       );
       return GuestUpgrade.codeSent;
@@ -394,7 +396,9 @@ class AuthProvider extends ChangeNotifier {
   /// the cleanup silently does nothing. A push token that fails to be deleted
   /// that way keeps sending the previous account's notifications to this device.
   Future<void> _runSignOutCleanups() async {
-    for (final cleanup in List<Future<void> Function()>.from(_signOutCleanups)) {
+    for (final cleanup in List<Future<void> Function()>.from(
+      _signOutCleanups,
+    )) {
       try {
         await cleanup();
       } catch (error) {
@@ -437,6 +441,36 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
     } catch (error) {
       _failure = AppFailure.from(error);
+      notifyListeners();
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Verifies the recovery code before setting a new password.
+  Future<void> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String password,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final client = _requireClient();
+      await client.auth.verifyOTP(
+        type: OtpType.recovery,
+        email: email,
+        token: code.trim(),
+      );
+      await client.auth.updateUser(UserAttributes(password: password));
+      _user = client.auth.currentUser;
+      _session = client.auth.currentSession;
+      _refreshMfaState();
+      notifyListeners();
+    } catch (error) {
+      _failure = _mapAuthError(error);
       notifyListeners();
       rethrow;
     } finally {
@@ -872,7 +906,8 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  SupabaseClient _requireClient() {    if (!Env.hasSupabase) {
+  SupabaseClient _requireClient() {
+    if (!Env.hasSupabase) {
       throw const AppFailure(
         FailureKind.syncFailed,
         'Backend is not configured.',

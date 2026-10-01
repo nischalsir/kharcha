@@ -31,6 +31,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _obscureCurrent = true;
   bool _obscure = true;
   bool _busy = false;
+  bool _showMfaCode = false;
 
   @override
   void dispose() {
@@ -45,6 +46,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
     final needsCode = auth.hasMfaEnabled;
+    if (needsCode && !_showMfaCode) {
+      setState(() => _showMfaCode = true);
+      return;
+    }
     if (needsCode && _codeController.text.trim().length != 6) {
       showMessage(
         context,
@@ -111,38 +116,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  if (needsCode) ...<Widget>[
-                    Text(
-                      context.t(
-                        'Two-factor is on — verify your code to continue.',
-                        'दुई-चरण सक्रिय छ — जारी राख्न कोड प्रमाणित गर्नुहोस्।',
-                      ),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: glass.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    GlassCard(
-                      child: TextFormField(
-                        controller: _codeController,
-                        keyboardType: TextInputType.number,
-                        maxLength: 6,
-                        inputFormatters: <TextInputFormatter>[
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: buildInputDecoration(
-                          context,
-                          label: context.t(
-                            'Authentication code',
-                            'प्रमाणीकरण कोड',
-                          ),
-                          hint: '000000',
-                          prefixIcon: Icons.pin_rounded,
-                        ).copyWith(counterText: ''),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
                   GlassCard(
                     child: Column(
                       children: <Widget>[
@@ -154,10 +127,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           autofillHints: const <String>[AutofillHints.password],
                           decoration: buildInputDecoration(
                             context,
-                            label: context.t(
-                              'Old password',
-                              'पुरानो पासवर्ड',
-                            ),
+                            label: context.t('Old password', 'पुरानो पासवर्ड'),
                             hint: context.t(
                               'Enter your current password',
                               'आफ्नो हालको पासवर्ड लेख्नुहोस्',
@@ -173,8 +143,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                     : Icons.visibility_rounded,
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
-                              onPressed: () =>
-                                  setState(() => _obscureCurrent = !_obscureCurrent),
+                              onPressed: () => setState(
+                                () => _obscureCurrent = !_obscureCurrent,
+                              ),
                             ),
                           ),
                           validator: (value) {
@@ -262,9 +233,45 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       ],
                     ),
                   ),
+                  if (needsCode && _showMfaCode) ...<Widget>[
+                    const SizedBox(height: 20),
+                    Text(
+                      context.t(
+                        'Two-factor is on — verify your code to continue.',
+                        'दुई-चरण सक्रिय छ — जारी राख्न कोड प्रमाणित गर्नुहोस्।',
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: glass.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    GlassCard(
+                      child: TextFormField(
+                        controller: _codeController,
+                        autofocus: true,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: buildInputDecoration(
+                          context,
+                          label: context.t(
+                            'Authentication code',
+                            'प्रमाणीकरण कोड',
+                          ),
+                          hint: '000000',
+                          prefixIcon: Icons.pin_rounded,
+                        ).copyWith(counterText: ''),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   PrimaryButton(
-                    label: context.t('Update password', 'पासवर्ड अद्यावधिक गर्नुहोस्'),
+                    label: context.t(
+                      'Update password',
+                      'पासवर्ड अद्यावधिक गर्नुहोस्',
+                    ),
                     icon: Icons.check_rounded,
                     onPressed: _busy ? null : _save,
                     isLoading: _busy,

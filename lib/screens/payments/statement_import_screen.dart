@@ -35,7 +35,7 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
     final PlatformFile? file = await FilePicker.pickFile(
       dialogTitle: 'Choose a bank statement',
       type: FileType.custom,
-      allowedExtensions: const <String>['pdf'],
+      allowedExtensions: const <String>['pdf', 'xls'],
     );
     if (file == null) return;
 
@@ -46,7 +46,7 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
     });
     try {
       final bytes = await file.readAsBytes();
-      final entries = await _service.parsePdf(bytes);
+      final entries = await _service.parseStatement(bytes);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -56,8 +56,8 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
         showMessage(
           context,
           context.t(
-            'No transactions found in this PDF.',
-            'यो PDF मा कुनै कारोबार भेटिएन।',
+            'No transactions found in this file.',
+            'यो फाइलमा कुनै कारोबार भेटिएन।',
           ),
         );
       }
@@ -133,7 +133,7 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
             onPressed: () => Navigator.pop(context),
           ),
           title: Text(
-            context.t('Import PDF', 'PDF बाट आयात'),
+            context.t('Import statement', 'स्टेटमेन्ट आयात'),
             style: theme.textTheme.titleLarge,
           ),
         ),
@@ -161,9 +161,9 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
                       child: PrimaryButton(
                         label: context.t(
                           'Import ${entries.where((e) => e.selected).length} '
-                          'transactions',
+                              'transactions',
                           '${entries.where((e) => e.selected).length} वटा '
-                          'कारोबार आयात गर्नुहोस्',
+                              'कारोबार आयात गर्नुहोस्',
                         ),
                         onPressed: _importing ? null : _import,
                         isLoading: _importing,
@@ -219,13 +219,14 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
               const SizedBox(height: 12),
               Text(
                 context.t(
-                  'Choose a bank statement PDF. Kharcha reads the rows for '
-                  'you, then you review and import the ones you want as '
-                  'expenses and income.',
-                  'बैंक स्टेटमेन्ट PDF छान्नुहोस्। खर्चाले पङ्क्तिहरू पढेर '
-                  'देखाउँछ, अनि तपाईंले चाहेका कारोबारहरू खर्च र आम्दानीका '
-                  'रूपमा आयात गर्न सक्नुहुन्छ।',
+                  'Choose a bank statement PDF or Excel file. Kharcha reads the rows for '
+                      'you, then you review and import the ones you want as '
+                      'expenses and income.',
+                  'बैंक स्टेटमेन्ट PDF वा Excel फाइल छान्नुहोस्। खर्चाले पङ्क्तिहरू पढेर '
+                      'देखाउँछ, अनि तपाईंले चाहेका कारोबारहरू खर्च र आम्दानीका '
+                      'रूपमा आयात गर्न सक्नुहुन्छ।',
                 ),
+
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: glass.textSecondary,
                   height: 1.5,
@@ -233,7 +234,7 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
               ),
               const SizedBox(height: 20),
               PrimaryButton(
-                label: context.t('Choose PDF', 'PDF छान्नुहोस्'),
+                label: context.t('Choose file', 'फाइल छान्नुहोस्'),
                 icon: Icons.upload_file_rounded,
                 onPressed: _busy ? null : _pickAndParse,
                 isLoading: _busy,
@@ -254,10 +255,7 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    _error!,
-                    style: theme.textTheme.bodySmall,
-                  ),
+                  child: Text(_error!, style: theme.textTheme.bodySmall),
                 ),
               ],
             ),
@@ -277,10 +275,12 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final glass = context.glass;
-    final expenses =
-        entries.where((e) => !e.isIncome).fold<double>(0, (s, e) => s + e.amount);
-    final income =
-        entries.where((e) => e.isIncome).fold<double>(0, (s, e) => s + e.amount);
+    final expenses = entries
+        .where((e) => !e.isIncome)
+        .fold<double>(0, (s, e) => s + e.amount);
+    final income = entries
+        .where((e) => e.isIncome)
+        .fold<double>(0, (s, e) => s + e.amount);
     final expenseCount = entries.where((e) => !e.isIncome).length;
     final incomeCount = entries.where((e) => e.isIncome).length;
 
@@ -347,7 +347,11 @@ class _EntriesCard extends StatelessWidget {
       child: Column(
         children: <Widget>[
           for (var i = 0; i < entries.length; i++) ...<Widget>[
-            if (i != 0) Divider(height: 1, color: glass.textTertiary.withValues(alpha: 0.2)),
+            if (i != 0)
+              Divider(
+                height: 1,
+                color: glass.textTertiary.withValues(alpha: 0.2),
+              ),
             _EntryRow(entry: entries[i], onChanged: onChanged),
           ],
         ],
@@ -370,7 +374,9 @@ class _EntryRow extends StatelessWidget {
     final dateLabel =
         '${date.year}-${date.month.toString().padLeft(2, '0')}-'
         '${date.day.toString().padLeft(2, '0')}';
-    final color = entry.isIncome ? const Color(0xFF30D158) : const Color(0xFFFF453A);
+    final color = entry.isIncome
+        ? const Color(0xFF30D158)
+        : const Color(0xFFFF453A);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),

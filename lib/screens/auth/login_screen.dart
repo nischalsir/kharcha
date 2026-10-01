@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/errors/app_failure.dart';
@@ -84,7 +85,11 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await auth.signIn(email: email, password: password);
       await _persistLogin(biometric, email: email, password: password);
-      await _maybeSuggestBiometrics(biometric, email: email, password: password);
+      await _maybeSuggestBiometrics(
+        biometric,
+        email: email,
+        password: password,
+      );
       if (mounted) {
         _returnToShell();
         // Check for updates after successful login
@@ -115,14 +120,17 @@ class _LoginScreenState extends State<LoginScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          context.t('Enable $kind sign-in?', '$kind साइन इन सक्रिय गर्नुहुन्छ?'),
+          context.t(
+            'Enable $kind sign-in?',
+            '$kind साइन इन सक्रिय गर्नुहुन्छ?',
+          ),
         ),
         content: Text(
           context.t(
             'Next time you can unlock Kharcha with '
-            '${kind.toLowerCase()} instead of typing your password.',
+                '${kind.toLowerCase()} instead of typing your password.',
             'अर्को पटक पासवर्ड टाइप नगरी '
-            '${kind.toLowerCase()} बाटै खर्चा खोल्न सक्नुहुन्छ।',
+                '${kind.toLowerCase()} बाटै खर्चा खोल्न सक्नुहुन्छ।',
           ),
         ),
         actions: <Widget>[
@@ -218,7 +226,8 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
-  void _navigateToSignup() => Navigator.of(context).pushNamed(RoutePaths.signup);
+  void _navigateToSignup() =>
+      Navigator.of(context).pushNamed(RoutePaths.signup);
 
   Future<void> _requestPasswordReset() async {
     final NavigatorState navigator = Navigator.of(context);
@@ -233,9 +242,12 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await auth.resetPassword(email);
       if (navigator.mounted) {
-        showMessage(context, 'Password reset link sent to $email');
+        await showDialog<void>(
+          context: context,
+          builder: (_) => _ResetPasswordCodeDialog(email: email),
+        );
       }
-    } catch (error) {
+    } catch (_) {
       // Surfaced by AuthErrorBanner.
     }
   }
@@ -284,7 +296,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,}$')
                           .hasMatch(email)) {
-                        return context.t('Enter a valid email', 'मान्य इमेल लेख्नुहोस्');
+                        return context.t(
+                          'Enter a valid email',
+                          'मान्य इमेल लेख्नुहोस्',
+                        );
                       }
                       return null;
                     },
@@ -298,7 +313,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: buildInputDecoration(
                       context,
                       label: context.t('Password', 'पासवर्ड'),
-                      hint: context.t('Enter your password', 'तपाईंको पासवर्ड लेख्नुहोस्'),
+                      hint: context.t(
+                        'Enter your password',
+                        'तपाईंको पासवर्ड लेख्नुहोस्',
+                      ),
                       prefixIcon: Icons.lock_outline_rounded,
                       suffixIcon: IconButton(
                         tooltip: _obscurePassword
@@ -318,7 +336,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     validator: (value) {
                       final password = value ?? '';
                       if (password.isEmpty) {
-                        return context.t('Password is required', 'पासवर्ड आवश्यक छ');
+                        return context.t(
+                          'Password is required',
+                          'पासवर्ड आवश्यक छ',
+                        );
                       }
                       if (password.length < 6) {
                         return context.t(
@@ -410,7 +431,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-/// Asks for the email to send a reset link to.
+/// Asks for the email to send a reset code to.
 ///
 /// This owns its [TextEditingController] on purpose. Disposing the controller
 /// in the caller's `finally` would do it while the dialog is still animating
@@ -444,8 +465,7 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
         controller: _controller,
         autofocus: true,
         keyboardType: TextInputType.emailAddress,
-        onSubmitted: (value) =>
-            Navigator.of(context).pop(value.trim()),
+        onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
         decoration: InputDecoration(
           labelText: context.t('Email', 'इमेल'),
           hintText: 'you@example.com',
@@ -458,7 +478,165 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
-          child: Text(context.t('Send link', 'लिंक पठाउनुहोस्')),
+          child: Text(context.t('Send code', 'कोड पठाउनुहोस्')),
+        ),
+      ],
+    );
+  }
+}
+
+class _ResetPasswordCodeDialog extends StatefulWidget {
+  const _ResetPasswordCodeDialog({required this.email});
+
+  final String email;
+
+  @override
+  State<_ResetPasswordCodeDialog> createState() =>
+      _ResetPasswordCodeDialogState();
+}
+
+class _ResetPasswordCodeDialogState extends State<_ResetPasswordCodeDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmController = TextEditingController();
+
+  bool _busy = false;
+  bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _resetPassword() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _busy = true);
+
+    try {
+      await context.read<AuthProvider>().resetPasswordWithCode(
+        email: widget.email,
+        code: _codeController.text,
+        password: _passwordController.text,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showMessage(
+        context,
+        context.t(
+          'Password updated. You can now sign in.',
+          'पासवर्ड अद्यावधिक गरियो। अब साइन इन गर्नुहोस्।',
+        ),
+      );
+    } catch (_) {
+      // Surfaced by AuthErrorBanner.
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(context.t('Enter reset code', 'रिसेट कोड लेख्नुहोस्')),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                context.t(
+                  'Enter the 6-digit code sent to ${widget.email}.',
+                  '${widget.email} मा पठाइएको ६ अंकको कोड लेख्नुहोस्।',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _codeController,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: InputDecoration(
+                  labelText: context.t('Reset code', 'रिसेट कोड'),
+                  hintText: '000000',
+                  counterText: '',
+                ),
+                validator: (value) {
+                  if (!RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')) {
+                    return context.t(
+                      'Enter the 6-digit code',
+                      '६ अंकको कोड लेख्नुहोस्',
+                    );
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  labelText: context.t('New password', 'नयाँ पासवर्ड'),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                ),
+                validator: (value) {
+                  if ((value ?? '').length < 6) {
+                    return context.t(
+                      'Password must be at least 6 characters',
+                      'पासवर्ड कम्तीमा ६ अक्षरको हुनुपर्छ',
+                    );
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _confirmController,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'Confirm new password',
+                    'नयाँ पासवर्ड पुष्टि गर्नुहोस्',
+                  ),
+                ),
+                validator: (value) => value == _passwordController.text
+                    ? null
+                    : context.t('Passwords do not match', 'पासवर्डहरू मिलेनन्'),
+                onFieldSubmitted: (_) => _resetPassword(),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: Text(context.t('Cancel', 'रद्द गर्नुहोस्')),
+        ),
+        FilledButton(
+          onPressed: _busy ? null : _resetPassword,
+          child: _busy
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(context.t('Reset password', 'पासवर्ड रिसेट')),
         ),
       ],
     );
