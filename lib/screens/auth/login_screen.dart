@@ -504,6 +504,17 @@ class _ResetPasswordCodeDialogState extends State<_ResetPasswordCodeDialog> {
   bool _busy = false;
   bool _obscurePassword = true;
 
+  /// The password the server refused for being the same as the old one.
+  String? _rejectedPassword;
+
+  String? _sameAsOld(String? value) {
+    if (_rejectedPassword == null || value != _rejectedPassword) return null;
+    return context.t(
+      'New password must be different from old password',
+      'नयाँ पासवर्ड पुरानो पासवर्डबाट फरक हुनुपर्छ',
+    );
+  }
+
   @override
   void dispose() {
     _codeController.dispose();
@@ -531,8 +542,16 @@ class _ResetPasswordCodeDialogState extends State<_ResetPasswordCodeDialog> {
           'पासवर्ड अद्यावधिक गरियो। अब साइन इन गर्नुहोस्।',
         ),
       );
-    } catch (_) {
-      // Surfaced by AuthErrorBanner.
+    } catch (error) {
+      if (!mounted) return;
+      if (AuthProvider.isSamePasswordError(error)) {
+        // The old password is not typed here, so only the server can tell.
+        // Mark the two new-password fields rather than a banner behind the dialog.
+        setState(() => _rejectedPassword = _passwordController.text);
+        _formKey.currentState!.validate();
+      } else {
+        showMessage(context, context.read<AuthProvider>().error ?? '$error');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -601,7 +620,7 @@ class _ResetPasswordCodeDialogState extends State<_ResetPasswordCodeDialog> {
                       'पासवर्ड कम्तीमा ६ अक्षरको हुनुपर्छ',
                     );
                   }
-                  return null;
+                  return _sameAsOld(value);
                 },
               ),
               const SizedBox(height: 12),
@@ -615,7 +634,7 @@ class _ResetPasswordCodeDialogState extends State<_ResetPasswordCodeDialog> {
                   ),
                 ),
                 validator: (value) => value == _passwordController.text
-                    ? null
+                    ? _sameAsOld(value)
                     : context.t('Passwords do not match', 'पासवर्डहरू मिलेनन्'),
                 onFieldSubmitted: (_) => _resetPassword(),
               ),

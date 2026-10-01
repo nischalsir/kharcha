@@ -81,8 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _ThemeTile(
                       label: context.t('Light', 'उज्यालो'),
                       selected: provider.themeMode == ThemeMode.light,
-                      onTap: () =>
-                          provider.updateThemeMode(AppThemeMode.light),
+                      onTap: () => provider.updateThemeMode(AppThemeMode.light),
                     ),
                     const Divider(height: 1),
                     _ThemeTile(
@@ -168,7 +167,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: context.t('Calendar', 'पात्रो'),
                       subtitle: provider.calendarType == CalendarSystem.ad
                           ? context.t('Gregorian (AD)', 'ग्रेगोरियन (AD)')
-                          : context.t('Bikram Sambat (BS)', 'विक्रम संवत् (BS)'),
+                          : context.t(
+                              'Bikram Sambat (BS)',
+                              'विक्रम संवत् (BS)',
+                            ),
                       onTap: () => _pickCalendar(provider),
                     ),
                   ],
@@ -277,7 +279,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingTile(
                       icon: Icons.delete_forever_rounded,
                       color: glass.danger,
-                      title: context.t('Delete All Data', 'सबै डाटा मेटाउनुहोस्'),
+                      title: context.t(
+                        'Delete All Data',
+                        'सबै डाटा मेटाउनुहोस्',
+                      ),
                       subtitle: context.t(
                         'Permanently delete all local data',
                         'सबै स्थानीय डाटा स्थायी रूपमा मेटाउनुहोस्',
@@ -371,9 +376,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-          context.t('Privacy & Security', 'गोपनीयता र सुरक्षा'),
-        ),
+        title: Text(context.t('Privacy & Security', 'गोपनीयता र सुरक्षा')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -446,9 +449,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
-              context.t('Close', 'बन्द गर्नुहोस्'),
-            ),
+            child: Text(context.t('Close', 'बन्द गर्नुहोस्')),
           ),
         ],
       ),
@@ -523,7 +524,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (selected == null || !mounted) return;
     await provider.updateDevanagariDates(selected);
     if (mounted) {
-      showMessage(context, selected ? 'भाषा नेपालीमा सेट गरियो।' : 'Language set to English.');
+      showMessage(
+        context,
+        selected ? 'भाषा नेपालीमा सेट गरियो।' : 'Language set to English.',
+      );
     }
   }
 
@@ -618,9 +622,8 @@ class _SheetTitle extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
       child: Text(
         text,
-        style: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        style: Theme.of(context).textTheme.titleMedium
+            ?.copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -826,7 +829,8 @@ class _NotificationSettingsCardState extends State<_NotificationSettingsCard> {
       );
     }
 
-    final on = push.permission == PushPermission.authorized ||
+    final on =
+        push.permission == PushPermission.authorized ||
         push.permission == PushPermission.provisional;
 
     return GlassCard(
@@ -873,8 +877,7 @@ class _NotificationSettingsCardState extends State<_NotificationSettingsCard> {
             value: prefs.aiContent,
             // The AI job is server-side, so the switch works either way; it
             // simply has nothing to send if the OS is blocking everything.
-            onChanged: (value) =>
-                _toggleAiContent(settings, prefs, value),
+            onChanged: (value) => _toggleAiContent(settings, prefs, value),
             secondary: Container(
               width: 40,
               height: 40,
@@ -1305,79 +1308,77 @@ class _ProfileCardState extends State<_ProfileCard> {
         (auth.userId == null ? 'Guest' : 'Signed in anonymously');
     final gender = auth.profileGender;
     final age = auth.computedAge;
-    final birthDate = auth.profileBirthDate;
+    // One quiet line instead of a row of chips; the full details live on the
+    // edit screen this card opens.
+    final details = <String>[
+      if (gender != null) _genderLabel(gender),
+      if (age != null) '$age years',
+    ].join('  •  ');
 
     return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const ProfileEditScreen()),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: <Widget>[
-            GestureDetector(
-              onTap: _loading ? null : _onTap,
-              child: _Avatar(url: _avatarUrl, loading: _loading),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(name, style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 2),
+      child: Row(
+        children: <Widget>[
+          GestureDetector(
+            onTap: _loading ? null : _onTap,
+            child: _Avatar(url: _avatarUrl, loading: _loading),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  name,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: glass.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (details.isNotEmpty)
                   Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: glass.textSecondary,
+                    details,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: glass.textTertiary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                if (auth.isGuest) ...<Widget>[
+                  const SizedBox(height: 6),
+                  FilledButton.tonalIcon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const GuestUpgradeScreen(),
+                      ),
+                    ),
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                    label: Text(
+                      context.t('Save your data', 'डाटा सुरक्षित गर्नुहोस्'),
                     ),
                   ),
-                  if (auth.isGuest) ...<Widget>[
-                    const SizedBox(height: 8),
-                    FilledButton.tonalIcon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const GuestUpgradeScreen(),
-                        ),
-                      ),
-                      icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                      label: Text(
-                        context.t('Save your data', 'डाटा सुरक्षित गर्नुहोस्'),
-                      ),
-                    ),
-                  ],
-                  if (gender != null || age != null || birthDate != null) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 4,
-                      children: <Widget>[
-                        if (gender != null)
-                          _ProfileChip(
-                            icon: Icons.transgender_rounded,
-                            label: _genderLabel(gender),
-                          ),
-                        if (age != null)
-                          _ProfileChip(
-                            icon: Icons.cake_outlined,
-                            label: '$age years',
-                          ),
-                        if (birthDate != null)
-                          _ProfileChip(
-                            icon: Icons.event_rounded,
-                            label:
-                                '${birthDate.day}/${birthDate.month}/${birthDate.year}',
-                          ),
-                      ],
-                    ),
-                  ],
                 ],
-              ),
+              ],
             ),
-            Icon(Icons.chevron_right_rounded, color: glass.textTertiary),
-          ],
-        ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: glass.textTertiary),
+        ],
       ),
     );
   }
@@ -1401,6 +1402,8 @@ class _Avatar extends StatelessWidget {
 
   final String? url;
   final bool loading;
+
+  static const double _size = 52;
 
   @override
   Widget build(BuildContext context) {
@@ -1431,8 +1434,8 @@ class _Avatar extends StatelessWidget {
       children: <Widget>[
         ClipOval(
           child: SizedBox(
-            width: 68,
-            height: 68,
+            width: _size,
+            height: _size,
             child: image ?? _placeholder(theme, colorScheme),
           ),
         ),
@@ -1445,11 +1448,11 @@ class _Avatar extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: colorScheme.surface, width: 2),
             ),
-            padding: const EdgeInsets.all(5),
+            padding: const EdgeInsets.all(3),
             child: loading
                 ? SizedBox(
-                    width: 12,
-                    height: 12,
+                    width: 10,
+                    height: 10,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color: colorScheme.onPrimary,
@@ -1457,7 +1460,7 @@ class _Avatar extends StatelessWidget {
                   )
                 : Icon(
                     Icons.photo_camera_rounded,
-                    size: 12,
+                    size: 10,
                     color: colorScheme.onPrimary,
                   ),
           ),
@@ -1468,8 +1471,8 @@ class _Avatar extends StatelessWidget {
 
   Widget _placeholder(ThemeData theme, ColorScheme colorScheme) {
     return Container(
-      width: 68,
-      height: 68,
+      width: _size,
+      height: _size,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [colorScheme.primary, colorScheme.secondary],
@@ -1478,41 +1481,7 @@ class _Avatar extends StatelessWidget {
         ),
       ),
       alignment: Alignment.center,
-      child: Icon(Icons.person_rounded, size: 34, color: colorScheme.onPrimary),
-    );
-  }
-}
-
-class _ProfileChip extends StatelessWidget {
-  const _ProfileChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: 14, color: colorScheme.onPrimaryContainer),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+      child: Icon(Icons.person_rounded, size: 26, color: colorScheme.onPrimary),
     );
   }
 }

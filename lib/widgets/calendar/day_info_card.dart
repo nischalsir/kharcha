@@ -16,10 +16,18 @@ import '../common/glass_card.dart';
 /// it still shows the date itself rather than disappearing, so the grid never
 /// looks like it is missing data.
 class DayInfoCard extends StatelessWidget {
-  const DayInfoCard({super.key, required this.date, this.isToday = false});
+  const DayInfoCard({
+    super.key,
+    required this.date,
+    this.isToday = false,
+    this.trailing,
+  });
 
   final BsDate date;
   final bool isToday;
+
+  /// Shown in the top-right corner of the card, e.g. today's weather.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +55,7 @@ class DayInfoCard extends StatelessWidget {
             gregorian: gregorian,
             devanagari: devanagari,
             isToday: isToday,
+            trailing: trailing,
           ),
           if (isHoliday) ...<Widget>[
             const SizedBox(height: 12),
@@ -85,6 +94,7 @@ class _Header extends StatelessWidget {
     required this.gregorian,
     required this.devanagari,
     required this.isToday,
+    this.trailing,
   });
 
   final BsDate date;
@@ -92,6 +102,7 @@ class _Header extends StatelessWidget {
   final DateTime gregorian;
   final bool devanagari;
   final bool isToday;
+  final Widget? trailing;
 
   static const List<String> _gregorianMonths = <String>[
     'Jan',
@@ -155,6 +166,7 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
+        if (trailing != null) ...<Widget>[const SizedBox(width: 12), trailing!],
       ],
     );
   }
@@ -293,7 +305,9 @@ class _EntryTile extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        devanagari ? 'तिथि: ${entry.tithi}' : 'Tithi: ${entry.tithi}',
+                        devanagari
+                            ? 'तिथि: ${entry.tithi}'
+                            : 'Tithi: ${entry.tithi}',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,
@@ -366,8 +380,8 @@ class _EntryTile extends StatelessWidget {
 
 /// Image area for a single entry.
 ///
-/// Shows the bundled photograph when the entry has one, and a themed gradient
-/// with the entry's own icon when it does not. A generic unrelated image is never
+/// Shows the entry's photograph when one exists, bundled or uploaded since,
+/// and a themed gradient with the entry's own icon when it does not. A generic unrelated image is never
 /// substituted, because that would misrepresent the entry.
 class _Hero extends StatelessWidget {
   const _Hero({required this.entry, required this.devanagari});
@@ -380,19 +394,15 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final asset = entry.imageAsset;
-    if (asset != null) {
-      return SizedBox(
+    return SizedBox(
+      height: _height,
+      width: double.infinity,
+      child: FestivalImage(
+        assetPath: entry.imagePath,
         height: _height,
-        width: double.infinity,
-        child: FestivalImage(
-          assetPath: asset,
-          height: _height,
-          fallback: _Fallback(theme: theme, icon: entry.iconData),
-        ),
-      );
-    }
-    return _Fallback(theme: theme, icon: entry.iconData);
+        fallback: _Fallback(theme: theme, icon: entry.iconData),
+      ),
+    );
   }
 }
 

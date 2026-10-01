@@ -24,10 +24,16 @@ class FestivalImage extends StatelessWidget {
   static const String _base =
       'https://res.cloudinary.com/dh3rzo7bt/image/upload';
 
+  /// Photos that failed to load this session, so a festival without a picture
+  /// is asked for once rather than on every rebuild.
+  static final Set<String> _missing = <String>{};
+
   /// The Cloudinary URL for a bundled festival asset at [pixelWidth].
   static String urlFor(String assetPath, int pixelWidth) {
     final file = assetPath.split('/').last;
-    final id = file.contains('.') ? file.substring(0, file.lastIndexOf('.')) : file;
+    final id = file.contains('.')
+        ? file.substring(0, file.lastIndexOf('.'))
+        : file;
     return '$_base/f_auto,q_auto,c_fill,g_auto,w_$pixelWidth/kharcha/festivals/$id.jpg';
   }
 
@@ -37,6 +43,16 @@ class FestivalImage extends StatelessWidget {
     final logicalWidth = width ?? MediaQuery.sizeOf(context).width;
     // Rounded up to a 100px step so nearby sizes share one cached rendition.
     final pixelWidth = ((logicalWidth * dpr) / 100).ceil() * 100;
+
+    Widget bundled() => Image.asset(
+      assetPath,
+      width: width,
+      height: height,
+      fit: BoxFit.cover,
+      cacheWidth: pixelWidth,
+      errorBuilder: (_, _, _) => fallback,
+    );
+    if (_missing.contains(assetPath)) return bundled();
 
     return Image.network(
       urlFor(assetPath, pixelWidth),
@@ -49,14 +65,10 @@ class FestivalImage extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         child: child,
       ),
-      errorBuilder: (_, _, _) => Image.asset(
-        assetPath,
-        width: width,
-        height: height,
-        fit: BoxFit.cover,
-        cacheWidth: pixelWidth,
-        errorBuilder: (_, _, _) => fallback,
-      ),
+      errorBuilder: (_, _, _) {
+        _missing.add(assetPath);
+        return bundled();
+      },
     );
   }
 }

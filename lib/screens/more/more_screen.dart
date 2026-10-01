@@ -40,9 +40,9 @@ class MoreScreen extends StatelessWidget {
         content: Text(
           context.t(
             'You will need to sign in again. Fingerprint sign-in stays on, '
-            'so you can unlock with your fingerprint next time.',
+                'so you can unlock with your fingerprint next time.',
             'तपाईंले फेरि साइन इन गर्नुपर्नेछ। फिंगरप्रिन्ट साइन इन '
-            'सक्रिय रहनेछ, त्यसैले अर्को पटक फिंगरप्रिन्टबाटै खोल्न सक्नुहुन्छ।',
+                'सक्रिय रहनेछ, त्यसैले अर्को पटक फिंगरप्रिन्टबाटै खोल्न सक्नुहुन्छ।',
           ),
         ),
         actions: <Widget>[
@@ -95,12 +95,12 @@ class MoreScreen extends StatelessWidget {
             ),
           ),
           _MoreTile(
-            icon: Icons.celebration_rounded,
+            icon: Icons.calendar_month_rounded,
             color: const Color(0xFFFF9F0A),
-            title: context.t('Festivals', 'चाडपर्वहरू'),
+            title: context.t('Calendar', 'पात्रो'),
             subtitle: context.t(
-              'Plan festival spending',
-              'चाडपर्वको खर्च योजना बनाउनुहोस्',
+              'Dates, tithi and festivals',
+              'मिति, तिथि र चाडपर्व',
             ),
             onTap: () => Navigator.push(
               context,
@@ -121,17 +121,15 @@ class MoreScreen extends StatelessWidget {
             ),
           ),
           _MoreTile(
-            icon: Icons.picture_as_pdf_rounded,
+            icon: Icons.receipt_long_rounded,
             color: const Color(0xFF64D2FF),
-            title: context.t('Import PDF', 'PDF बाट आयात'),
+            title: context.t('Import statement', 'स्टेटमेन्ट आयात'),
             subtitle: context.t(
-              'Add transactions from a bank statement',
-              'बैंक स्टेटमेन्टबाट कारोबार थप्नुहोस्',
+              'Bank PDF or eSewa Excel file',
+              'बैंक PDF वा eSewa Excel फाइल',
             ),
-            onTap: () => Navigator.pushNamed(
-              context,
-              RoutePaths.statementImport,
-            ),
+            onTap: () =>
+                Navigator.pushNamed(context, RoutePaths.statementImport),
           ),
           _MoreTile(
             icon: Icons.calculate_rounded,

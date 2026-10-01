@@ -19,6 +19,7 @@ class ProfileEditScreen extends StatefulWidget {
 class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _ageController;
   UserGender? _selectedGender;
   DateTime? _selectedBirthDate;
   int? _selectedAge;
@@ -32,18 +33,20 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _selectedGender = auth.profileGender;
     _selectedBirthDate = auth.profileBirthDate;
     _selectedAge = auth.profileAge;
+    _ageController = TextEditingController(text: _selectedAge?.toString());
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _ageController.dispose();
     super.dispose();
   }
 
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
-    final initialDate = _selectedBirthDate ??
-        DateTime(now.year - 25, now.month, now.day);
+    final initialDate =
+        _selectedBirthDate ?? DateTime(now.year - 25, now.month, now.day);
     final date = await showDatePicker(
       context: context,
       initialDate: initialDate,
@@ -52,9 +55,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: Theme.of(context).colorScheme.primary,
-            ),
+            colorScheme: Theme.of(context).colorScheme
+                .copyWith(primary: Theme.of(context).colorScheme.primary),
           ),
           child: child!,
         );
@@ -65,6 +67,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         _selectedBirthDate = date;
         // Auto-calculate age
         _selectedAge = _calculateAge(date);
+        _ageController.text = '$_selectedAge';
       });
     }
   }
@@ -87,7 +90,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     try {
       final auth = context.read<AuthProvider>();
       await auth.updateProfile(
-        fullName: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
+        fullName: _nameController.text.trim().isEmpty
+            ? null
+            : _nameController.text.trim(),
         gender: _selectedGender,
         birthDate: _selectedBirthDate,
         age: _selectedAge,
@@ -132,21 +137,25 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Name field
-                  Text('Personal Info', style: theme.textTheme.labelMedium?.copyWith(
-                    color: glass.textSecondary,
-                    letterSpacing: 0.5,
-                  )),
+                  Text(
+                    'Personal Info',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: glass.textSecondary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   GlassCard(
                     child: Column(
                       children: [
                         TextFormField(
                           controller: _nameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Full Name',
-                            hintText: 'Enter your name',
-                            prefixIcon: Icon(Icons.person_outline_rounded),
-                            border: InputBorder.none,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: buildInputDecoration(
+                            context,
+                            label: 'Full Name',
+                            hint: 'Enter your name',
+                            prefixIcon: Icons.person_outline_rounded,
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
@@ -155,14 +164,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                             return null;
                           },
                         ),
-                        const Divider(height: 1),
+                        const SizedBox(height: 14),
                         InkWell(
                           onTap: _pickBirthDate,
+                          borderRadius: BorderRadius.circular(12),
                           child: InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Birth Date',
-                              prefixIcon: Icon(Icons.cake_outlined),
-                              border: InputBorder.none,
+                            decoration: buildInputDecoration(
+                              context,
+                              label: 'Birth Date',
+                              prefixIcon: Icons.cake_outlined,
                             ),
                             child: Text(
                               _selectedBirthDate != null
@@ -176,13 +186,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                             ),
                           ),
                         ),
-                        const Divider(height: 1),
+                        const SizedBox(height: 14),
                         DropdownButtonFormField<UserGender>(
                           initialValue: _selectedGender,
-                          decoration: const InputDecoration(
-                            labelText: 'Gender',
-                            prefixIcon: Icon(Icons.transgender_rounded),
-                            border: InputBorder.none,
+                          borderRadius: BorderRadius.circular(12),
+                          dropdownColor: colorScheme.surfaceContainerHigh,
+                          decoration: buildInputDecoration(
+                            context,
+                            label: 'Gender',
+                            prefixIcon: Icons.transgender_rounded,
                           ),
                           items: UserGender.values.map((gender) {
                             return DropdownMenuItem(
@@ -194,14 +206,14 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                             setState(() => _selectedGender = value);
                           },
                         ),
-                        const Divider(height: 1),
+                        const SizedBox(height: 14),
                         TextFormField(
-                          initialValue: _selectedAge?.toString(),
-                          decoration: const InputDecoration(
-                            labelText: 'Age',
-                            hintText: 'Auto-calculated from birth date',
-                            prefixIcon: Icon(Icons.numbers_rounded),
-                            border: InputBorder.none,
+                          controller: _ageController,
+                          decoration: buildInputDecoration(
+                            context,
+                            label: 'Age',
+                            hint: 'Auto-calculated from birth date',
+                            prefixIcon: Icons.numbers_rounded,
                           ),
                           keyboardType: TextInputType.number,
                           onChanged: (value) {

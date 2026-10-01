@@ -19,6 +19,10 @@ file.
 | `bhai-tika.jpg` | Bhai Tika | Toshiro lama | CC BY-SA 4.0 | [File:Bhai Tika, Bhai Tika.jpg](https://commons.wikimedia.org/wiki/File:Bhai_Tika,_Bhai_Tika.jpg) |
 | `chhath.jpg` | Chhath | Bijay Chaurasia | CC BY-SA 4.0 | [File:Chhath festival in Nepal-070A2127.jpg](https://commons.wikimedia.org/wiki/File:Chhath_festival_in_Nepal-070A2127.jpg) |
 | `holi.jpg` | Holi | Bijay Chaurasia | CC BY-SA 4.0 | [File:Holi festival celebration in Kathmandu 2025-070A3156.jpg](https://commons.wikimedia.org/wiki/File:Holi_festival_celebration_in_Kathmandu_2025-070A3156.jpg) |
+| `nag-panchami.jpg` | Nag Panchami | Bijay Chaurasia | CC BY-SA 4.0 | [File:Nag Panchami at Nag Pokhari, Naxal Kathmandu Nepal-070A0773.jpg](https://commons.wikimedia.org/wiki/File:Nag_Panchami_at_Nag_Pokhari,_Naxal_Kathmandu_Nepal-070A0773.jpg) |
+| `maha-shivaratri.jpg` | Maha Shivaratri | Bijay Chaurasia | CC BY-SA 4.0 | [File:Maha Shivaratri Celebrations at Pashupatinath Temple…](https://commons.wikimedia.org/wiki/File:Maha_Shivaratri_Celebrations_at_Pashupatinath_Temple,_Kathmandu,_Nepal-070A6802.jpg) |
+| `bibaha-panchami.jpg` | Bibaha Panchami | Shristimathema | CC BY-SA 4.0 | [File:Shri ram Janaki temple.jpg](https://commons.wikimedia.org/wiki/File:Shri_ram_Janaki_temple.jpg) |
+| `bhanu-jayanti.jpg` | Bhanu Jayanti | Nabin K. Sapkota | CC BY-SA 4.0 | [File:Statue of Bhanubhakta Acharya at Chundi Ramgha Cropped.jpg](https://commons.wikimedia.org/wiki/File:Statue_of_Bhanubhakta_Acharya_at_Chundi_Ramgha_Cropped.jpg) |
 
 The CC BY-SA images require attribution and share-alike. The attribution line is
 displayed in the app under each photograph. If the app is distributed, the

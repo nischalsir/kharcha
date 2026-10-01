@@ -1,33 +1,63 @@
 // @ts-nocheck
-// Kharcha PDF statement importer.
+// Kharcha statement importer.
 //
-// Pipeline: Flutter (PDF bytes, base64) -> this function -> pdf.js text
+// Pipeline: Flutter (file bytes, base64) -> this function -> text / cell
 // extraction -> row parser -> validated entries -> Flutter review screen.
 //
-// No API keys are involved. The parser is written for the common Nepali bank
-// "Electronic Account Statement" layout:
-//   YYYY-MM-DD HH:MM:SS  Description  Withdraw  Deposit  Balance  S.N
+// No API keys are involved. Two files are understood, told apart by their
+// contents rather than their names:
+//   * the bank "Electronic Account Statement" PDF
+//   * the eSewa "Statement Report" spreadsheet (.xls / .xlsx)
 import { corsHeaders, json } from '../_shared/cors.ts';
 import { getUser } from '../_shared/auth.ts';
+import {
+  detectKind,
+  parseBankPages,
+  parseEsewaRows,
+} from '../_shared/statement_parse.ts';
 
 // Platform JWT verification also accepts the public anon key, which ships in
 // the app. Requiring a signed-in user, and bounding the work per request, keeps
-// this CPU-heavy endpoint from being a free PDF parser for anyone.
-const MAX_BASE64_LENGTH = 14_000_000; // ~10 MB PDF
+// this CPU-heavy endpoint from being a free file parser for anyone.
+const MAX_BASE64_LENGTH = 14_000_000; // ~10 MB file
 const MAX_PAGES = 60;
+const MAX_SHEET_ROWS = 20_000;
 
-// The legacy build runs on the main thread (fake worker), which is required in
-// Deno because there is no worker file to load.
-const pdfjs = await import('npm:pdfjs-dist@4.10.38/legacy/build/pdf.mjs');
+async function readPdf(data: Uint8Array) {
+  // The legacy build runs on the main thread (fake worker), which is required
+  // in Deno because there is no worker file to load.
+  const pdfjs = await import('npm:pdfjs-dist@4.10.38/legacy/build/pdf.mjs');
+  const doc = await pdfjs.getDocument({ data }).promise;
+  if (doc.numPages > MAX_PAGES) return null;
+  const pages = [];
+  for (let pageNo = 1; pageNo <= doc.numPages; pageNo++) {
+    const page = await doc.getPage(pageNo);
+    const content = await page.getTextContent();
+    // The bank's pages are stored rotated, so raw text positions have x and y
+    // swapped. The viewport transform gives positions as the reader sees them.
+    const view = page.getViewport({ scale: 1 }).transform;
+    const items = [];
+    for (const item of content.items) {
+      if (!item || typeof item.str !== 'string' || !item.transform) continue;
+      const seen = pdfjs.Util.transform(view, item.transform);
+      items.push({
+        str: item.str.replace(/\u00a0/g, ' '),
+        x: seen[4],
+        y: seen[5],
+        width: item.width ?? 0,
+      });
+    }
+    pages.push(items);
+  }
+  return pages;
+}
 
-const rowRe = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(.+)$/;
-// Withdraw row:  "100.00 - 138.211"  (amount immediately before " - ").
-const withdrawRe = /(\d[\d,]*\.\d{2})\s+-\s+\d/;
-// Deposit row:   "- 5,000.00 5,013.216" (amount immediately after "- ").
-const depositRe = /-\s+(\d[\d,]*\.\d{2})/;
-
-function parseAmount(raw: string): number {
-  return parseFloat(raw.replace(/,/g, ''));
+async function readSheet(data: Uint8Array) {
+  const xlsx = await import('npm:xlsx@0.18.5');
+  const book = xlsx.read(data, { type: 'array', sheetRows: MAX_SHEET_ROWS });
+  const sheet = book.Sheets[book.SheetNames[0]];
+  if (!sheet) return [];
+  return xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -44,10 +74,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   } catch {
     return json({ error: 'Invalid JSON body' }, 400);
   }
-  const base64 = typeof body.pdfBase64 === 'string' ? body.pdfBase64 : '';
-  if (!base64) return json({ error: 'Missing pdfBase64' }, 400);
+  // `pdfBase64` is what app versions up to 1.0.3 send.
+  const base64 = typeof body.fileBase64 === 'string'
+    ? body.fileBase64
+    : typeof body.pdfBase64 === 'string'
+    ? body.pdfBase64
+    : '';
+  if (!base64) return json({ error: 'No file was sent.' }, 400);
   if (base64.length > MAX_BASE64_LENGTH) {
-    return json({ error: 'PDF is too large (max 10 MB).' }, 413);
+    return json({ error: 'File is too large (max 10 MB).' }, 413);
   }
 
   let data: Uint8Array;
@@ -59,71 +94,30 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: 'Invalid base64 payload' }, 400);
   }
 
-  let text = '';
+  const kind = detectKind(data);
+  if (kind === 'unknown') {
+    return json({ error: 'Choose a statement PDF or an Excel (.xls) file.' }, 400);
+  }
+
+  let entries = [];
   try {
-    const doc = await pdfjs.getDocument({ data }).promise;
-    if (doc.numPages > MAX_PAGES) {
-      return json({ error: `Statement has too many pages (max ${MAX_PAGES}).` }, 413);
-    }
-    for (let pageNo = 1; pageNo <= doc.numPages; pageNo++) {
-      const page = await doc.getPage(pageNo);
-      const content = await page.getTextContent();
-      for (const item of content.items) {
-        if (item && typeof item.str === 'string') {
-          text += item.str;
-          text += item.hasEOL ? '\n' : ' ';
-        }
+    if (kind === 'pdf') {
+      const pages = await readPdf(data);
+      if (pages === null) {
+        return json(
+          { error: `Statement has too many pages (max ${MAX_PAGES}).` },
+          413,
+        );
       }
-      text += '\n';
+      entries = parseBankPages(pages);
+    } else {
+      entries = parseEsewaRows(await readSheet(data));
     }
   } catch (error) {
     // Logged, not returned: parser internals are no use to the app.
-    console.error('parse-statement: could not read PDF', String(error));
-    return json({ error: 'Could not read this PDF.' }, 400);
+    console.error('parse-statement: could not read file', kind, String(error));
+    return json({ error: 'Could not read this file.' }, 400);
   }
 
-  const entries: Array<Record<string, unknown>> = [];
-  for (const rawLine of text.split('\n')) {
-    const line = rawLine.replace(/\u00a0/g, ' ').trim();
-    const row = line.match(rowRe);
-    if (!row) continue;
-
-    const stamp = row[1];
-    const rest = row[2];
-
-    let amount: number | null = null;
-    let type: 'income' | 'expense' | null = null;
-    let matchIndex = -1;
-
-    const withdraw = rest.match(withdrawRe);
-    if (withdraw && withdraw.index !== undefined) {
-      amount = parseAmount(withdraw[1]);
-      type = 'expense';
-      matchIndex = withdraw.index;
-    } else {
-      const deposit = rest.match(depositRe);
-      if (deposit && deposit.index !== undefined) {
-        amount = parseAmount(deposit[1]);
-        type = 'income';
-        matchIndex = deposit.index;
-      }
-    }
-    if (amount === null || type === null || !(amount > 0)) continue;
-
-    const description = rest
-      .substring(0, matchIndex)
-      .replace(/[\s,\-:]+$/, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (!description) continue;
-
-    entries.push({
-      occurred_at: stamp,
-      description,
-      amount: Math.round(amount * 100) / 100,
-      type,
-    });
-  }
-
-  return json({ entries, count: entries.length });
+  return json({ entries, count: entries.length, kind });
 });

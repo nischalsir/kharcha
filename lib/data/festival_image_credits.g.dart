@@ -152,4 +152,28 @@ const Map<String, FestivalImageCredit> festivalImageCredits =
     license: 'CC BY-SA 3.0',
     source: 'Wikimedia Commons: File:Tamu Lhosar.jpg',
   ),
+  'nag-panchami': FestivalImageCredit(
+    assetPath: 'assets/images/festivals/nag-panchami.jpg',
+    author: 'Bijay Chaurasia',
+    license: 'CC BY-SA 4.0',
+    source: 'Wikimedia Commons: File:Nag Panchami at Nag Pokhari, Naxal Kathmandu Nepal-070A0773.jpg',
+  ),
+  'maha-shivaratri': FestivalImageCredit(
+    assetPath: 'assets/images/festivals/maha-shivaratri.jpg',
+    author: 'Bijay Chaurasia',
+    license: 'CC BY-SA 4.0',
+    source: 'Wikimedia Commons: File:Maha Shivaratri Celebrations at Pashupatinath Temple, Kathmandu, Nepal-070A6802.jpg',
+  ),
+  'bibaha-panchami': FestivalImageCredit(
+    assetPath: 'assets/images/festivals/bibaha-panchami.jpg',
+    author: 'Shristimathema',
+    license: 'CC BY-SA 4.0',
+    source: 'Wikimedia Commons: File:Shri ram Janaki temple.jpg',
+  ),
+  'bhanu-jayanti': FestivalImageCredit(
+    assetPath: 'assets/images/festivals/bhanu-jayanti.jpg',
+    author: 'Nabin K. Sapkota',
+    license: 'CC BY-SA 4.0',
+    source: 'Wikimedia Commons: File:Statue of Bhanubhakta Acharya at Chundi Ramgha Cropped.jpg',
+  ),
 };

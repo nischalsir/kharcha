@@ -7,8 +7,9 @@ import '../core/config/env.dart';
 import '../core/errors/app_failure.dart';
 import '../models/statement_entry.dart';
 
-/// Uploads a statement file (PDF or XLS) to the `parse-statement` Edge Function
-/// and returns the parsed rows for review. File parsing happens server-side.
+/// Uploads a statement file (bank PDF or eSewa XLS) to the `parse-statement`
+/// Edge Function and returns the parsed rows for review. File parsing happens
+/// server-side.
 class StatementImportService {
   StatementImportService({this._client});
 

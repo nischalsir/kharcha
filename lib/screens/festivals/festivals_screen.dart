@@ -8,6 +8,7 @@ import '../../services/weather_service.dart';
 import '../../widgets/calendar/bs_month_grid.dart';
 import '../../widgets/calendar/day_info_card.dart';
 import '../../widgets/common/empty_state.dart';
+import '../../widgets/common/festival_image.dart';
 import '../../widgets/common/glass_card.dart';
 
 /// Bikram Sambat calendar with a month grid and a daily information card.
@@ -80,7 +81,6 @@ class _FestivalsScreenState extends State<FestivalsScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          const _WeatherStrip(),
           GlassCard(
             padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
             child: Column(
@@ -105,7 +105,12 @@ class _FestivalsScreenState extends State<FestivalsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          DayInfoCard(date: selected, isToday: selected == today),
+          DayInfoCard(
+            date: selected,
+            isToday: selected == today,
+            // Only the current conditions are known, so other days show none.
+            trailing: selected == today ? const _WeatherBadge() : null,
+          ),
           if (!festivals.hasYearData(year)) ...<Widget>[
             const SizedBox(height: 12),
             _YearDataNotice(year: year, devanagari: dates.devanagari),
@@ -133,19 +138,22 @@ class _FestivalsScreenState extends State<FestivalsScreen> {
   }
 }
 
-/// Current-weather accent for the calendar.
+/// Current weather, shown in the corner of today's information card.
 ///
 /// Uses the same key-less Open-Meteo lookup as the AI mood card. When the
-/// coordinates are not configured or the request fails, the strip simply
+/// coordinates are not configured or the request fails, the badge simply
 /// renders nothing, so the calendar is never blocked by the network.
-class _WeatherStrip extends StatefulWidget {
-  const _WeatherStrip();
+class _WeatherBadge extends StatefulWidget {
+  const _WeatherBadge();
 
   @override
-  State<_WeatherStrip> createState() => _WeatherStripState();
+  State<_WeatherBadge> createState() => _WeatherBadgeState();
 }
 
-class _WeatherStripState extends State<_WeatherStrip> {
+class _WeatherBadgeState extends State<_WeatherBadge> {
+  // Shared so reselecting today reuses the cached reading.
+  static final WeatherService _service = WeatherService();
+
   AiWeather? _weather;
 
   @override
@@ -155,7 +163,7 @@ class _WeatherStripState extends State<_WeatherStrip> {
   }
 
   Future<void> _load() async {
-    final weather = await WeatherService().current();
+    final weather = await _service.current();
     if (mounted && weather != null) {
       setState(() => _weather = weather);
     }
@@ -170,42 +178,43 @@ class _WeatherStripState extends State<_WeatherStrip> {
     final glass = context.glass;
     final devanagari = context.read<NepaliDateService>().devanagari;
 
-    return Column(
-      children: <Widget>[
-        GlassCard(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
+    final label = devanagari ? _labelNe(weather.code) : weather.label;
+    return Semantics(
+      label:
+          '${devanagari ? 'मौसम' : 'Weather'}: '
+          '${weather.temperatureC.round()}°C, $label',
+      child: ExcludeSemantics(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 110),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
-              Text(weather.emoji, style: const TextStyle(fontSize: 22)),
-              const SizedBox(width: 10),
-              Text(
-                '${weather.temperatureC.round()}°C',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  devanagari ? _labelNe(weather.code) : weather.label,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: glass.textSecondary,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(weather.emoji, style: const TextStyle(fontSize: 20)),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${weather.temperatureC.round()}°C',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                ],
               ),
+              const SizedBox(height: 2),
               Text(
-                devanagari ? 'मौसम' : 'Weather',
+                label,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: glass.textTertiary,
+                  color: glass.textSecondary,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-      ],
+      ),
     );
   }
 
@@ -221,7 +230,8 @@ class _WeatherStripState extends State<_WeatherStrip> {
 }
 
 class _TodayButton extends StatelessWidget {
-  const _TodayButton({required this.onPressed});  final VoidCallback onPressed;
+  const _TodayButton({required this.onPressed});
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -438,6 +448,7 @@ class _MonthListings extends StatelessWidget {
               ),
               tithi: entry.tithi,
               icon: entry.iconData,
+              imagePath: entry.imagePath,
               isHoliday: entry.isPublicHoliday,
               onTap: () =>
                   onSelectDay(BsDate(entry.bsYear, entry.bsMonth, entry.bsDay)),
@@ -453,15 +464,21 @@ class _MonthRow extends StatelessWidget {
     required this.name,
     required this.subtitle,
     required this.icon,
+    required this.imagePath,
     required this.isHoliday,
     required this.onTap,
     this.tithi,
   });
 
+  static const double _thumb = 46;
+
   final String name;
   final String subtitle;
   final String? tithi;
   final IconData icon;
+
+  /// The festival's photograph; [icon] is shown when it has none.
+  final String imagePath;
   final bool isHoliday;
   final VoidCallback onTap;
 
@@ -469,28 +486,28 @@ class _MonthRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final glass = context.glass;
+    final accent = isHoliday
+        ? theme.colorScheme.error
+        : theme.colorScheme.primary;
     return GlassCard(
       onTap: onTap,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: <Widget>[
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color:
-                  (isHoliday
-                          ? theme.colorScheme.error
-                          : theme.colorScheme.primary)
-                      .withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              size: 19,
-              color: isHoliday
-                  ? theme.colorScheme.error
-                  : theme.colorScheme.primary,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              width: _thumb,
+              height: _thumb,
+              child: FestivalImage(
+                assetPath: imagePath,
+                width: _thumb,
+                height: _thumb,
+                fallback: ColoredBox(
+                  color: accent.withValues(alpha: 0.14),
+                  child: Center(child: Icon(icon, size: 21, color: accent)),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 12),

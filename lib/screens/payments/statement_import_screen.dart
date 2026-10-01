@@ -13,8 +13,8 @@ import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
 
-/// Pick a bank-statement PDF, preview the parsed rows, and import the selected
-/// ones as transactions.
+/// Pick a bank-statement PDF or an eSewa statement spreadsheet, preview the
+/// parsed rows, and import the selected ones as transactions.
 class StatementImportScreen extends StatefulWidget {
   const StatementImportScreen({super.key});
 
@@ -33,9 +33,9 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
   Future<void> _pickAndParse() async {
     if (_busy) return;
     final PlatformFile? file = await FilePicker.pickFile(
-      dialogTitle: 'Choose a bank statement',
+      dialogTitle: 'Choose a statement',
       type: FileType.custom,
-      allowedExtensions: const <String>['pdf', 'xls'],
+      allowedExtensions: const <String>['pdf', 'xls', 'xlsx'],
     );
     if (file == null) return;
 
@@ -198,7 +198,7 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(
-                      Icons.picture_as_pdf_rounded,
+                      Icons.receipt_long_rounded,
                       color: Color(0xFF0A84FF),
                     ),
                   ),
@@ -206,8 +206,8 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
                   Expanded(
                     child: Text(
                       context.t(
-                        'Import from a bank statement',
-                        'बैंक स्टेटमेन्टबाट आयात',
+                        'Import from a statement',
+                        'स्टेटमेन्टबाट आयात',
                       ),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
@@ -219,14 +219,15 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
               const SizedBox(height: 12),
               Text(
                 context.t(
-                  'Choose a bank statement PDF or Excel file. Kharcha reads the rows for '
-                      'you, then you review and import the ones you want as '
-                      'expenses and income.',
-                  'बैंक स्टेटमेन्ट PDF वा Excel फाइल छान्नुहोस्। खर्चाले पङ्क्तिहरू पढेर '
-                      'देखाउँछ, अनि तपाईंले चाहेका कारोबारहरू खर्च र आम्दानीका '
-                      'रूपमा आयात गर्न सक्नुहुन्छ।',
+                  'Choose your bank statement (PDF) or your eSewa statement '
+                      '(Excel .xls). Kharcha reads the rows for you, then you '
+                      'review and import the ones you want as expenses and '
+                      'income.',
+                  'आफ्नो बैंक स्टेटमेन्ट (PDF) वा eSewa स्टेटमेन्ट (Excel .xls) '
+                      'छान्नुहोस्। खर्चाले पङ्क्तिहरू पढेर देखाउँछ, अनि तपाईंले '
+                      'चाहेका कारोबारहरू खर्च र आम्दानीका रूपमा आयात गर्न '
+                      'सक्नुहुन्छ।',
                 ),
-
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: glass.textSecondary,
                   height: 1.5,

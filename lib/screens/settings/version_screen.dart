@@ -27,10 +27,23 @@ class _VersionScreenState extends State<VersionScreen> {
 
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
-    ('Updates download directly from this page', 'अपडेट यही पृष्ठबाट सिधै डाउनलोड हुन्छ'),
-    ('Profile photo upload fixed', 'प्रोफाइल फोटो अपलोड ठीक भयो'),
-    ('Budgets rebuilt: edit, delete, daily allowance', 'बजेट नयाँ: सम्पादन, मेटाउने, दैनिक सीमा'),
-    ('Two-factor sign-in switch', 'दुई-चरण साइन इन स्विच'),
+    (
+      'A picture for every festival in the calendar',
+      'पात्रोमा हरेक चाडपर्वको तस्बिर',
+    ),
+    (
+      'Import your bank PDF or eSewa Excel statement',
+      'बैंक PDF वा eSewa Excel स्टेटमेन्ट आयात',
+    ),
+    ('Weather on today’s calendar card', 'आजको पात्रो कार्डमा मौसम'),
+    (
+      'Smaller profile card, cleaner edit profile',
+      'सानो प्रोफाइल कार्ड, सफा प्रोफाइल सम्पादन',
+    ),
+    (
+      'Clearer warning when a new password repeats the old one',
+      'नयाँ पासवर्ड पुरानै भए स्पष्ट चेतावनी',
+    ),
   ];
 
   Future<void> _checkForUpdate() async {

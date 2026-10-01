@@ -319,6 +319,14 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Maps Supabase auth errors to user-friendly messages.
+  /// Whether [error] is the server refusing a new password because it is the
+  /// same as the current one.
+  static bool isSamePasswordError(Object error) {
+    if (error is! AuthException) return false;
+    return error.code == 'same_password' ||
+        error.message.toLowerCase().contains('different from the old');
+  }
+
   AppFailure _mapAuthError(Object error) {
     if (error is AuthException) {
       final message = error.message.toLowerCase();
@@ -343,6 +351,12 @@ class AuthProvider extends ChangeNotifier {
         return const AppFailure(
           FailureKind.syncFailed,
           'An account with this email already exists. Try signing in.',
+        );
+      }
+      if (isSamePasswordError(error)) {
+        return const AppFailure(
+          FailureKind.syncFailed,
+          'New password must be different from old password.',
         );
       }
       if (message.contains('weak_password')) {
@@ -459,11 +473,18 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final client = _requireClient();
-      await client.auth.verifyOTP(
-        type: OtpType.recovery,
-        email: email,
-        token: code.trim(),
-      );
+      // A reset code works once. If it was accepted but the password was then
+      // refused (e.g. same as the old one), the retry must not verify it again.
+      final alreadyVerified =
+          client.auth.currentUser?.email?.toLowerCase() ==
+          email.trim().toLowerCase();
+      if (!alreadyVerified) {
+        await client.auth.verifyOTP(
+          type: OtpType.recovery,
+          email: email,
+          token: code.trim(),
+        );
+      }
       await client.auth.updateUser(UserAttributes(password: password));
       _user = client.auth.currentUser;
       _session = client.auth.currentSession;

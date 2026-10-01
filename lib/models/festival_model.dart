@@ -92,6 +92,12 @@ class Festival {
   /// falls back to a themed icon rather than an unrelated image.
   final String? imageAsset;
 
+  /// Where this festival's photograph is looked up, bundled or uploaded.
+  ///
+  /// Built from [id] alone, never the year, so a festival keeps the same
+  /// picture every year it comes round.
+  String get imagePath => imageAsset ?? 'assets/images/festivals/$id.jpg';
+
   /// Attribution for [imageAsset], required whenever an image is bundled.
   final String? imageCredit;
 

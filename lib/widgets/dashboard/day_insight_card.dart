@@ -56,9 +56,9 @@ class DayInsightCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              if (holiday?.imageAsset != null)
+              if (holiday != null)
                 _FestivalPhoto(
-                  assetPath: holiday!.imageAsset!,
+                  assetPath: holiday.imagePath,
                   day: useAd ? gregorianNow.day : today.day,
                 )
               else
@@ -74,7 +74,8 @@ class DayInsightCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      holiday?.name ?? context.t('No upcoming festival', 'आगामी चाड छैन'),
+                      holiday?.name ??
+                          context.t('No upcoming festival', 'आगामी चाड छैन'),
                       style: theme.textTheme.titleMedium,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -110,10 +111,7 @@ class DayInsightCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Divider(
-            height: 1,
-            color: glass.textTertiary.withValues(alpha: 0.18),
-          ),
+          Divider(height: 1, color: glass.textTertiary.withValues(alpha: 0.18)),
           const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,13 +128,11 @@ class DayInsightCard extends StatelessWidget {
                   insight: insight,
                   mood: mood,
                   loading: ai.isLoading,
-                  onActionTap: (action) => _openChat(context, initialPrompt: action),
+                  onActionTap: (action) =>
+                      _openChat(context, initialPrompt: action),
                 ),
               ),
-              _RefreshButton(
-                loading: ai.isLoading,
-                onTap: ai.regenerate,
-              ),
+              _RefreshButton(loading: ai.isLoading, onTap: ai.regenerate),
             ],
           ),
           Row(
@@ -155,7 +151,10 @@ class DayInsightCard extends StatelessWidget {
               ),
               if (mood != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: mood.color(context).withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(8),
@@ -163,10 +162,7 @@ class DayInsightCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Text(
-                        mood.emoji,
-                        style: const TextStyle(fontSize: 11),
-                      ),
+                      Text(mood.emoji, style: const TextStyle(fontSize: 11)),
                       const SizedBox(width: 4),
                       Text(
                         mood.label,
@@ -294,7 +290,8 @@ class _FestivalPhoto extends StatelessWidget {
   }
 }
 
-class _CountdownPill extends StatelessWidget {  const _CountdownPill({required this.days});
+class _CountdownPill extends StatelessWidget {
+  const _CountdownPill({required this.days});
 
   final int days;
 
@@ -308,7 +305,9 @@ class _CountdownPill extends StatelessWidget {  const _CountdownPill({required t
       _ => context.t('In $days days', '${L10n.neNumber(days)} दिनमा'),
     };
     final soon = days >= 0 && days <= 3;
-    final color = soon ? theme.colorScheme.primary : context.glass.textSecondary;
+    final color = soon
+        ? theme.colorScheme.primary
+        : context.glass.textSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -358,7 +357,9 @@ class _InsightText extends StatelessWidget {
           children: <Widget>[
             Text(
               context.t('Generating your insight…', 'तपाईंको सुझाव बन्दैछ…'),
-              style: theme.textTheme.bodySmall?.copyWith(color: glass.textSecondary),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: glass.textSecondary,
+              ),
             ),
             const SizedBox(height: 6),
             if (mood != null)
@@ -381,7 +382,9 @@ class _InsightText extends StatelessWidget {
               'Tap refresh to generate your first insight.',
               'पहिलो सुझावका लागि refresh थिच्नुहोस्।',
             ),
-            style: theme.textTheme.bodySmall?.copyWith(color: glass.textSecondary),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: glass.textSecondary,
+            ),
           ),
           if (mood != null) ...<Widget>[
             const SizedBox(height: 4),

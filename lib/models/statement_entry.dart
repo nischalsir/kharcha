@@ -33,7 +33,11 @@ class StatementEntry {
       type: json['type'] == 'income'
           ? TransactionType.income
           : TransactionType.expense,
-      paymentMethod: inferMethod((json['description'] as String?) ?? ''),
+      // An eSewa statement says so itself; a bank statement leaves the method
+      // to be read from each row's description.
+      paymentMethod: json['method'] == 'esewa'
+          ? PaymentMethod.esewa
+          : inferMethod((json['description'] as String?) ?? ''),
     );
   }
 
@@ -42,7 +46,9 @@ class StatementEntry {
     final upper = description.toUpperCase();
     if (upper.contains('ESEWA')) return PaymentMethod.esewa;
     if (upper.contains('KHALTI')) return PaymentMethod.khalti;
-    if (upper.contains('QR-PAY') || upper.contains('NQR')) return PaymentMethod.qr;
+    if (upper.contains('QR-PAY') || upper.contains('NQR')) {
+      return PaymentMethod.qr;
+    }
     if (upper.contains('IBFT') ||
         upper.contains('FON:') ||
         upper.startsWith('FT/') ||

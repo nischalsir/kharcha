@@ -154,8 +154,8 @@ class RootDrawer extends StatelessWidget {
               onTap: () => openTool((_) => const BudgetsScreen()),
             ),
             tile(
-              icon: Icons.celebration_rounded,
-              label: context.t('Festivals', 'चाडपर्वहरू'),
+              icon: Icons.calendar_month_rounded,
+              label: context.t('Calendar', 'पात्रो'),
               onTap: () => openTool((_) => const FestivalsScreen()),
             ),
             tile(

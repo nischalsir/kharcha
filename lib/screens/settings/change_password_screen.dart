@@ -44,6 +44,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final current = _currentController.text;
+    final password = _passwordController.text;
     final auth = context.read<AuthProvider>();
     final needsCode = auth.hasMfaEnabled;
     if (needsCode && !_showMfaCode) {
@@ -64,13 +66,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     setState(() => _busy = true);
     auth.clearError();
     try {
-      // Prove the current password first: Supabase would otherwise let anyone
-      // holding a live session change the password without ever knowing it.
-      await auth.verifyCurrentPassword(_currentController.text);
+      await auth.verifyCurrentPassword(current);
       if (needsCode) {
         await auth.verifyMfa(_codeController.text.trim());
       }
-      await auth.updatePassword(_passwordController.text);
+      await auth.updatePassword(password);
       if (!mounted) return;
       showMessage(
         context,
@@ -82,6 +82,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// The warning shown on the new-password fields when [password] repeats the
+  /// old one. It is the new password that is wrong, so those fields carry it.
+  String? _sameAsOld(String password) {
+    if (password.isEmpty || password != _currentController.text) return null;
+    return context.t(
+      'New password must be different from old password',
+      'नयाँ पासवर्ड पुरानो पासवर्डबाट फरक हुनुपर्छ',
+    );
   }
 
   @override
@@ -156,12 +166,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                 'पुरानो पासवर्ड आवश्यक छ',
                               );
                             }
-                            if (current == _passwordController.text) {
-                              return context.t(
-                                'New password must be different',
-                                'नयाँ पासवर्ड फरक हुनुपर्छ',
-                              );
-                            }
                             return null;
                           },
                         ),
@@ -205,7 +209,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                 'पासवर्ड कम्तीमा ६ अक्षरको हुनुपर्छ',
                               );
                             }
-                            return null;
+                            return _sameAsOld(password);
                           },
                         ),
                         const SizedBox(height: 14),
@@ -227,7 +231,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                 'पासवर्डहरू मिलेनन्',
                               );
                             }
-                            return null;
+                            return _sameAsOld(value ?? '');
                           },
                         ),
                       ],

@@ -503,6 +503,21 @@ void main() {
   });
 
   group('images', () {
+    test('a festival keeps the same picture every year', () {
+      final byId = <String, String>{};
+      for (var year = 2080; year <= 2090; year++) {
+        for (final festival in service.forYear(year)) {
+          // Named after the festival alone, so next year's Dashain finds the
+          // picture uploaded for this year's.
+          expect(festival.imagePath, endsWith('/${festival.id}.jpg'));
+          expect(festival.imagePath, isNot(contains('$year')));
+          final seen = byId.putIfAbsent(festival.id, () => festival.imagePath);
+          expect(festival.imagePath, seen);
+        }
+      }
+      expect(byId, isNotEmpty);
+    });
+
     test('every bundled image credit points at a festival id', () {
       final ids = FestivalService.allEntries.map((e) => e.id).toSet();
       for (final id in festivalImageCredits.keys) {
