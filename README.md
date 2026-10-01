@@ -97,6 +97,7 @@ flowchart LR
 | `ai-insight` | Home-screen insight and chat, grounded in your own summary | App |
 | `ai-daily-buddy` | Good morning / good night / daytime tips, in each user's local time | `pg_cron`, every 15 min |
 | `ai-push-digest` | Important-only AI alerts, with cooldowns and dedupe | `pg_cron`, daily |
+| `push-reminders` | Budget alerts, upcoming bills, friend debts, overdue payments, pasal month end, daily/weekly summaries | `pg_cron`, hourly |
 | `send-push` | Delivers FCM notifications (including the flame's reactions) | App / server |
 | `register-push-token` | Registers a device for push | App |
 | `media-sign` | Signs Cloudinary uploads for the signed-in user | App |
