@@ -38,6 +38,10 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'Updates download and install from inside the app',
+      'अपडेट एपभित्रै डाउनलोड र इन्स्टल हुन्छ',
+    ),
+    (
       'Khalti transaction history files are read',
       'Khalti को कारोबार विवरण फाइल पढिन्छ',
     ),
@@ -276,7 +280,7 @@ class _VersionScreenState extends State<VersionScreen> {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        '${context.t('Version', 'संस्करण')} ${AppInfo.version}',
+                        '${context.t('Version', 'संस्करण')} ${AppInfo.displayVersion}',
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w700,
@@ -430,6 +434,7 @@ class _UpdateStatus extends StatelessWidget {
 
     if (updates.isUpdateAvailable) {
       final notes = updates.releaseNotes ?? '';
+      final latest = AppInfo.short(updates.latestVersion ?? '');
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
@@ -452,8 +457,8 @@ class _UpdateStatus extends StatelessWidget {
                 Expanded(
                   child: Text(
                     context.t(
-                      'Version ${updates.latestVersion} is available',
-                      'संस्करण ${updates.latestVersion} उपलब्ध छ',
+                      'Version $latest is available',
+                      'संस्करण $latest उपलब्ध छ',
                     ),
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
@@ -473,18 +478,12 @@ class _UpdateStatus extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => downloadUpdate(context),
-                icon: const Icon(Icons.download_rounded, size: 18),
-                label: Text(
-                  context.t(
-                    'Download ${updates.latestVersion}',
-                    '${updates.latestVersion} डाउनलोड',
-                  ),
-                ),
+            UpdateAction(
+              updateLabel: context.t(
+                'Update to $latest',
+                '$latest मा अपडेट गर्नुहोस्',
               ),
+              browserLabel: context.t('Download $latest', '$latest डाउनलोड'),
             ),
           ],
         ),

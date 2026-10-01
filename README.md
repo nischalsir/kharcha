@@ -81,7 +81,7 @@ Budget alerts, upcoming bills, friend debts, overdue payments, the pasal month e
 - **Fingerprint sign-in**, authenticator-app 2FA, and password reset with a code sent to your email.
 - **Backups** to the cloud, to a file you can keep or share, or to your own Google Drive (Drive needs a one-time setup, see [`docs/google-drive-setup.md`](docs/google-drive-setup.md)).
 - **Guest mode.** Explore without an account, then *Save your data* turns the guest into a real account without losing an entry. It needs anonymous sign-ins switched on in the backend; the app tells you when it is off.
-- **Updates from inside the app.** Kharcha checks GitHub Releases and offers the new version when one is out.
+- **Updates from inside the app.** Kharcha checks GitHub Releases, downloads the new version itself with its progress shown, and hands it to Android's installer for you to confirm.
 
 ---
 

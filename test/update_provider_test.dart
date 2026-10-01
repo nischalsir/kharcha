@@ -366,8 +366,8 @@ void main() {
       await open(tester);
 
       expect(find.text('Update available'), findsOneWidget);
-      expect(find.textContaining('Version 2.0.0 is ready'), findsOneWidget);
-      expect(find.textContaining('You have 1.0.0'), findsOneWidget);
+      expect(find.textContaining('Version 2.0 is ready'), findsOneWidget);
+      expect(find.textContaining('You have 1.0'), findsOneWidget);
       expect(find.textContaining('A new flame'), findsOneWidget);
       expect(find.byIcon(Icons.system_update_rounded), findsOneWidget);
       expect(find.text('Download'), findsOneWidget);
@@ -433,8 +433,8 @@ void main() {
     ) async {
       await pump(tester, installed: '1.0.0', latest: 'v2.0.0');
 
-      expect(find.text('Version 2.0.0 is available'), findsOneWidget);
-      expect(find.text('Download 2.0.0'), findsOneWidget);
+      expect(find.text('Version 2.0 is available'), findsOneWidget);
+      expect(find.text('Download 2.0'), findsOneWidget);
       expect(find.text('You’re up to date'), findsNothing);
     });
 

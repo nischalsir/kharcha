@@ -11,7 +11,21 @@ class AppInfo {
 
   const AppInfo._();
 
-  static const String version = '1.0.21';
-  static const String buildNumber = '23';
+  static const String version = '1.1.0';
+  static const String buildNumber = '24';
+
+  /// A version as it is shown to people and named in a release: `1.1` for
+  /// `1.1.0`, `1.3.1` as it is. Android and pubspec.yaml need all three
+  /// numbers; a trailing `.0` says nothing, so it is left off everywhere
+  /// else. New features move the middle number, fixes the last.
+  static String short(String version) {
+    final parts = version.split('.');
+    return parts.length == 3 && parts[2] == '0'
+        ? '${parts[0]}.${parts[1]}'
+        : version;
+  }
+
+  /// [version] as it is shown.
+  static String get displayVersion => short(version);
   static const String applicationId = 'com.nischalpandey.kharcha';
 }

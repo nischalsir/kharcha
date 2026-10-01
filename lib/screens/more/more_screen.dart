@@ -77,7 +77,9 @@ class MoreScreen extends StatelessWidget {
     // Only what the row needs, so the page is not rebuilt by unrelated
     // changes in either provider.
     final updateVersion = context.select<UpdateProvider, String?>(
-      (updates) => updates.isUpdateAvailable ? updates.latestVersion : null,
+      (updates) => updates.isUpdateAvailable
+          ? AppInfo.short(updates.latestVersion ?? '')
+          : null,
     );
 
     return SafeArea(
@@ -192,12 +194,12 @@ class MoreScreen extends StatelessWidget {
                 title: context.t('About Kharcha', 'खर्चा बारे'),
                 subtitle: updateVersion == null
                     ? context.t(
-                        'Version ${AppInfo.version}',
-                        'संस्करण ${AppInfo.version}',
+                        'Version ${AppInfo.displayVersion}',
+                        'संस्करण ${AppInfo.displayVersion}',
                       )
                     : context.t(
-                        'Version ${AppInfo.version} · $updateVersion is out',
-                        'संस्करण ${AppInfo.version} · $updateVersion उपलब्ध',
+                        'Version ${AppInfo.displayVersion} · $updateVersion is out',
+                        'संस्करण ${AppInfo.displayVersion} · $updateVersion उपलब्ध',
                       ),
                 badge: updateVersion == null
                     ? null

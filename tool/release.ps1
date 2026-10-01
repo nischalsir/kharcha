@@ -33,7 +33,8 @@ if ($pubspec -notmatch '(?m)^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$') {
 }
 $version = $Matches[1]
 $build = $Matches[2]
-$tag = "v$version"
+# Releases are named the short way: v1.1 for 1.1.0, v1.3.1 as it is.
+$tag = 'v' + ($version -replace '\.0$', '')
 
 $appInfo = Get-Content 'lib\core\app_info.dart' -Raw
 if ($appInfo -notmatch "version = '$([regex]::Escape($version))'" -or

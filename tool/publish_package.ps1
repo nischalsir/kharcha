@@ -24,7 +24,8 @@ if ($pubspec -notmatch '(?m)^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$') {
   Fail 'pubspec.yaml has no "version: x.y.z+n" line.'
 }
 $version = $Matches[1]
-$tag = "v$version"
+# Releases are named the short way: v1.1 for 1.1.0, v1.3.1 as it is.
+$tag = 'v' + ($version -replace '\.0$', '')
 $group = 'com.nischalpandey'
 $artifact = 'kharcha'
 
