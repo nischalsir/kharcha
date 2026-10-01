@@ -194,20 +194,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'दुई-चरण प्रमाणीकरण',
                       ),
                       subtitle: auth.hasMfaEnabled
-                          ? context.t('Enabled', 'सक्रिय')
-                          : context.t(
-                              'Add an authenticator app',
-                              'प्रमाणक एप थप्नुहोस्',
-                            ),
-                      trailing: auth.hasMfaEnabled
-                          ? const Icon(
-                              Icons.check_circle_rounded,
-                              color: Color(0xFF30D158),
+                          ? context.t(
+                              'On: a code is asked at sign-in',
+                              'खुला: साइन इनमा कोड मागिन्छ',
                             )
-                          : Icon(
-                              Icons.chevron_right_rounded,
-                              color: glass.textTertiary,
+                          : context.t(
+                              'Off: protect your account with an authenticator app',
+                              'बन्द: प्रमाणक एपले खाता सुरक्षित गर्नुहोस्',
                             ),
+                      trailing: Switch(
+                        value: auth.hasMfaEnabled,
+                        onChanged: _togglingTwoFactor
+                            ? null
+                            : (value) => _toggleTwoFactor(auth, value),
+                      ),
                       onTap: () => _open(context, const TwoFactorAuthScreen()),
                     ),
                     const Divider(height: 1),
@@ -236,8 +236,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingTile(
                       icon: Icons.info_outline_rounded,
                       color: const Color(0xFF8E8E93),
-                      title: context.t('Version', 'संस्करण'),
-                      subtitle: 'Kharcha v${VersionScreen.appVersion}',
+                      title: context.t('About Kharcha', 'खर्चा बारे'),
+                      subtitle: context.t(
+                        'What’s new, updates and credits',
+                        'के नयाँ छ, अपडेट र श्रेय',
+                      ),
                       onTap: () => _open(context, const VersionScreen()),
                     ),
                     const Divider(height: 1),
@@ -289,6 +292,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  bool _togglingTwoFactor = false;
+
+  /// The authenticator switch. Turning it on opens the setup screen (scan the
+  /// QR code, confirm a code); it only reads "on" once setup is finished.
+  /// Turning it off removes the authenticator after a confirmation, because
+  /// it lowers the account's protection.
+  Future<void> _toggleTwoFactor(AuthProvider auth, bool enable) async {
+    if (enable) {
+      _open(context, const TwoFactorAuthScreen());
+      return;
+    }
+    final factors = auth.verifiedFactors;
+    if (factors.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          dialogContext.t(
+            'Turn off two-factor sign-in?',
+            'दुई-चरण साइन इन बन्द गर्ने?',
+          ),
+        ),
+        content: Text(
+          dialogContext.t(
+            'Your account will be protected by your password only. You can '
+                'turn it back on at any time.',
+            'तपाईंको खाता पासवर्डले मात्र सुरक्षित हुनेछ। जुनसुकै बेला फेरि '
+                'खोल्न सकिन्छ।',
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(dialogContext.t('Cancel', 'रद्द गर्नुहोस्')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            child: Text(dialogContext.t('Turn off', 'बन्द गर्नुहोस्')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _togglingTwoFactor = true);
+    try {
+      for (final factor in factors) {
+        await auth.disableFactor(factor.id);
+      }
+      if (mounted) {
+        showMessage(
+          context,
+          context.t(
+            'Two-factor authentication turned off.',
+            'दुई-चरण प्रमाणीकरण बन्द गरियो।',
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) showMessage(context, error.toString());
+    } finally {
+      if (mounted) setState(() => _togglingTwoFactor = false);
+    }
   }
 
   void _open(BuildContext context, Widget page) {

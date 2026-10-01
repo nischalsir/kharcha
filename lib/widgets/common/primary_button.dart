@@ -46,10 +46,16 @@ class PrimaryButton extends StatelessWidget {
                   Icon(icon, size: 20, color: Colors.white),
                   const SizedBox(width: 8),
                 ],
-                Text(
-                  label,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
+                // Flexible, so a long label (Nepali, large font sizes) wraps to
+                // an ellipsis instead of overflowing the button.
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],

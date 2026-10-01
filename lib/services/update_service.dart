@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/l10n/app_l10n.dart';
-import '../screens/settings/version_screen.dart';
+import '../core/app_info.dart';
 
 class UpdateService {
   UpdateService({http.Client? client})
@@ -31,7 +31,7 @@ class UpdateService {
           final latestVersion = latestTag.startsWith('v')
               ? latestTag.substring(1)
               : latestTag;
-          if (_isNewer(latestVersion, VersionScreen.appVersion)) {
+          if (_isNewer(latestVersion, AppInfo.version)) {
             return latestVersion;
           }
         }
@@ -51,7 +51,7 @@ class UpdateService {
       context: context,
       barrierDismissible: false,
       builder: (context) => _UpdateDialog(
-        currentVersion: VersionScreen.appVersion,
+        currentVersion: AppInfo.version,
         latestVersion: latest,
         releaseUrl: 'https://github.com/$_repo/releases/latest',
       ),
