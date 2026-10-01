@@ -138,10 +138,14 @@ class UpdateAction extends StatelessWidget {
               context.t(
                 'Downloaded. Android will ask you to confirm the install; '
                     'the first time it also asks you to allow Kharcha to '
-                    'install updates.',
+                    'install updates. If Play Protect offers to scan the '
+                    'app, choose Scan app: Google checks every new version '
+                    'it has not seen yet, and it takes a few seconds.',
                 'डाउनलोड भयो। Android ले इन्स्टल पुष्टि गर्न सोध्छ; पहिलो '
                     'पटक Kharcha लाई अपडेट इन्स्टल गर्न अनुमति दिन पनि '
-                    'सोध्छ।',
+                    'सोध्छ। Play Protect ले एप स्क्यान गर्न भन्यो भने Scan '
+                    'app छान्नुहोस्: Google ले नदेखेको हरेक नयाँ संस्करण '
+                    'जाँच्छ, केही सेकेन्ड लाग्छ।',
               ),
               style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
             ),

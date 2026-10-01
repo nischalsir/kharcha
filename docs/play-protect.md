@@ -4,6 +4,37 @@ Kharcha is installed from an APK, not from Google Play, so Play Protect treats
 it as an unknown app. This note records what was checked when Play Protect
 went from offering a scan to blocking the install, and what to send Google.
 
+## The scan prompt: "Play Protect hasn't seen this app before"
+
+This is the prompt people meet most, and it is not a verdict on Kharcha.
+
+Since October 2023 Play Protect offers a real-time scan for **any APK file it
+has never seen**, whoever made it. It looks at the file itself, not at the
+app's name or reputation. Tapping **Scan app** sends the file to Google, which
+checks it and, a few seconds later, lets the install go on.
+
+Why other open-source apps do not show it: their APKs have already been
+installed by thousands of people, so Google has seen each file. Kharcha has few
+installs, and **every release is a new file**, so the first people to install
+each release are asked.
+
+Nothing in the app or the build can switch this off. It runs in Google Play
+services on the phone, before Kharcha's code is ever started, and an app that
+tried to avoid it is exactly what it exists to catch. What does reduce it:
+
+1. **Release less often.** Ten releases in a day are ten files Google has not
+   seen. One release with ten changes is one.
+2. **Scan each release yourself, first.** Right after publishing, install the
+   release's APK on a phone and choose **Scan app**. Once Google has checked
+   that file, people who install the same file later are usually not asked.
+3. **Publish on Google Play** (a one-time USD 25). Apps installed from Play are
+   not prompted at all. This is the only way to remove it for everyone.
+4. **Register as a developer** (see "What to do" below). It ties the package
+   name and the signing key to a known developer.
+
+The rest of this note is about the stronger case, where Play Protect blocks
+the install instead of offering a scan.
+
 ## What changed
 
 The block started with v1.0.8. Comparing the published v1.0.7 APK with v1.0.8
@@ -35,12 +66,14 @@ Checked on the built release APK with `aapt2` and `apksigner`:
 - **Components** no accessibility service, device admin or notification
   listener. Up to v1.0.21 the app did not request `REQUEST_INSTALL_PACKAGES`
   and "Update" opened the download in the browser.
-- **From v1.0.22** the app downloads its own update and hands it to Android's
+- **From v1.1** the app downloads its own update and hands it to Android's
   installer, which needs `REQUEST_INSTALL_PACKAGES`. Android still asks the
   user to confirm each install and to allow Kharcha as a source the first
   time, and only accepts an APK signed with the same key. This permission is
   one Play Protect looks at for apps installed from outside Google Play; if
-  its warnings get worse after v1.0.22, this is the change to look at first.
+  its warnings get worse after v1.1, this is the change to look at first. It
+  has nothing to do with the scan prompt above, which looks only at whether
+  the file has been seen.
 - **Network** no cleartext traffic and no custom network security config.
 - **Code** standard Flutter release build, no dynamic code loading.
 

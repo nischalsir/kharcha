@@ -119,3 +119,8 @@ foreach ($name in @("kharcha-$tag.apk", "kharcha-$tag.aab")) {
 }
 Write-Host "release: $tag published with $($assets -join ', ')" -ForegroundColor Green
 Write-Host "release: $signer"
+# Play Protect offers to scan any APK it has not seen, and this one is new.
+# Once it has been scanned, people installing the same file are usually not
+# asked. See docs/play-protect.md.
+Write-Host "release: now install kharcha-$tag.apk on a phone and choose 'Scan app'," -ForegroundColor Yellow
+Write-Host "release: so that Play Protect has seen this file before others install it." -ForegroundColor Yellow

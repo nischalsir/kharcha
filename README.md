@@ -197,7 +197,7 @@ cd supabase && deno test --allow-net=0.0.0.0 functions/_tests         # server
 
 Grab `kharcha-vX.Y.Z.apk` from **[Releases](https://github.com/nischalsir/kharcha/releases/latest)**, allow *Install unknown apps* for your browser or file manager, and open it. After that, the app tells you when an update is out.
 
-> Releases are signed with Kharcha's own release key (since v1.0.8). Because the app is installed from an APK and not from Google Play, Play Protect may warn about it; [`docs/play-protect.md`](docs/play-protect.md) explains why. If you still have a build from v1.0.7 or earlier, uninstall it first: Android refuses updates across signing keys.
+> Releases are signed with Kharcha's own release key (since v1.0.8). Because the app is installed from an APK and not from Google Play, Play Protect may say it has not seen this app before and offer to scan it: choose **Scan app** and the install goes on a few seconds later. It asks this for any APK file that is new to Google, and every release is a new file; [`docs/play-protect.md`](docs/play-protect.md) explains it. If you still have a build from v1.0.7 or earlier, uninstall it first: Android refuses updates across signing keys.
 
 ---
 
