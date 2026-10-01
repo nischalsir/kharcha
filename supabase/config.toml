@@ -7,6 +7,7 @@ project_id = "eazyeerunsxfyecjpyox"
 #   ai-push-digest   invoked by pg_cron through pg_net, which has no user JWT.
 #                    Authenticated instead by x-kharcha-internal-secret, read
 #                    from the service-role-only ai_push_worker table.
+#   push-reminders   pg_cron worker, same internal secret as ai-push-digest.
 #   send-push        also accepts that same internal secret so scheduled jobs can
 #                    notify arbitrary users. A user JWT, when present, is checked
 #                    first and restricts the caller to notifying themselves.
@@ -24,6 +25,9 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.send-push]
+verify_jwt = false
+
+[functions.push-reminders]
 verify_jwt = false
 
 # Unchanged from the default on purpose: this one only ever acts on behalf of a
