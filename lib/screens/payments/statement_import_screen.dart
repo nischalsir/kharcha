@@ -70,8 +70,6 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
   List<int> _unreadPages = const <int>[];
   StatementParseResult? _result;
 
-  static const List<String> _extensions = <String>['pdf', 'xls', 'xlsx', 'csv'];
-
   @override
   void initState() {
     super.initState();
@@ -139,11 +137,27 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
 
   Future<void> _pickAndParse() async {
     if (_busy) return;
-    final PlatformFile? file = await FilePicker.pickFile(
-      dialogTitle: 'Choose a statement',
-      type: FileType.custom,
-      allowedExtensions: _extensions,
-    );
+    // Any file may be picked. Asking Android for only PDF, Excel and CSV
+    // made it grey out every file whose type it does not label that way (a
+    // download with an odd name, a sheet a wallet exports as plain data), so
+    // a real statement could be seen but not tapped. What a file is is read
+    // from its contents instead, and anything else is refused with a reason.
+    final PlatformFile? file;
+    try {
+      file = await FilePicker.pickFile(
+        dialogTitle: 'Choose a statement',
+        type: FileType.any,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _problem = StatementReadProblem.unreadable;
+        _error =
+            'The file picker could not be opened. In your bank app or Files, '
+            'tap Share on the statement and choose Kharcha instead.';
+      });
+      return;
+    }
     // Backing out of the picker changes nothing.
     if (file == null || !mounted) return;
     await _read(file.name, file.readAsBytes);

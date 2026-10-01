@@ -1,8 +1,10 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'
+    show FlutterSecureStorage;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kharcha_app/core/router/route_paths.dart';
 import 'package:kharcha_app/core/theme/app_theme.dart';
@@ -24,6 +26,62 @@ import 'package:kharcha_app/services/sync_service.dart';
 import 'package:kharcha_app/services/update_service.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Stands in for Android's file picker: records what the app asked for and
+/// hands back one file.
+class _FakePicker extends FilePickerPlatform {
+  _FakePicker(this.file);
+
+  final PlatformFile file;
+  FileType? type;
+  List<String>? allowedExtensions;
+
+  @override
+  Future<PlatformFile?> pickFile({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    int compressionQuality = 0,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    DarwinOptions darwinOptions = const DarwinOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async {
+    this.type = type;
+    this.allowedExtensions = allowedExtensions;
+    return file;
+  }
+}
+
+/// A picked file held in memory.
+final class _PickedFile extends PlatformFile {
+  _PickedFile(this.name, this._bytes);
+
+  @override
+  final String name;
+  final Uint8List _bytes;
+
+  @override
+  Uri get uri => Uri.parse('content://picked/$name');
+
+  @override
+  get xFile => throw UnimplementedError();
+
+  @override
+  int? lengthSync() => _bytes.length;
+
+  @override
+  Future<int?> length() async => _bytes.length;
+
+  @override
+  Future<Uint8List> readAsBytes() async => _bytes;
+
+  @override
+  Stream<Uint8List> readAsByteStream() => Stream<Uint8List>.value(_bytes);
+}
 
 /// Reads nothing over the network: hands back a canned result and records
 /// what it was given.
@@ -216,6 +274,51 @@ void main() {
       }
       await tester.pump();
     }
+
+    testWidgets('Choose file takes any file; its contents say what it is', (
+      tester,
+    ) async {
+      // A statement saved under a name Android does not recognise as a PDF.
+      final pdf = Uint8List.fromList(<int>[0x25, 0x50, 0x44, 0x46, 9, 9, 9, 9]);
+      final picker = _FakePicker(_PickedFile('1790697163863', pdf));
+      final before = FilePickerPlatform.instance;
+      FilePickerPlatform.instance = picker;
+      addTearDown(() => FilePickerPlatform.instance = before);
+
+      final reader = _FakeReader();
+      final provider = await transactions(tester);
+      tester.view.physicalSize = const Size(440, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: <InheritedProvider<dynamic>>[
+            Provider<NepaliDateService>(create: (_) => NepaliDateService()),
+            ChangeNotifierProvider<TransactionProvider>.value(value: provider),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: StatementImportScreen(service: reader),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Choose file'));
+      for (var i = 0; i < 6; i++) {
+        await tester.pump();
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 30)),
+        );
+      }
+      await tester.pump();
+
+      // Nothing is filtered by type: a filter is what made real statements
+      // impossible to tap in Android's picker.
+      expect(picker.type, FileType.any);
+      expect(picker.allowedExtensions, isNull);
+      expect(reader.bytes, pdf);
+      expect(find.text('Import 1'), findsOneWidget);
+    });
 
     testWidgets('a shared PDF goes straight to the review', (tester) async {
       final dir = Directory.systemTemp.createTempSync('shared');

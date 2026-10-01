@@ -134,7 +134,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    if (action === "directory") return json(await buildDirectory());
+    if (action === "directory") {
+      return json(await buildDirectory(body.include_unreachable === true));
+    }
     if (action === "history") return json(await readHistory(admin));
     if (action === "send") return json(await performSend(body, admin));
     if (action === "schedule") return json(await createSchedule(body, admin));
@@ -182,11 +184,17 @@ async function resolveAdmin(req: Request): Promise<{ email: string } | null> {
 /**
  * Every account that could receive a push, with the context needed to pick one.
  *
- * Built from `push_tokens` joined to `profiles` rather than from auth.users, so
- * accounts that have never opened the app on a device are simply absent instead
- * of showing up as undeliverable rows.
+ * Built from `push_tokens` joined to `profiles`. By default an account with no
+ * token row is absent, which is what older consoles expect: they offer every
+ * row for selection.
+ *
+ * With `includeUnreachable` the registered accounts that have no device are
+ * appended with `devices: 0`. A token is unique per phone, so somebody with two
+ * accounts on one phone only ever holds it under the account they signed into
+ * last -- and a directory that silently drops the other account reads as "my
+ * users are missing" rather than "that account has no device right now".
  */
-async function buildDirectory(): Promise<{
+async function buildDirectory(includeUnreachable = false): Promise<{
   users: DirectoryUser[];
   totalDevices: number;
 }> {
@@ -224,6 +232,11 @@ async function buildDirectory(): Promise<{
     );
   }
 
+  // One paged listing instead of a lookup per account. Null when the listing
+  // fails, in which case emails fall back to the per-user lookup and the
+  // unreachable accounts are simply left out rather than failing the directory.
+  const accounts = await listAccounts();
+
   const byUser = new Map<string, DirectoryUser>();
   for (const raw of tokenRows ?? []) {
     const row = raw as {
@@ -241,7 +254,9 @@ async function buildDirectory(): Promise<{
       entry = {
         userId,
         displayName: nameByUser.get(userId) ?? "",
-        email: await emailFor(userId),
+        email: accounts
+          ? accounts.get(userId)?.email ?? ""
+          : await emailFor(userId),
         devices: 0,
         platforms: [],
         lastSeenAt: null,
@@ -260,11 +275,64 @@ async function buildDirectory(): Promise<{
     }
   }
 
+  if (includeUnreachable && accounts) {
+    for (const [userId, account] of accounts) {
+      if (byUser.has(userId)) continue;
+      // A guest session with no device has no name, no email and nothing to
+      // deliver to; listing it would only add blank rows.
+      if (account.anonymous || !account.email) continue;
+      byUser.set(userId, {
+        userId,
+        displayName: nameByUser.get(userId) ?? "",
+        email: account.email,
+        devices: 0,
+        platforms: [],
+        lastSeenAt: null,
+        preferences: prefsByUser.get(userId) ?? {},
+      });
+    }
+  }
+
   const users = [...byUser.values()].sort((a, b) => a.devices - b.devices);
   return {
     users,
     totalDevices: users.reduce((sum, user) => sum + user.devices, 0),
   };
+}
+
+/**
+ * Every auth account, keyed by id, or null if the listing could not be read.
+ *
+ * Bounded at ten pages: the console is a single-operator tool for a small user
+ * base, and an unbounded loop inside a request is a worse failure than a
+ * truncated list.
+ */
+async function listAccounts(): Promise<
+  Map<string, { email: string; anonymous: boolean }> | null
+> {
+  const PER_PAGE = 1000;
+  const MAX_PAGES = 10;
+  const accounts = new Map<string, { email: string; anonymous: boolean }>();
+  try {
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const { data, error } = await supabase.auth.admin.listUsers({
+        page,
+        perPage: PER_PAGE,
+      });
+      if (error) return null;
+      const batch = data?.users ?? [];
+      for (const user of batch) {
+        accounts.set(user.id, {
+          email: typeof user.email === "string" ? user.email : "",
+          anonymous: user.is_anonymous === true,
+        });
+      }
+      if (batch.length < PER_PAGE) break;
+    }
+    return accounts;
+  } catch {
+    return null;
+  }
 }
 
 type DirectoryUser = {

@@ -35,3 +35,10 @@ verify_jwt = false
 # getUser() call is a second, independent check on the same token.
 [functions.register-push-token]
 verify_jwt = true
+
+# Declared so a plain `supabase functions deploy admin-push` keeps the check off.
+# The cron dispatcher calls this function with the internal secret and no user
+# JWT, so with the platform check on every scheduled send would be rejected at
+# the gateway. Every other path re-validates the caller's admin email itself.
+[functions.admin-push]
+verify_jwt = false
