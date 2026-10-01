@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/config/env.dart';
 import 'core/router/route_paths.dart';
 import 'core/theme/app_theme.dart';
+import 'models/push_message.dart';
 import 'models/sync_models.dart';
 import 'models/transaction_model.dart';
 import 'providers/app_providers.dart';
@@ -24,6 +25,7 @@ import 'providers/push_provider.dart';
 import 'providers/recurring_payment_provider.dart';
 import 'providers/report_provider.dart';
 import 'providers/transaction_provider.dart';
+import 'providers/update_provider.dart';
 import 'screens/auth/introduction_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/mfa_challenge_screen.dart';
@@ -43,6 +45,7 @@ import 'screens/payments/payments_screen.dart';
 import 'screens/payments/statement_import_screen.dart';
 import 'screens/reports/reports_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'screens/settings/version_screen.dart';
 import 'screens/transactions/add_transaction_screen.dart';
 import 'services/root_shell.dart';
 import 'services/biometric_service.dart';
@@ -52,8 +55,10 @@ import 'services/nepali_date_service.dart';
 import 'services/pasal_image_store.dart';
 import 'services/push_notification_service.dart';
 import 'services/sync_service.dart';
+import 'services/update_service.dart';
 import 'widgets/common/app_bottom_nav.dart';
 import 'widgets/common/glass_background.dart';
+import 'widgets/common/update_dialog.dart';
 
 import 'package:provider/single_child_widget.dart';
 
@@ -136,6 +141,9 @@ class KharchaApp extends StatelessWidget {
         ChangeNotifierProvider<PushProvider>(
           create: (_) => PushProvider()..initialize(),
         ),
+        ChangeNotifierProvider<UpdateProvider>(
+          create: (_) => UpdateProvider(onUpdateFound: _notifyUpdate),
+        ),
       ],
       child: Consumer<AppSettingsProvider>(
         builder: (context, settings, _) {
@@ -159,6 +167,26 @@ class KharchaApp extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  /// Stable id, so the update notification replaces itself instead of piling
+  /// up one per launch.
+  static const int _updateNotificationId = 0x5550;
+
+  /// Posts the "update available" notification through the same renderer and
+  /// channels as every other Kharcha notification. Tapping it opens About.
+  static Future<void> _notifyUpdate(UpdateInfo update) {
+    return PushNotificationService.render(
+      PushMessage(
+        category: 'app_update',
+        title: 'Update available',
+        body:
+            'Kharcha ${update.version} is ready. Tap to see what’s new and '
+            'download it.',
+        data: const <String, String>{'route': RoutePaths.about},
+      ),
+      id: _updateNotificationId,
     );
   }
 
@@ -195,6 +223,7 @@ class KharchaApp extends StatelessWidget {
       RoutePaths.calculator => const CalculatorScreen(),
       RoutePaths.festivals => const FestivalsScreen(),
       RoutePaths.settings => const SettingsScreen(),
+      RoutePaths.about => const VersionScreen(),
       RoutePaths.addExpense => const AddTransactionScreen(
         initialType: TransactionType.expense,
       ),
@@ -231,6 +260,8 @@ class _AuthWrapperState extends State<_AuthWrapper>
   /// sign-in start the work once.
   String? _preparingUserId;
 
+  UpdateProvider? _updates;
+
   @override
   void initState() {
     super.initState();
@@ -248,6 +279,44 @@ class _AuthWrapperState extends State<_AuthWrapper>
     final auth = context.read<AuthProvider>();
     _auth = auth;
     _installPushWiring(auth);
+    _installUpdateCheck(auth);
+  }
+
+  /// Starts the one update check of this launch and offers the update prompt
+  /// once the app has settled on a screen.
+  ///
+  /// The check itself touches nothing but the update provider. The prompt
+  /// waits for a quiet moment - see [_offerUpdate] - so it can never sit on
+  /// top of a sign-in, the code screen or an account being loaded.
+  void _installUpdateCheck(AuthProvider auth) {
+    final updates = context.read<UpdateProvider>();
+    _updates = updates;
+    updates.addListener(_scheduleUpdateOffer);
+    auth.addListener(_scheduleUpdateOffer);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(updates.checkOnLaunch());
+    });
+  }
+
+  void _scheduleUpdateOffer() {
+    if (!mounted || _updates?.promptPending != true) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _offerUpdate());
+  }
+
+  void _offerUpdate() {
+    if (!mounted) return;
+    final updates = _updates;
+    final auth = _auth;
+    if (updates == null || auth == null || !updates.promptPending) return;
+    // Not while something is in flight: restoring the session, signing in,
+    // waiting for an authenticator code, or loading an account's data.
+    if (auth.isInitializing || auth.isLoading || auth.mfaPending) return;
+    if (auth.isAuthenticated && _readyUserId != auth.userId) return;
+    // Not over another route or dialog (signup, the account chooser, ...).
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+    if (!context.read<AppSettingsProvider>().hasSeenIntroduction) return;
+    if (!updates.takePrompt()) return;
+    unawaited(showUpdateDialog(context));
   }
 
   /// Keeps the server's token registry in step with the signed-in account and
@@ -367,6 +436,7 @@ class _AuthWrapperState extends State<_AuthWrapper>
       // result is for an account that is no longer the active one.
       if (mounted && auth.isAuthenticated && auth.userId == userId) {
         setState(() => _readyUserId = userId);
+        _scheduleUpdateOffer();
       }
     }
   }
@@ -379,6 +449,19 @@ class _AuthWrapperState extends State<_AuthWrapper>
   ) async {
     if (!mounted) return;
     if (!RoutePaths.isKnown(route)) return;
+    // The About page shows nothing private, and an update matters whether or
+    // not anyone is signed in.
+    if (route == RoutePaths.about) {
+      final navigator = Navigator.of(context);
+      // Already there (a second tap): do not stack another copy.
+      var onAbout = false;
+      navigator.popUntil((current) {
+        onAbout = current.settings.name == RoutePaths.about;
+        return true;
+      });
+      if (!onAbout) await navigator.pushNamed(route!);
+      return;
+    }
     // Every push target is a private screen, and the auth wrapper only reaches
     // the login screen on its own once this runs. Navigating for a signed-out
     // user would put that data on screen, so the tap is dropped and login is
@@ -406,6 +489,8 @@ class _AuthWrapperState extends State<_AuthWrapper>
     if (auth != null && listener != null) auth.removeListener(listener);
     final cleanup = _signOutCleanup;
     if (auth != null && cleanup != null) auth.removeSignOutCleanup(cleanup);
+    _updates?.removeListener(_scheduleUpdateOffer);
+    auth?.removeListener(_scheduleUpdateOffer);
     super.dispose();
   }
 

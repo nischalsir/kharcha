@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_info.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
-import '../../services/update_service.dart';
+import '../../providers/update_provider.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/update_dialog.dart';
 
 /// About the app: what it is, what changed, how to update, who made it.
 class VersionScreen extends StatefulWidget {
@@ -23,10 +25,26 @@ class VersionScreen extends StatefulWidget {
 }
 
 class _VersionScreenState extends State<VersionScreen> {
-  bool _checking = false;
+  @override
+  void initState() {
+    super.initState();
+    // Normally already done at launch, in which case this is a no-op. It
+    // covers the page being opened before the launch check has run.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<UpdateProvider>().checkOnLaunch();
+    });
+  }
 
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
+    (
+      'Update prompt with Download, Later and Don’t remind',
+      'डाउनलोड, पछि र नसम्झाउने विकल्पसहित अपडेट सूचना',
+    ),
+    (
+      'Sign-in problems show as a notice from the bottom',
+      'साइन इन समस्या तलबाट सूचनाका रूपमा देखिन्छ',
+    ),
     (
       'A new flame with many more moods and reactions',
       'नयाँ ज्वाला, धेरै नयाँ भाव र प्रतिक्रियाहरू',
@@ -79,21 +97,6 @@ class _VersionScreenState extends State<VersionScreen> {
       'नयाँ पासवर्ड पुरानै भए स्पष्ट चेतावनी',
     ),
   ];
-
-  Future<void> _checkForUpdate() async {
-    setState(() => _checking = true);
-    final update = await UpdateService().checkForUpdate();
-    if (!mounted) return;
-    setState(() => _checking = false);
-    if (update == null) {
-      showMessage(
-        context,
-        context.t('You have the latest version.', 'तपाईंसँग नवीनतम संस्करण छ।'),
-      );
-      return;
-    }
-    await UpdateService.showUpdateDialog(context, update);
-  }
 
   Future<void> _open(String url) async {
     final ok = await launchUrl(
@@ -193,27 +196,7 @@ class _VersionScreenState extends State<VersionScreen> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.tonalIcon(
-                        onPressed: _checking ? null : _checkForUpdate,
-                        icon: _checking
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.system_update_rounded, size: 18),
-                        label: Text(
-                          context.t(
-                            'Check for updates',
-                            'अपडेट जाँच गर्नुहोस्',
-                          ),
-                        ),
-                      ),
-                    ),
+                    const _UpdateStatus(),
                   ],
                 ),
               ),
@@ -309,6 +292,143 @@ class _VersionScreenState extends State<VersionScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Whether the app is up to date, straight from [UpdateProvider]: the same
+/// state the startup prompt and the update notification use, so this page can
+/// never say something different from them.
+class _UpdateStatus extends StatelessWidget {
+  const _UpdateStatus();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    final updates = context.watch<UpdateProvider>();
+    final checking = updates.status == UpdateStatus.checking;
+
+    Widget checkButton(String label) => SizedBox(
+      width: double.infinity,
+      child: FilledButton.tonalIcon(
+        onPressed: checking ? null : updates.refresh,
+        icon: checking
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.refresh_rounded, size: 18),
+        label: Text(label),
+      ),
+    );
+
+    Widget line(IconData icon, Color color, String text) => Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            text,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (updates.isUpdateAvailable) {
+      final notes = updates.releaseNotes ?? '';
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: glass.warning.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: glass.warning.withValues(alpha: 0.4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(
+                  Icons.system_update_rounded,
+                  size: 20,
+                  color: glass.warning,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.t(
+                      'Version ${updates.latestVersion} is available',
+                      'संस्करण ${updates.latestVersion} उपलब्ध छ',
+                    ),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (notes.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(
+                notes,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: glass.textSecondary,
+                  height: 1.45,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => downloadUpdate(context),
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: Text(
+                  context.t(
+                    'Download ${updates.latestVersion}',
+                    '${updates.latestVersion} डाउनलोड',
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: <Widget>[
+        switch (updates.status) {
+          UpdateStatus.upToDate => line(
+            Icons.check_circle_rounded,
+            glass.success,
+            context.t('You’re up to date', 'तपाईंसँग नवीनतम संस्करण छ'),
+          ),
+          UpdateStatus.failed => line(
+            Icons.cloud_off_rounded,
+            glass.textSecondary,
+            context.t('Could not check for updates', 'अपडेट जाँच गर्न सकिएन'),
+          ),
+          _ => line(
+            Icons.sync_rounded,
+            glass.textSecondary,
+            context.t('Checking for updates…', 'अपडेट जाँच हुँदैछ…'),
+          ),
+        },
+        const SizedBox(height: 12),
+        checkButton(
+          updates.status == UpdateStatus.failed
+              ? context.t('Try again', 'फेरि प्रयास गर्नुहोस्')
+              : context.t('Check for updates', 'अपडेट जाँच गर्नुहोस्'),
+        ),
+      ],
     );
   }
 }

@@ -9,7 +9,6 @@ import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/biometric_service.dart';
-import '../../services/update_service.dart';
 import '../../widgets/common/auth_widgets.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
@@ -51,10 +50,15 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> _handleSignup() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Both checks run on every attempt, so the tick box is flagged even when
+    // other fields also have errors, instead of only after they are fixed.
+    final fieldsValid = _formKey.currentState!.validate();
+    if (!_agreeToTerms && !_termsFlagged) {
+      setState(() => _termsFlagged = true);
+    }
+    if (!fieldsValid && _agreeToTerms) return;
     if (!_agreeToTerms) {
       HapticFeedback.mediumImpact();
-      setState(() => _termsFlagged = true);
       // Colour alone is not enough for a screen reader.
       SemanticsService.sendAnnouncement(
         View.of(context),
@@ -98,10 +102,7 @@ class _SignupScreenState extends State<SignupScreen> {
       }
       if (!mounted) return;
       await _suggestBiometrics(email: email, password: password);
-      if (mounted) {
-        _returnToShell();
-        unawaited(UpdateService().maybeShowUpdateDialog(context));
-      }
+      if (mounted) _returnToShell();
     } catch (_) {
       // The failure is already exposed through AuthProvider.
     } finally {
@@ -315,7 +316,7 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            const AuthErrorBanner(),
+            const AuthFailureNotice(),
             GlassCard(
               radius: 28,
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),

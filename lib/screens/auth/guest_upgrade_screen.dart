@@ -62,7 +62,7 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
         await _offerMerge();
       }
     } catch (_) {
-      // Surfaced through AuthErrorBanner.
+      // Surfaced through AuthFailureNotice.
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -70,7 +70,10 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
 
   Future<void> _verify() async {
     if (_code.text.trim().length < 6) {
-      showMessage(context, context.t('Enter the 6-digit code', '६ अंकको कोड लेख्नुहोस्'));
+      showMessage(
+        context,
+        context.t('Enter the 6-digit code', '६ अंकको कोड लेख्नुहोस्'),
+      );
       return;
     }
     final auth = context.read<AuthProvider>();
@@ -91,7 +94,7 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
       );
       Navigator.of(context).pop();
     } catch (_) {
-      // Surfaced through AuthErrorBanner.
+      // Surfaced through AuthFailureNotice.
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -102,7 +105,10 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(
-          dialogContext.t('You already have an account', 'तपाईंको खाता पहिल्यै छ'),
+          dialogContext.t(
+            'You already have an account',
+            'तपाईंको खाता पहिल्यै छ',
+          ),
         ),
         content: Text(
           dialogContext.t(
@@ -119,7 +125,9 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(dialogContext.t('Sign in and move', 'साइन इन गरी सार्नुहोस्')),
+            child: Text(
+              dialogContext.t('Sign in and move', 'साइन इन गरी सार्नुहोस्'),
+            ),
           ),
         ],
       ),
@@ -175,7 +183,10 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             AuthBrand(
-              title: context.t('Save your data', 'आफ्नो डाटा सुरक्षित गर्नुहोस्'),
+              title: context.t(
+                'Save your data',
+                'आफ्नो डाटा सुरक्षित गर्नुहोस्',
+              ),
               subtitle: context.t(
                 'Create an account to keep everything you added as a guest '
                     'and sync it across devices.',
@@ -203,13 +214,15 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            const AuthErrorBanner(),
+            const AuthFailureNotice(),
             GlassCard(
               radius: 28,
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: _codeSent ? _codeStep(context) : _detailsStep(context),
+                children: _codeSent
+                    ? _codeStep(context)
+                    : _detailsStep(context),
               ),
             ),
           ],
@@ -264,7 +277,9 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
           suffixIcon: IconButton(
             onPressed: () => setState(() => _obscure = !_obscure),
             icon: Icon(
-              _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+              _obscure
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
             ),
           ),
         ),
@@ -314,7 +329,9 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
       ),
       TextButton(
         onPressed: _busy ? null : () => setState(() => _codeSent = false),
-        child: Text(context.t('Use a different email', 'अर्को इमेल प्रयोग गर्नुहोस्')),
+        child: Text(
+          context.t('Use a different email', 'अर्को इमेल प्रयोग गर्नुहोस्'),
+        ),
       ),
     ];
   }

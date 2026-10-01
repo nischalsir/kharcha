@@ -44,6 +44,9 @@ class RoutePaths {
   static const String festivals = '/festivals';
   static const String settings = '/settings';
 
+  /// Settings → About Kharcha: version, update status and what's new.
+  static const String about = '/settings/about';
+
   static const String addExpense = '/transactions/expense/add';
   static const String addIncome = '/transactions/income/add';
 
@@ -74,6 +77,7 @@ class RoutePaths {
     calculator,
     festivals,
     settings,
+    about,
     addExpense,
     addIncome,
   };

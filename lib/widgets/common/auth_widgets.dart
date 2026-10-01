@@ -269,59 +269,107 @@ class AuthBrand extends StatelessWidget {
   }
 }
 
-/// Inline, dismissible error strip fed by [AuthProvider].
-class AuthErrorBanner extends StatelessWidget {
-  const AuthErrorBanner({super.key});
+/// The kinds of notice the sign-in screens can show.
+enum AuthNoticeKind { error, warning, success }
+
+/// Shows a notice that slides up from the bottom of the screen and leaves on
+/// its own. Showing another replaces it, so notices never stack.
+void showAuthNotice(
+  BuildContext context,
+  String message, {
+  AuthNoticeKind kind = AuthNoticeKind.error,
+  IconData? icon,
+}) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  final glass = context.glass;
+  final accent = switch (kind) {
+    AuthNoticeKind.error => glass.danger,
+    AuthNoticeKind.warning => glass.warning,
+    AuthNoticeKind.success => glass.success,
+  };
+  final symbol =
+      icon ??
+      switch (kind) {
+        AuthNoticeKind.error => Icons.error_outline_rounded,
+        AuthNoticeKind.warning => Icons.warning_amber_rounded,
+        AuthNoticeKind.success => Icons.check_circle_outline_rounded,
+      };
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        // Errors stay longer: they are the ones that have to be read.
+        duration: Duration(seconds: kind == AuthNoticeKind.success ? 3 : 5),
+        content: Row(
+          children: <Widget>[
+            Icon(symbol, color: accent, size: 20),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message)),
+          ],
+        ),
+      ),
+    );
+}
+
+/// Turns whatever sign-in failure the [AuthProvider] reports into a notice
+/// from the bottom of the screen.
+///
+/// Takes no space in the layout. It used to be a card above the form, which
+/// pushed the whole form down whenever something went wrong.
+class AuthFailureNotice extends StatefulWidget {
+  const AuthFailureNotice({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+  State<AuthFailureNotice> createState() => _AuthFailureNoticeState();
+}
 
-    return Consumer<AuthProvider>(
-      builder: (context, auth, _) {
-        final AppFailure? failure = auth.failure;
-        if (failure == null) return const SizedBox.shrink();
-        return Container(
-          margin: const EdgeInsets.only(bottom: 18),
-          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-          decoration: BoxDecoration(
-            color: scheme.errorContainer.withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(
-                failure.isOffline
-                    ? Icons.wifi_off_rounded
-                    : Icons.error_outline_rounded,
-                color: scheme.onErrorContainer,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  failure.message,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onErrorContainer,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: auth.clearError,
-                icon: const Icon(Icons.close_rounded, size: 18),
-                color: scheme.onErrorContainer,
-                visualDensity: VisualDensity.compact,
-                tooltip: 'Dismiss',
-              ),
-            ],
-          ),
-        );
-      },
-    );
+class _AuthFailureNoticeState extends State<AuthFailureNotice> {
+  AuthProvider? _auth;
+
+  /// The failure already shown, so one failure is announced once however
+  /// many times the provider notifies while it is set.
+  AppFailure? _shown;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = context.read<AuthProvider>();
+    if (identical(auth, _auth)) return;
+    _auth?.removeListener(_onAuthChanged);
+    _auth = auth..addListener(_onAuthChanged);
+    _onAuthChanged();
   }
+
+  @override
+  void dispose() {
+    _auth?.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  void _onAuthChanged() {
+    final failure = _auth?.failure;
+    if (failure == null) {
+      _shown = null;
+      return;
+    }
+    if (identical(failure, _shown)) return;
+    _shown = failure;
+    // After the frame: a notice cannot be shown while the tree is building.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showAuthNotice(
+        context,
+        failure.message,
+        kind: failure.isOffline ? AuthNoticeKind.warning : AuthNoticeKind.error,
+        icon: failure.isOffline ? Icons.wifi_off_rounded : null,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 /// Glass secondary button (biometric sign-in, continue as guest, …).

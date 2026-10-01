@@ -1,23 +1,32 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_info.dart';
-import '../core/l10n/app_l10n.dart';
 
-/// A newer release than the one installed.
+/// A published release: its version, where to get it, and what changed.
 class UpdateInfo {
-  const UpdateInfo({required this.version, required this.downloadUrl});
+  const UpdateInfo({
+    required this.version,
+    required this.downloadUrl,
+    this.notes = '',
+  });
 
   final String version;
 
   /// The release's APK when it has one, otherwise the release page.
   final String downloadUrl;
+
+  /// A short, plain-text summary of the release notes. May be empty.
+  final String notes;
 }
 
+/// Where releases are published and how their versions compare.
+///
+/// The latest GitHub release is the one place update information is
+/// configured: its tag is the version, its APK asset the download, and its
+/// description the release notes. Nothing about a release is hard-coded in
+/// the app.
 class UpdateService {
   UpdateService({http.Client? client}) : _client = client ?? http.Client();
 
@@ -28,9 +37,9 @@ class UpdateService {
   static const String _fallbackPage =
       'https://github.com/$_repo/releases/latest';
 
-  /// The latest GitHub release if it is newer than the installed app, or null
-  /// when up to date (or the check could not be made).
-  Future<UpdateInfo?> checkForUpdate() async {
+  /// The latest published release, whatever its version, or null when it
+  /// could not be read (offline, rate limited, malformed).
+  Future<UpdateInfo?> fetchLatest() async {
     try {
       final response = await _client
           .get(
@@ -46,11 +55,11 @@ class UpdateService {
       if (data is! Map) return null;
       final tag = data['tag_name'];
       if (tag is! String || tag.isEmpty) return null;
-      final version = tag.startsWith('v') ? tag.substring(1) : tag;
-      if (!_isNewer(version, AppInfo.version)) return null;
+      final version = normalizeVersion(tag);
+      if (parseVersion(version) == null) return null;
 
-      // Link straight to the APK so "Update" starts the download, instead of
-      // dropping the user on a web page to hunt for the file.
+      // Link straight to the APK so "Download" starts the download, instead
+      // of dropping the user on a web page to hunt for the file.
       String? apk;
       final assets = data['assets'];
       if (assets is List) {
@@ -65,9 +74,11 @@ class UpdateService {
         }
       }
       final page = data['html_url'];
+      final body = data['body'];
       return UpdateInfo(
         version: version,
         downloadUrl: apk ?? (page is String ? page : _fallbackPage),
+        notes: body is String ? summarizeNotes(body) : '',
       );
     } catch (_) {
       // The update check is never worth interrupting the user for.
@@ -75,98 +86,89 @@ class UpdateService {
     }
   }
 
-  /// Shows an update dialog if a newer version is available.
-  Future<void> maybeShowUpdateDialog(BuildContext context) async {
-    final update = await checkForUpdate();
-    if (update == null || !context.mounted) return;
-    await showUpdateDialog(context, update);
+  /// The latest release if it is newer than the installed app, or null when
+  /// up to date (or the check could not be made).
+  Future<UpdateInfo?> checkForUpdate() async {
+    final latest = await fetchLatest();
+    if (latest == null) return null;
+    return isNewer(latest.version, AppInfo.version) ? latest : null;
   }
 
-  static Future<void> showUpdateDialog(BuildContext context, UpdateInfo update) {
-    return showDialog<void>(
-      context: context,
-      builder: (context) => _UpdateDialog(update: update),
-    );
-  }
-
-  static bool _isNewer(String latest, String current) {
-    final latestParts = latest.split('.').map(int.tryParse).toList();
-    final currentParts = current.split('.').map(int.tryParse).toList();
-    for (int i = 0; i < 3; i++) {
-      final l = i < latestParts.length ? (latestParts[i] ?? 0) : 0;
-      final c = i < currentParts.length ? (currentParts[i] ?? 0) : 0;
-      if (l > c) return true;
-      if (l < c) return false;
+  /// `v1.2.3` and `1.2.3+45` both become `1.2.3`.
+  static String normalizeVersion(String raw) {
+    var value = raw.trim();
+    if (value.startsWith('v') || value.startsWith('V')) {
+      value = value.substring(1);
     }
-    return false;
+    final plus = value.indexOf('+');
+    return plus < 0 ? value : value.substring(0, plus);
   }
-}
 
-class _UpdateDialog extends StatelessWidget {
-  const _UpdateDialog({required this.update});
-
-  final UpdateInfo update;
-
-  /// Opens the download in the browser. Launched directly: gating on
-  /// `canLaunchUrl` returns false on Android 11+ unless the manifest declares
-  /// the intent, which made this button silently do nothing.
-  Future<void> _download(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final copied = L10n.t(
-      context,
-      'Could not open the browser. Download link copied.',
-      'ब्राउजर खोल्न सकिएन। डाउनलोड लिङ्क कपी भयो।',
-    );
-    Navigator.of(context).pop();
-    var opened = false;
-    try {
-      opened = await launchUrl(
-        Uri.parse(update.downloadUrl),
-        mode: LaunchMode.externalApplication,
-      );
-    } catch (_) {
-      opened = false;
+  /// The numeric parts of a version, or null when it is not a version.
+  /// Anything after a `-` (a pre-release label) is ignored.
+  static List<int>? parseVersion(String raw) {
+    final core = normalizeVersion(raw).split('-').first;
+    if (core.isEmpty) return null;
+    final parts = <int>[];
+    for (final piece in core.split('.')) {
+      final number = int.tryParse(piece);
+      if (number == null || number < 0) return null;
+      parts.add(number);
     }
-    if (opened) return;
-    await Clipboard.setData(ClipboardData(text: update.downloadUrl));
-    messenger.showSnackBar(SnackBar(content: Text(copied)));
+    return parts;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AlertDialog(
-      title: Row(
-        children: <Widget>[
-          Icon(Icons.system_update_rounded, color: theme.colorScheme.primary),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(L10n.t(context, 'Update available', 'अपडेट उपलब्ध छ')),
-          ),
-        ],
-      ),
-      content: Text(
-        L10n.t(
-          context,
-          'Version ${update.version} is available. You are on '
-              '${AppInfo.version}. The download starts in your browser; open '
-              'the file when it finishes to install.',
-          'संस्करण ${update.version} उपलब्ध छ। तपाईं ${AppInfo.version} मा '
-              'हुनुहुन्छ। डाउनलोड ब्राउजरमा सुरु हुन्छ; सकिएपछि फाइल खोलेर '
-              'इन्स्टल गर्नुहोस्।',
-        ),
-      ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(L10n.t(context, 'Later', 'पछि')),
-        ),
-        FilledButton.icon(
-          icon: const Icon(Icons.download_rounded),
-          label: Text(L10n.t(context, 'Download', 'डाउनलोड')),
-          onPressed: () => _download(context),
-        ),
-      ],
-    );
+  /// Negative when [a] is older than [b], zero when equal, positive when
+  /// newer. Compared number by number, so 1.10.0 is newer than 1.9.0; a
+  /// missing part counts as zero. A string that is not a version is older
+  /// than any that is.
+  static int compareVersions(String a, String b) {
+    final left = parseVersion(a);
+    final right = parseVersion(b);
+    if (left == null || right == null) {
+      if (left == null && right == null) return 0;
+      return left == null ? -1 : 1;
+    }
+    final length = left.length > right.length ? left.length : right.length;
+    for (var i = 0; i < length; i++) {
+      final l = i < left.length ? left[i] : 0;
+      final r = i < right.length ? right[i] : 0;
+      if (l != r) return l < r ? -1 : 1;
+    }
+    return 0;
+  }
+
+  static bool isNewer(String latest, String current) =>
+      parseVersion(latest) != null && compareVersions(latest, current) > 0;
+
+  /// Turns a release description into a few plain lines for the update
+  /// prompt: the bullets of its first section, without the markdown.
+  static String summarizeNotes(String body, {int maxLines = 5}) {
+    final lines = <String>[];
+    var sections = 0;
+    for (final raw in body.split('\n')) {
+      final line = raw.trim();
+      if (line.isEmpty) continue;
+      if (line.startsWith('#')) {
+        sections++;
+        // "What's new" is the first section; installing notes come after.
+        if (sections > 1) break;
+        continue;
+      }
+      var text = line
+          .replaceAll(RegExp(r'\*\*|__|`'), '')
+          .replaceAllMapped(
+            RegExp(r'\[([^\]]+)\]\([^)]*\)'),
+            (match) => match.group(1) ?? '',
+          );
+      final bullet = RegExp(r'^[-*+]\s+').firstMatch(text);
+      if (bullet != null) text = '• ${text.substring(bullet.end)}';
+      // Keep each point to its headline: "Title. Explanation" -> "Title."
+      final stop = text.indexOf('. ');
+      if (bullet != null && stop > 0) text = text.substring(0, stop + 1);
+      lines.add(text);
+      if (lines.length >= maxLines) break;
+    }
+    return lines.join('\n');
   }
 }

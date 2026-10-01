@@ -6,7 +6,6 @@ import 'package:kharcha_app/providers/auth_provider.dart';
 import 'package:kharcha_app/screens/auth/signup_screen.dart';
 import 'package:kharcha_app/services/biometric_service.dart';
 import 'package:kharcha_app/services/nepali_date_service.dart';
-import 'package:kharcha_app/widgets/common/auth_widgets.dart';
 import 'package:provider/provider.dart';
 
 const Color _red = Color(0xffff453a);
@@ -85,11 +84,27 @@ void main() {
     expect(_glow(tester), _red);
     // The old behaviour put a banner at the top of the form.
     expect(find.textContaining('agree to the Terms of Service'), findsNothing);
-    final banner = find.byType(AuthErrorBanner);
-    expect(
-      find.descendant(of: banner, matching: find.byType(Text)),
-      findsNothing,
-    );
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
+  testWidgets('it is flagged even while other fields still have errors', (
+    tester,
+  ) async {
+    await _pump(tester);
+    // Nothing filled in at all: every field is invalid as well.
+    await _submit(tester);
+
+    expect(_glow(tester), _red);
+    expect(find.text('Email is required'), findsOneWidget);
+  });
+
+  testWidgets('the terms link still opens the terms', (tester) async {
+    await _pump(tester);
+    await tester.ensureVisible(find.text('Terms'));
+    await tester.tap(find.text('Terms'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Terms of Service'), findsOneWidget);
   });
 
   testWidgets('ticking it afterwards turns the glow green', (tester) async {

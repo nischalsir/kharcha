@@ -11,7 +11,6 @@ import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/account_avatar_cache.dart';
 import '../../services/biometric_service.dart';
-import '../../services/update_service.dart';
 import '../../widgets/common/auth_widgets.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
@@ -91,11 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
         email: email,
         password: password,
       );
-      if (mounted) {
-        _returnToShell();
-        // Check for updates after successful login
-        unawaited(UpdateService().maybeShowUpdateDialog(context));
-      }
+      if (mounted) _returnToShell();
     } catch (_) {
       // The failure is already exposed through AuthProvider.
     } finally {
@@ -300,7 +295,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (_) {
-      // Surfaced by AuthErrorBanner.
+      // Surfaced by AuthFailureNotice.
     }
   }
 
@@ -323,7 +318,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            const AuthErrorBanner(),
+            const AuthFailureNotice(),
             GlassCard(
               radius: 28,
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
