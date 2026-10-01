@@ -38,6 +38,10 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'Fixed: statement files could be seen but not picked',
+      'सुधार: स्टेटमेन्ट फाइल देखिन्थ्यो तर छान्न मिल्दैनथ्यो',
+    ),
+    (
       'Settings is shorter: Backup, Help and About are on the More page',
       'सेटिङ छोटो: ब्याकअप, मद्दत र बारे "थप" पृष्ठमा',
     ),
