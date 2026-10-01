@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/constants/currencies.dart';
@@ -58,6 +60,26 @@ class AppSettingsProvider extends ChangeNotifier with CacheAware {
       _paymentMethods.where((m) => m.isEnabled).toList();
   bool get isReady => _bootstrapped;
 
+  static const String _introSeenKey = 'intro_seen';
+
+  /// Whether the introduction has been shown on this device. The flag in
+  /// [settings] travels with the account, so on its own it would replay the
+  /// introduction whenever another account's (still empty) settings load.
+  bool get hasSeenIntroduction =>
+      _settings.hasSeenIntroduction ||
+      _cache.readBoolSetting(_introSeenKey) == true;
+
+  /// See [SettingsRepository.reseedDefaults]. [fetched] says whether the
+  /// account's own data arrived first.
+  Future<void> ensureAccountDefaults({required bool fetched}) async {
+    if (fetched) {
+      await _repository.reseedDefaults();
+      refreshFromCache();
+    } else {
+      await _repository.deferDefaults();
+    }
+  }
+
   ThemeMode get themeMode {
     switch (_settings.themeMode) {
       case AppThemeMode.light:
@@ -117,6 +139,10 @@ class AppSettingsProvider extends ChangeNotifier with CacheAware {
   @override
   void refreshFromCache() {
     _settings = _repository.settings();
+    if (_settings.hasSeenIntroduction &&
+        _cache.readBoolSetting(_introSeenKey) != true) {
+      unawaited(_cache.writeBoolSetting(_introSeenKey, true));
+    }
     _dates.devanagari = _settings.devanagariDates;
     _dates.calendarSystem = _settings.calendarType;
     CurrencyFormatter.setSymbol(currencySymbol(_settings.currency));

@@ -295,11 +295,30 @@ class CacheService {
   }
 
   Future<void> clearDataCache({bool keepPending = true}) async {
+    // Memory first, in one synchronous step, and with every table present but
+    // empty: a missing table would be lazily re-read from disk, so anything
+    // reading the cache while the removals below are still in flight would
+    // get the old rows back.
     for (final entity in SyncEntity.values) {
-      await _prefs.remove('$_rowsPrefix${entity.table}');
-      await _prefs.remove('$_cursorPrefix${entity.table}');
+      _rows[entity] = <String, Map<String, dynamic>>{};
     }
-    _rows.clear();
+    if (keepPending) {
+      for (final op in _pending.values) {
+        _table(op.entity)[op.recordId] = Map<String, dynamic>.from(op.payload);
+      }
+    } else {
+      _pending.clear();
+    }
+    _emit(SyncEntity.values.toSet());
+
+    for (final entity in SyncEntity.values) {
+      await _prefs.remove('$_cursorPrefix${entity.table}');
+      if (_table(entity).isEmpty) {
+        await _prefs.remove('$_rowsPrefix${entity.table}');
+      } else {
+        await _persistRows(entity);
+      }
+    }
     await _prefs.remove(_lastSyncKey);
     final jsonKeys = _prefs
         .getKeys()
@@ -308,20 +327,7 @@ class CacheService {
     for (final key in jsonKeys) {
       await _prefs.remove(key);
     }
-    if (keepPending) {
-      for (final op in _pending.values) {
-        _table(op.entity)[op.recordId] = Map<String, dynamic>.from(op.payload);
-      }
-      for (final entity in SyncEntity.values) {
-        if (_pending.values.any((op) => op.entity == entity)) {
-          await _persistRows(entity);
-        }
-      }
-    } else {
-      _pending.clear();
-      await _prefs.remove(_pendingKey);
-    }
-    _emit(SyncEntity.values.toSet());
+    if (!keepPending) await _prefs.remove(_pendingKey);
   }
 
   Future<void> dispose() async {

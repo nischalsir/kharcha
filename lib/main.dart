@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/config/env.dart';
 import 'core/router/route_paths.dart';
 import 'core/theme/app_theme.dart';
+import 'models/sync_models.dart';
 import 'models/transaction_model.dart';
 import 'providers/app_providers.dart';
 import 'providers/ai_insight_provider.dart';
@@ -87,7 +88,9 @@ class KharchaApp extends StatelessWidget {
         ChangeNotifierProvider<SyncService>.value(value: env.sync),
         Provider<BiometricService>(create: (_) => BiometricService()),
         ChangeNotifierProvider<AuthProvider>(
-          create: (_) => AuthProvider()..initialize(),
+          create: (context) =>
+              AuthProvider(vault: context.read<BiometricService>())
+                ..initialize(),
         ),
         ChangeNotifierProvider<AppSettingsProvider>(
           create: (_) => AppProviders.settings(env),
@@ -181,10 +184,12 @@ class KharchaApp extends StatelessWidget {
       RoutePaths.calculator => const CalculatorScreen(),
       RoutePaths.festivals => const FestivalsScreen(),
       RoutePaths.settings => const SettingsScreen(),
-      RoutePaths.addExpense =>
-        const AddTransactionScreen(initialType: TransactionType.expense),
-      RoutePaths.addIncome =>
-        const AddTransactionScreen(initialType: TransactionType.income),
+      RoutePaths.addExpense => const AddTransactionScreen(
+        initialType: TransactionType.expense,
+      ),
+      RoutePaths.addIncome => const AddTransactionScreen(
+        initialType: TransactionType.income,
+      ),
       _ => null,
     };
     if (page == null) return null;
@@ -205,6 +210,15 @@ class _AuthWrapperState extends State<_AuthWrapper>
   VoidCallback? _registrationListener;
   Future<void> Function()? _signOutCleanup;
   bool _listening = false;
+
+  /// The account whose data the cache is known to hold. The app shell is only
+  /// shown for this account, so a screen can never be built from whatever the
+  /// previous account left on the device.
+  String? _readyUserId;
+
+  /// The account currently being prepared, so repeated auth events for one
+  /// sign-in start the work once.
+  String? _preparingUserId;
 
   @override
   void initState() {
@@ -238,15 +252,26 @@ class _AuthWrapperState extends State<_AuthWrapper>
     // Installed once: a pending tap from a cold start is delivered as soon as a
     // handler exists, so nothing is lost by being early or late here.
     if (push.onTap == null) {
-      push.setTapHandler((message) => _openPushRoute(auth, message.route, message.routeArgs));
+      push.setTapHandler(
+        (message) => _openPushRoute(auth, message.route, message.routeArgs),
+      );
     }
 
     void syncRegistration() {
       unawaited(
         push.sync(authenticated: auth.isAuthenticated, userId: auth.userId),
       );
-      // Ties the offline cache to this account before anything syncs.
-      if (auth.isAuthenticated) unawaited(sync.adoptUser(auth.userId));
+      final userId = auth.userId;
+      if (!auth.isAuthenticated || userId == null) {
+        _readyUserId = null;
+        return;
+      }
+      if (_readyUserId == userId || _preparingUserId == userId) return;
+      // A different account than the one on screen: nothing of the old one
+      // may be shown while the new one is being set up.
+      _readyUserId = null;
+      _preparingUserId = userId;
+      unawaited(_prepareAccount(auth, sync, userId));
     }
 
     _registrationListener = syncRegistration;
@@ -256,7 +281,16 @@ class _AuthWrapperState extends State<_AuthWrapper>
     // previous account keeps sending this device its notifications.
     // Queued writes are pushed first, for the same reason: after sign-out
     // they could only ever be uploaded by whichever account signs in next.
+    final biometric = context.read<BiometricService>();
     _signOutCleanup = () async {
+      // The account signing out is the one to offer on the sign-in form next,
+      // whoever else has used this phone. Read here, while it is still known.
+      final email = auth.userEmail;
+      if (email != null && email.isNotEmpty) {
+        await biometric.setRememberedEmail(
+          await biometric.rememberMe() ? email : null,
+        );
+      }
       await sync.flushBeforeSignOut();
       await push.unregisterForSignOut();
     };
@@ -272,15 +306,60 @@ class _AuthWrapperState extends State<_AuthWrapper>
     });
   }
 
+  /// Ties the offline cache to [userId] and, when the device last held another
+  /// account's data, fetches this account's own before the app is shown.
+  Future<void> _prepareAccount(
+    AuthProvider auth,
+    SyncService sync,
+    String userId,
+  ) async {
+    final settings = context.read<AppSettingsProvider>();
+    final insight = context.read<AiInsightProvider>();
+    try {
+      final adoption = await sync.adoptUser(userId);
+      if (adoption == AccountAdoption.switched) {
+        await insight.resetForAccount();
+      }
+      if (adoption != AccountAdoption.unchanged) {
+        // Bounded: a slow network must not hold the user on a spinner, and the
+        // sync carries on in the background either way.
+        try {
+          await sync.refresh().timeout(const Duration(seconds: 12));
+        } catch (_) {
+          // Offline or slow; whatever arrived is shown and the rest follows.
+        }
+      }
+      if (adoption == AccountAdoption.switched && auth.userId == userId) {
+        await settings.ensureAccountDefaults(
+          fetched: sync.status == SyncStatus.synced,
+        );
+      }
+    } catch (error) {
+      debugPrint('Auth: could not prepare the account ($error)');
+    } finally {
+      if (_preparingUserId == userId) _preparingUserId = null;
+      // Signed out, or someone else signed in, while this was running: this
+      // result is for an account that is no longer the active one.
+      if (mounted && auth.isAuthenticated && auth.userId == userId) {
+        setState(() => _readyUserId = userId);
+      }
+    }
+  }
+
   /// Opens a route named by a push, ignoring anything this app cannot resolve.
-  Future<void> _openPushRoute(AuthProvider auth, String? route, String? args) async {
+  Future<void> _openPushRoute(
+    AuthProvider auth,
+    String? route,
+    String? args,
+  ) async {
     if (!mounted) return;
     if (!RoutePaths.isKnown(route)) return;
     // Every push target is a private screen, and the auth wrapper only reaches
     // the login screen on its own once this runs. Navigating for a signed-out
     // user would put that data on screen, so the tap is dropped and login is
     // already what is being shown.
-    if (!auth.isAuthenticated) return;
+    if (!auth.isAuthenticated || auth.mfaPending) return;
+    if (_readyUserId != auth.userId) return;
 
     final navigator = Navigator.of(context);
     // A tap while another screen is up is the common case, not an error: the
@@ -342,7 +421,7 @@ class _AuthWrapperState extends State<_AuthWrapper>
         }
 
         // Show introduction if not seen
-        if (!settingsProvider.settings.hasSeenIntroduction) {
+        if (!settingsProvider.hasSeenIntroduction) {
           return const IntroductionScreen();
         }
 
@@ -357,8 +436,18 @@ class _AuthWrapperState extends State<_AuthWrapper>
           return const MfaChallengeScreen();
         }
 
-        // Show main app
-        return GlassBackground(child: const RootShell());
+        // Signed in, but the cache has not been confirmed as this account's
+        // yet. Showing the shell now would build it from the previous
+        // account's data.
+        if (_readyUserId != authProvider.userId) {
+          return GlassBackground(child: const _BootLoading());
+        }
+
+        // Keyed by account, so switching rebuilds every screen from scratch
+        // instead of reusing state the previous account left in them.
+        return GlassBackground(
+          child: RootShell(key: ValueKey<String?>(authProvider.userId)),
+        );
       },
     );
   }

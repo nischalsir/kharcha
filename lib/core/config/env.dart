@@ -26,9 +26,6 @@ class Env {
     return value.isEmpty ? defaultSupabaseAnonKey : value;
   }
 
-  static const String syncEmail = String.fromEnvironment('SYNC_EMAIL');
-  static const String syncPassword = String.fromEnvironment('SYNC_PASSWORD');
-
   /// Optional manual override for the key-less Open-Meteo weather accent.
   ///
   /// By default the app resolves its own approximate location (see
@@ -46,7 +43,4 @@ class Env {
 
   static bool get hasSupabase =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
-
-  static bool get hasSyncCredentials =>
-      syncEmail.isNotEmpty && syncPassword.isNotEmpty;
 }

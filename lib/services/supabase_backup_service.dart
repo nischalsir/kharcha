@@ -54,12 +54,11 @@ class SupabaseBackupService {
   }
 
   Future<String> _ensureUser() async {
-    await _remote.ensureSession();
-    final uid = _remote.userId;
+    final uid = _remote.hasSession ? _remote.userId : null;
     if (uid == null) {
       throw const AppFailure(
         FailureKind.syncFailed,
-        'Could not sign in for cloud backup.',
+        'Sign in to use cloud backup.',
       );
     }
     return uid;
@@ -74,15 +73,17 @@ class SupabaseBackupService {
     final path = '${_folderFor(uid)}/$name';
     final bytes = Uint8List.fromList(utf8.encode(jsonText));
     try {
-      await _client.storage.from(bucket).uploadBinary(
-        path,
-        bytes,
-        fileOptions: const FileOptions(
-          upsert: true,
-          contentType: 'application/json',
-          cacheControl: '60',
-        ),
-      );
+      await _client.storage
+          .from(bucket)
+          .uploadBinary(
+            path,
+            bytes,
+            fileOptions: const FileOptions(
+              upsert: true,
+              contentType: 'application/json',
+              cacheControl: '60',
+            ),
+          );
     } catch (error) {
       throw AppFailure.from(error);
     }

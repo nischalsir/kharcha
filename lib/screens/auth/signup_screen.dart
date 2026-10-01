@@ -80,6 +80,13 @@ class _SignupScreenState extends State<SignupScreen> {
         return;
       }
 
+      // The new account is now the one to prefill, not whoever used this
+      // phone before.
+      final BiometricService biometric = context.read<BiometricService>();
+      if (await biometric.rememberMe()) {
+        await biometric.setRememberedEmail(email);
+      }
+      if (!mounted) return;
       await _suggestBiometrics(email: email, password: password);
       if (mounted) {
         _returnToShell();
@@ -127,7 +134,12 @@ class _SignupScreenState extends State<SignupScreen> {
     );
 
     if (enable != true) return;
-    await biometric.enable(email: email, password: password);
+    final bool verified = await biometric.authenticate(
+      reason: 'Enable ${capability.kind.label} sign-in',
+    );
+    if (!verified) return;
+    // A brand-new account has no authenticator yet, so it is fully signed in.
+    await biometric.enable(email: email, password: password, trusted: true);
   }
 
   /// Unwinds to the root route so `_AuthWrapper` can decide what to show

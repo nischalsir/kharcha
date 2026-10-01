@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/biometric_service.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
@@ -71,6 +72,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         await auth.verifyMfa(_codeController.text.trim());
       }
       await auth.updatePassword(password);
+      // Keep this account's fingerprint sign-in working with the new password.
+      final email = auth.userEmail;
+      if (email != null && mounted) {
+        await context.read<BiometricService>().updatePassword(
+          email: email,
+          password: password,
+        );
+      }
       if (!mounted) return;
       showMessage(
         context,

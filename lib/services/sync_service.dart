@@ -9,6 +9,18 @@ import '../models/sync_models.dart';
 import 'cache_service.dart';
 import 'supabase_service.dart';
 
+/// What [SyncService.adoptUser] found the cache to be.
+enum AccountAdoption {
+  /// Already this account's.
+  unchanged,
+
+  /// Unowned until now; the data on the device was kept and is theirs.
+  first,
+
+  /// Another account's; it was emptied and must be fetched afresh.
+  switched,
+}
+
 class SyncService extends ChangeNotifier {
   SyncService({
     required this._cache,
@@ -62,7 +74,7 @@ class SyncService extends ChangeNotifier {
   }
 
   bool get _isSyncDue {
-    if (!_remote.isConfigured) return false;
+    if (!_remote.isConfigured || !_remote.hasSession) return false;
     final last = _cache.lastSyncAt;
     if (last == null) return true;
     if (_cache.hasRunnablePending) return true;
@@ -100,17 +112,43 @@ class SyncService extends ChangeNotifier {
   ///
   /// The first call on an existing install adopts the current user without
   /// clearing anything: the data on the device is theirs.
-  Future<void> adoptUser(String? userId) async {
-    if (userId == null || userId.isEmpty) return;
+  ///
+  /// Calls are run one after another, so two auth events for the same sign-in
+  /// cannot both decide to clear. Reports what happened so the caller can
+  /// decide whether the account's data still has to be fetched.
+  Future<AccountAdoption> adoptUser(String? userId) {
+    if (userId == null || userId.isEmpty) {
+      return Future<AccountAdoption>.value(AccountAdoption.unchanged);
+    }
+    final next = _adoption.then((_) => _adopt(userId));
+    _adoption = next.then<void>((_) {}, onError: (_) {});
+    return next;
+  }
+
+  Future<void> _adoption = Future<void>.value();
+
+  /// Bumped each time the cache changes hands. A sync that started for the
+  /// previous account compares against it and drops what it fetched instead
+  /// of writing it into the new account's cache.
+  int _account = 0;
+  int _runningAccount = 0;
+
+  Future<AccountAdoption> _adopt(String userId) async {
     final owner = cacheOwner;
-    if (owner == userId) return;
+    if (owner == userId) return AccountAdoption.unchanged;
     if (owner != null) {
+      _account++;
+      _pushTimer?.cancel();
+      // Empties the cache in memory before its first await, so nothing can
+      // read the previous account's rows from here on.
       await _cache.clearDataCache(keepPending: false);
+      _lastSyncAt = null;
+      _lastError = null;
       _refreshCounts();
-      _notify();
     }
     await _cache.writeSetting(_ownerKey, userId);
-    if (owner != null) await syncIfNeeded(force: true);
+    _notify();
+    return owner == null ? AccountAdoption.first : AccountAdoption.switched;
   }
 
   /// Pushes queued writes while the current session is still valid. Run
@@ -150,7 +188,16 @@ class SyncService extends ChangeNotifier {
 
   Future<void> _start({required bool pull}) {
     final running = _running;
-    if (running != null) return running;
+    if (running != null) {
+      if (_runningAccount == _account) return running;
+      // That run belongs to the previous account. Let it wind down, then sync
+      // for the current one rather than handing back a run that fetched
+      // nothing of theirs.
+      return running
+          .then<void>((_) {}, onError: (_) {})
+          .then((_) => _start(pull: pull));
+    }
+    _runningAccount = _account;
     final future = _run(pull: pull).whenComplete(() {
       _running = null;
       if (_status == SyncStatus.synced && _cache.hasRunnablePending) {
@@ -175,6 +222,9 @@ class SyncService extends ChangeNotifier {
       _setStatus(SyncStatus.failed);
       return;
     }
+    // Signed out: there is no one to sync as, and that is not a failure.
+    if (!_remote.hasSession) return;
+    final account = _account;
     _setStatus(SyncStatus.syncing);
     try {
       if (!await _hasConnection()) {
@@ -183,22 +233,19 @@ class SyncService extends ChangeNotifier {
           'You are offline. Changes are saved on this device.',
         );
       }
-      if (!await _remote.ensureSession()) {
-        throw const AppFailure(
-          FailureKind.syncFailed,
-          'Could not sign in to sync.',
-        );
-      }
-      await _push();
+      await _push(account);
       if (pull) {
-        await _pull();
+        await _pull(account);
+        if (account != _account) return;
         await _cache.setLastSyncAt(DateTime.now());
         _lastSyncAt = _cache.lastSyncAt;
       }
+      if (account != _account) return;
       _lastError = null;
       _refreshCounts();
       _setStatus(_failedCount > 0 ? SyncStatus.failed : SyncStatus.synced);
     } catch (error) {
+      if (account != _account) return;
       final failure = AppFailure.from(error);
       _lastError = failure.message;
       _refreshCounts();
@@ -206,8 +253,9 @@ class SyncService extends ChangeNotifier {
     }
   }
 
-  Future<void> _push() async {
+  Future<void> _push(int account) async {
     for (final entity in SyncEntity.values) {
+      if (account != _account) return;
       final ops = _cache
           .pendingOperations()
           .where((op) => op.entity == entity && !op.failed)
@@ -259,7 +307,7 @@ class SyncService extends ChangeNotifier {
     }
   }
 
-  Future<void> _pull() async {
+  Future<void> _pull(int account) async {
     for (final entity in SyncEntity.values) {
       var cursor = _cache.cursor(entity);
       while (true) {
@@ -268,6 +316,9 @@ class SyncService extends ChangeNotifier {
           cursor: cursor,
           pageSize: _pageSize,
         );
+        // The cache changed hands while this page was on its way: these rows
+        // belong to whoever was signed in before.
+        if (account != _account) return;
         if (rows.isEmpty) break;
         await _cache.mergeRemoteRows(entity, rows);
         final last = rows.last['server_updated_at'];

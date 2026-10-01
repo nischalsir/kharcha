@@ -24,6 +24,93 @@ extension BiometricUi on BiometricKind {
   };
 }
 
+/// Decides which account a successful fingerprint/face check is for.
+///
+/// The fingerprint belongs to the phone, not to an account, so it cannot tell
+/// two people's accounts apart. With one account there is nothing to choose
+/// and it is returned directly; with several the user has to pick, and
+/// dismissing the sheet returns null so nobody is signed in by accident.
+Future<BiometricAccount?> chooseBiometricAccount(
+  BuildContext context,
+  List<BiometricAccount> accounts,
+) {
+  if (accounts.isEmpty) return Future<BiometricAccount?>.value();
+  if (accounts.length == 1) {
+    return Future<BiometricAccount?>.value(accounts.single);
+  }
+  return showModalBottomSheet<BiometricAccount>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) {
+      final theme = Theme.of(sheetContext);
+      final glass = sheetContext.glass;
+      return SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.6,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 4),
+                child: Text(
+                  'Choose an account',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                child: Text(
+                  'More than one account uses this device to sign in. '
+                  'Which one is yours?',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: glass.textSecondary,
+                  ),
+                ),
+              ),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: <Widget>[
+                    for (final account in accounts)
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                        ),
+                        leading: CircleAvatar(
+                          backgroundColor: theme.colorScheme.primary.withValues(
+                            alpha: 0.14,
+                          ),
+                          foregroundColor: theme.colorScheme.primary,
+                          child: Text(account.email[0].toUpperCase()),
+                        ),
+                        title: Text(
+                          account.email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right_rounded,
+                          color: glass.textTertiary,
+                        ),
+                        onTap: () => Navigator.of(sheetContext).pop(account),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 /// Shared building blocks for the sign-in / sign-up screens so both pages
 /// follow the same glass visual language as the rest of the app.
 class AuthScaffold extends StatelessWidget {

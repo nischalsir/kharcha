@@ -31,8 +31,6 @@ $acceptsDefines = $command -in @('run', 'test', 'drive') -or
 $clientSafeKeys = @(
   'SUPABASE_URL',
   'SUPABASE_ANON_KEY',
-  'SYNC_EMAIL',
-  'SYNC_PASSWORD',
   'WEATHER_LAT',
   'WEATHER_LON'
 )

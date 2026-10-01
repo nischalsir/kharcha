@@ -7,10 +7,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/config/env.dart';
 import '../core/errors/app_failure.dart';
 import '../models/app_settings_model.dart';
+import '../services/biometric_service.dart';
 import '../services/cloudinary_service.dart';
 
 class AuthProvider extends ChangeNotifier {
-  AuthProvider();
+  AuthProvider({this._vault});
+
+  /// Device-side sign-in store: remembers which session a fingerprint opened.
+  /// Optional so the provider can be built in tests without a keystore.
+  final BiometricService? _vault;
 
   User? _user;
   Session? _session;
@@ -24,6 +29,17 @@ class AuthProvider extends ChangeNotifier {
   /// True when a password sign-in succeeded but the account has a verified
   /// authenticator factor, so a 6-digit code is still required (AAL1 → AAL2).
   bool _mfaPending = false;
+
+  /// The user whose session was opened by fingerprint on a device they had
+  /// already fully signed in on. For them the fingerprint stands in for the
+  /// authenticator code. Tied to one user id, so it can never open the gate
+  /// for a different account, and dropped at sign-out.
+  String? _trustedUserId;
+
+  /// Email of a fingerprint sign-in that is still in flight. Its auth event
+  /// can arrive before the call returns, and without this the code screen
+  /// would flash up for that instant.
+  String? _pendingTrustEmail;
 
   /// Work that must finish while the session is still authenticated. See
   /// [_runSignOutCleanups] for why this exists rather than a plain listener.
@@ -49,7 +65,10 @@ class AuthProvider extends ChangeNotifier {
   /// [isLoading] this must not flip back on for sign-in/sign-out, otherwise
   /// the auth wrapper would tear down the form the user is filling in.
   bool get isInitializing => _isInitializing;
-  bool get isAuthenticated => _user != null;
+
+  /// Signed in means holding a session. A user without one (an account that
+  /// still has to confirm its email) must not be let into the app.
+  bool get isAuthenticated => _user != null && _session != null;
   AppFailure? get failure => _failure;
   String? get error => _failure?.message;
   FailureKind? get errorKind => _failure?.kind;
@@ -156,7 +175,64 @@ class AuthProvider extends ChangeNotifier {
   bool get hasMfaEnabled => _verifiedFactors.isNotEmpty;
 
   /// True when a code must be entered to finish signing in.
-  bool get mfaPending => _mfaPending;
+  bool get mfaPending => requiresMfaCode(
+    stepUpNeeded: _mfaPending,
+    userId: _user?.id,
+    trustedUserId: _trustedForCurrentUser,
+  );
+
+  /// True when the server session itself has not had its authenticator code,
+  /// whether or not a fingerprint let the user in. Actions the server only
+  /// allows at the higher level (turning two-factor off) need the code first.
+  bool get mfaStepUpNeeded => _mfaPending;
+
+  /// The rule behind [mfaPending]: a code is needed unless this exact user's
+  /// session is a trusted one.
+  static bool requiresMfaCode({
+    required bool stepUpNeeded,
+    required String? userId,
+    required String? trustedUserId,
+  }) {
+    if (!stepUpNeeded) return false;
+    return userId == null || trustedUserId != userId;
+  }
+
+  String? get _trustedForCurrentUser {
+    final pending = _pendingTrustEmail;
+    if (pending != null && _user?.email?.toLowerCase() == pending) {
+      return _user?.id;
+    }
+    return _trustedUserId;
+  }
+
+  Future<void> _trust(String? userId) async {
+    if (userId == null) return;
+    _trustedUserId = userId;
+    try {
+      await _vault?.setMfaTrustedUser(userId);
+    } catch (_) {
+      // Keystore unavailable: trusted for this run only.
+    }
+  }
+
+  void _forgetTrust() {
+    _pendingTrustEmail = null;
+    if (_trustedUserId == null) return;
+    _trustedUserId = null;
+    final vault = _vault;
+    if (vault != null) {
+      unawaited(vault.setMfaTrustedUser(null).catchError((Object _) {}));
+    }
+  }
+
+  /// Notes on the device that the current account has fully signed in here,
+  /// so its fingerprint may stand in for the code from now on.
+  void _markDeviceTrusted() {
+    final email = _user?.email;
+    final vault = _vault;
+    if (email == null || vault == null) return;
+    unawaited(vault.markTrusted(email).catchError((Object _) {}));
+  }
 
   // Profile getters from Supabase user metadata
   String? get profileName {
@@ -234,6 +310,12 @@ class AuthProvider extends ChangeNotifier {
     }
 
     try {
+      _trustedUserId = await _vault?.mfaTrustedUser();
+    } catch (_) {
+      _trustedUserId = null;
+    }
+
+    try {
       final client = Supabase.instance.client;
       _session = client.auth.currentSession;
       _user = _session?.user;
@@ -242,6 +324,9 @@ class AuthProvider extends ChangeNotifier {
       client.auth.onAuthStateChange.listen((data) {
         _session = data.session;
         _user = data.session?.user;
+        // A session that ended any other way than signOut (expired, revoked)
+        // takes its trust with it.
+        if (data.session == null) _forgetTrust();
         _refreshMfaState();
         _isLoading = false;
         notifyListeners();
@@ -274,10 +359,12 @@ class AuthProvider extends ChangeNotifier {
       );
 
       _session = response.session;
-      _user = response.user;
+      // No session means the email still has to be confirmed. Keeping that
+      // user here would count as signed in and open the app with no session.
+      _user = response.session == null ? null : response.user;
       _refreshMfaState();
 
-      if (_user != null && _session == null) {
+      if (response.user != null && _session == null) {
         _failure = const AppFailure(
           FailureKind.syncFailed,
           'Please check your email to verify your account.',
@@ -294,9 +381,20 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> signIn({required String email, required String password}) async {
+  /// Signs in with a password.
+  ///
+  /// [trustedDevice] is for a fingerprint sign-in of an account that has
+  /// already fully signed in on this device: the fingerprint then stands in
+  /// for the authenticator code. A typed password never carries that trust.
+  Future<void> signIn({
+    required String email,
+    required String password,
+    bool trustedDevice = false,
+  }) async {
     _setLoading(true);
     _clearError();
+    _forgetTrust();
+    if (trustedDevice) _pendingTrustEmail = email.trim().toLowerCase();
 
     try {
       final client = _requireClient();
@@ -307,9 +405,12 @@ class AuthProvider extends ChangeNotifier {
 
       _session = response.session;
       _user = response.user;
+      if (trustedDevice) await _trust(response.user?.id);
+      _pendingTrustEmail = null;
       _refreshMfaState();
       notifyListeners();
     } catch (error) {
+      _pendingTrustEmail = null;
       _failure = _mapAuthError(error);
       notifyListeners();
       rethrow;
@@ -318,7 +419,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Maps Supabase auth errors to user-friendly messages.
   /// Whether [error] is the server refusing a new password because it is the
   /// same as the current one.
   static bool isSamePasswordError(Object error) {
@@ -327,6 +427,12 @@ class AuthProvider extends ChangeNotifier {
         error.message.toLowerCase().contains('different from the old');
   }
 
+  /// Whether [error] is the server rejecting the email/password pair, as
+  /// opposed to a network or server problem.
+  static bool isWrongCredentials(Object error) =>
+      error is AuthException && _isWrongPassword(error);
+
+  /// Maps Supabase auth errors to user-friendly messages.
   AppFailure _mapAuthError(Object error) {
     if (error is AuthException) {
       final message = error.message.toLowerCase();
@@ -434,6 +540,7 @@ class AuthProvider extends ChangeNotifier {
 
       _session = null;
       _user = null;
+      _forgetTrust();
       _refreshMfaState();
       notifyListeners();
     } catch (error) {
@@ -517,6 +624,12 @@ class AuthProvider extends ChangeNotifier {
         'This account has no email, so the password cannot be verified.',
       );
     }
+
+    // Signing in again starts a session that has not had its authenticator
+    // code. Someone already inside the app has passed that check, so they keep
+    // their place instead of being sent to the code screen for retyping a
+    // password.
+    if (isAuthenticated && !mfaPending) await _trust(_user?.id);
 
     try {
       final client = _requireClient();
@@ -870,6 +983,7 @@ class AuthProvider extends ChangeNotifier {
       _user = client.auth.currentUser;
       _session = client.auth.currentSession;
       _refreshMfaState();
+      _markDeviceTrusted();
       notifyListeners();
     } catch (error) {
       _failure = AppFailure.from(error);
@@ -899,6 +1013,7 @@ class AuthProvider extends ChangeNotifier {
       _user = client.auth.currentUser;
       _session = client.auth.currentSession;
       _refreshMfaState();
+      _markDeviceTrusted();
       notifyListeners();
     } catch (error) {
       _failure = AppFailure.from(error);

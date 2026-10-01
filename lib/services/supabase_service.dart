@@ -29,23 +29,13 @@ class SupabaseService {
     return client;
   }
 
-  Future<bool> ensureSession() async {
-    final client = _requireClient();
-    if (client.auth.currentSession != null) return true;
-    try {
-      if (Env.hasSyncCredentials) {
-        await client.auth.signInWithPassword(
-          email: Env.syncEmail,
-          password: Env.syncPassword,
-        );
-      } else {
-        await client.auth.signInAnonymously();
-      }
-      return client.auth.currentSession != null;
-    } catch (error) {
-      throw AppFailure.from(error);
-    }
-  }
+  /// Whether someone is signed in.
+  ///
+  /// Sync only ever acts as the account the user signed in with. It must never
+  /// open a session of its own: doing so put a different account (or a silent
+  /// guest) behind the login screen the moment a background sync ran after
+  /// sign-out, and that account's data then appeared as if it were the user's.
+  bool get hasSession => _client?.auth.currentSession != null;
 
   Future<void> upsertRows(
     SyncEntity entity,

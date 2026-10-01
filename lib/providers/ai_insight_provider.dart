@@ -192,6 +192,31 @@ class AiInsightProvider extends ChangeNotifier {
     return '${mood.label}|${mood.face.name}|${mood.tone.name}|${mood.weatherLabel}';
   }
 
+  /// Forgets everything that was worked out from one account's data: the
+  /// cached insight, the chat and the name. Called when a different account
+  /// takes over the device, before any of its screens are shown.
+  Future<void> resetForAccount() async {
+    _insight = null;
+    _lastGeneratedAt = null;
+    _lastNetworkAttempt = null;
+    _error = null;
+    _chat.clear();
+    _userName = null;
+    _isBirthday = false;
+    _reaction = null;
+    _reactionTimer?.cancel();
+    _recomputeLocal();
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_cacheKey);
+      await prefs.remove(_cacheAtKey);
+    } catch (_) {
+      // Best effort; the in-memory copy is already gone.
+    }
+    if (_bootstrapped) unawaited(refresh());
+  }
+
   /// Called by the Home widget with auth-derived context (name + birthday).
   void updateUser({String? name, required bool isBirthday}) {
     final changed = _userName != name || _isBirthday != isBirthday;

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
@@ -21,9 +23,61 @@ class BiometricCapability {
   final BiometricKind kind;
 }
 
-/// Sign-in security for the local account: the biometric prompt plus the
-/// encrypted credential vault that backs "remember me".
+/// One account that may be unlocked with this device's fingerprint/face.
+class BiometricAccount {
+  const BiometricAccount({
+    required this.email,
+    required this.password,
+    this.trusted = false,
+  });
+
+  final String email;
+  final String password;
+
+  /// True once this account has fully signed in on this device, including its
+  /// authenticator code when it has one. Only then may a fingerprint stand in
+  /// for that code: otherwise knowing the password alone would be enough to
+  /// enrol a fingerprint and skip two-factor sign-in.
+  final bool trusted;
+
+  BiometricAccount copyWith({String? password, bool? trusted}) =>
+      BiometricAccount(
+        email: email,
+        password: password ?? this.password,
+        trusted: trusted ?? this.trusted,
+      );
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'email': email,
+    'password': password,
+    'trusted': trusted,
+  };
+
+  static BiometricAccount? tryFromJson(Object? json) {
+    if (json is! Map) return null;
+    final email = json['email'];
+    final password = json['password'];
+    if (email is! String || email.isEmpty) return null;
+    if (password is! String || password.isEmpty) return null;
+    return BiometricAccount(
+      email: email,
+      password: password,
+      trusted: json['trusted'] == true,
+    );
+  }
+}
+
+/// Sign-in security kept on the device, in four separate pieces so one can
+/// never be mistaken for another:
 ///
+///  * the **biometric vault** - every account that may be unlocked with a
+///    fingerprint/face here, each with its own password;
+///  * the **remembered login** - the email prefilled on the sign-in form;
+///  * the **remember-me switch** - whether the session survives leaving the app;
+///  * the **trusted session** - which account's current session was opened by
+///    fingerprint in place of an authenticator code.
+///
+/// None of these is the active session: that belongs to Supabase alone.
 /// Everything is kept in the platform keystore/keychain (via
 /// `flutter_secure_storage`), never in plain preferences, so a stored password
 /// cannot be lifted off a rooted device or a backup.
@@ -34,16 +88,22 @@ class BiometricService {
   }) : _storage = storage ?? const FlutterSecureStorage(),
        _localAuth = localAuth ?? LocalAuthentication();
 
-  static const String _emailKey = 'kharcha_auth_email';
-  static const String _passwordKey = 'kharcha_auth_password';
-  static const String _enabledKey = 'kharcha_biometric_enabled';
+  static const String _accountsKey = 'kharcha_biometric_accounts';
+  static const String _rememberedEmailKey = 'kharcha_remembered_email';
   static const String _rememberKey = 'kharcha_remember_me';
   static const String _promptedKey = 'kharcha_biometric_prompt_seen';
+  static const String _trustedUserKey = 'kharcha_mfa_trusted_user';
+
+  // Single-account layout used up to v1.0.8, read once by [_migrateLegacy].
+  static const String _legacyEmailKey = 'kharcha_auth_email';
+  static const String _legacyPasswordKey = 'kharcha_auth_password';
+  static const String _legacyEnabledKey = 'kharcha_biometric_enabled';
 
   final FlutterSecureStorage _storage;
   final LocalAuthentication _localAuth;
 
   BiometricCapability? _capability;
+  Future<void>? _migration;
 
   /// Resolves (and caches) whether this device can actually prompt for
   /// biometrics — hardware support *and* at least one enrolled fingerprint/face.
@@ -97,39 +157,108 @@ class BiometricService {
     }
   }
 
-  /// Stores the credentials used to complete a biometric sign-in.
-  Future<void> saveCredentials({
+  // ---------------------------------------------------------------------------
+  // Biometric vault
+  // ---------------------------------------------------------------------------
+
+  static String _normalize(String email) => email.trim().toLowerCase();
+
+  /// Every account that can be unlocked with a fingerprint/face on this
+  /// device. The fingerprint belongs to the phone, not to an account, so with
+  /// more than one entry the user has to say which account they mean.
+  Future<List<BiometricAccount>> accounts() async {
+    await _migrateLegacy();
+    final raw = await _read(_accountsKey);
+    if (raw == null || raw.isEmpty) return const <BiometricAccount>[];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const <BiometricAccount>[];
+      return <BiometricAccount>[
+        for (final item in decoded) ?BiometricAccount.tryFromJson(item),
+      ];
+    } catch (_) {
+      return const <BiometricAccount>[];
+    }
+  }
+
+  Future<void> _writeAccounts(List<BiometricAccount> accounts) async {
+    if (accounts.isEmpty) {
+      await _delete(_accountsKey);
+      return;
+    }
+    await _storage.write(
+      key: _accountsKey,
+      value: jsonEncode(<Map<String, dynamic>>[
+        for (final account in accounts) account.toJson(),
+      ]),
+    );
+  }
+
+  /// Whether any account can be unlocked with biometrics on this device.
+  Future<bool> isEnabled() async => (await accounts()).isNotEmpty;
+
+  /// Whether [email] specifically can be unlocked with biometrics.
+  Future<bool> isEnabledFor(String? email) async {
+    if (email == null || email.isEmpty) return false;
+    final wanted = _normalize(email);
+    return (await accounts()).any((a) => _normalize(a.email) == wanted);
+  }
+
+  /// Turns biometric sign-in on for one account, replacing any earlier entry
+  /// for the same email. Other accounts in the vault are left alone.
+  Future<void> enable({
     required String email,
     required String password,
+    bool trusted = false,
   }) async {
-    await _storage.write(key: _emailKey, value: email.trim());
-    await _storage.write(key: _passwordKey, value: password);
+    final wanted = _normalize(email);
+    final list = (await accounts())
+        .where((a) => _normalize(a.email) != wanted)
+        .toList();
+    list.add(
+      BiometricAccount(
+        email: email.trim(),
+        password: password,
+        trusted: trusted,
+      ),
+    );
+    await _writeAccounts(list);
   }
 
-  /// The stored sign-in pair, or null when nothing is remembered.
-  Future<({String email, String password})?> readCredentials() async {
-    final String? email = await _read(_emailKey);
-    final String? password = await _read(_passwordKey);
-    if (email == null ||
-        email.isEmpty ||
-        password == null ||
-        password.isEmpty) {
-      return null;
-    }
-    return (email: email, password: password);
+  /// Turns biometric sign-in off for [email] only and forgets its password.
+  Future<void> disable(String email) async {
+    final wanted = _normalize(email);
+    final list = await accounts();
+    final kept = list.where((a) => _normalize(a.email) != wanted).toList();
+    if (kept.length != list.length) await _writeAccounts(kept);
   }
 
-  Future<bool> hasCredentials() async => (await readCredentials()) != null;
+  /// Keeps the vault's copy in step after a password change. Does nothing for
+  /// an account that is not in the vault.
+  Future<void> updatePassword({
+    required String email,
+    required String password,
+  }) => _update(email, (account) => account.copyWith(password: password));
 
-  Future<void> clearCredentials() async {
-    await _delete(_emailKey);
-    await _delete(_passwordKey);
+  /// Records that [email] has completed a full sign-in on this device.
+  Future<void> markTrusted(String email) =>
+      _update(email, (account) => account.copyWith(trusted: true));
+
+  Future<void> _update(
+    String email,
+    BiometricAccount Function(BiometricAccount) change,
+  ) async {
+    final wanted = _normalize(email);
+    final list = (await accounts()).toList();
+    final index = list.indexWhere((a) => _normalize(a.email) == wanted);
+    if (index < 0) return;
+    list[index] = change(list[index]);
+    await _writeAccounts(list);
   }
 
-  Future<bool> isEnabled() async => (await _read(_enabledKey)) == 'true';
-
-  Future<void> setEnabled(bool value) =>
-      _storage.write(key: _enabledKey, value: value ? 'true' : 'false');
+  // ---------------------------------------------------------------------------
+  // Remembered login
+  // ---------------------------------------------------------------------------
 
   /// "Remember me" — keeps the session (and the remembered email) across app
   /// restarts. When off the session is dropped as soon as the app is backgrounded.
@@ -138,7 +267,23 @@ class BiometricService {
   Future<void> setRememberMe(bool value) =>
       _storage.write(key: _rememberKey, value: value ? 'true' : 'false');
 
-  Future<String?> lastEmail() => _read(_emailKey);
+  /// The email to prefill on the sign-in form: the account that last signed
+  /// in or out here. Independent of the biometric vault on purpose, so
+  /// enrolling a second account's fingerprint cannot change it.
+  Future<String?> rememberedEmail() async {
+    await _migrateLegacy();
+    final email = await _read(_rememberedEmailKey);
+    return email == null || email.isEmpty ? null : email;
+  }
+
+  Future<void> setRememberedEmail(String? email) async {
+    await _migrateLegacy();
+    if (email == null || email.trim().isEmpty) {
+      await _delete(_rememberedEmailKey);
+    } else {
+      await _storage.write(key: _rememberedEmailKey, value: email.trim());
+    }
+  }
 
   /// True once the "enable biometrics" suggestion has been shown after signup,
   /// so the user is only ever asked once.
@@ -147,18 +292,52 @@ class BiometricService {
   Future<void> markSuggested() =>
       _storage.write(key: _promptedKey, value: 'true');
 
-  /// Turns biometric sign-in on for the given account, storing what is needed
-  /// to complete a later fingerprint/face sign-in.
-  Future<void> enable({required String email, required String password}) async {
-    await saveCredentials(email: email, password: password);
-    await setEnabled(true);
+  // ---------------------------------------------------------------------------
+  // Trusted session
+  // ---------------------------------------------------------------------------
+
+  /// The user whose current session was opened by fingerprint in place of an
+  /// authenticator code, or null. Cleared on sign-out.
+  Future<String?> mfaTrustedUser() => _read(_trustedUserKey);
+
+  Future<void> setMfaTrustedUser(String? userId) async {
+    if (userId == null || userId.isEmpty) {
+      await _delete(_trustedUserKey);
+    } else {
+      await _storage.write(key: _trustedUserKey, value: userId);
+    }
   }
 
-  /// Turns biometric sign-in off and forgets the stored password. The email is
-  /// kept so "remember me" can still prefill the next sign-in form.
-  Future<void> disable() async {
-    await setEnabled(false);
-    await _delete(_passwordKey);
+  // ---------------------------------------------------------------------------
+
+  /// Moves the single-account layout into the vault, once. The old email was
+  /// both "remembered login" and "biometric account"; it becomes each
+  /// separately. A migrated account is not [BiometricAccount.trusted] until it
+  /// next signs in fully.
+  Future<void> _migrateLegacy() => _migration ??= _runMigration();
+
+  Future<void> _runMigration() async {
+    final email = await _read(_legacyEmailKey);
+    final password = await _read(_legacyPasswordKey);
+    final enabled = await _read(_legacyEnabledKey);
+    if (email == null && password == null && enabled == null) return;
+
+    if (email != null && email.isNotEmpty) {
+      if ((await _read(_rememberedEmailKey)) == null) {
+        await _storage.write(key: _rememberedEmailKey, value: email);
+      }
+      if (enabled == 'true' &&
+          password != null &&
+          password.isNotEmpty &&
+          (await _read(_accountsKey)) == null) {
+        await _writeAccounts(<BiometricAccount>[
+          BiometricAccount(email: email, password: password),
+        ]);
+      }
+    }
+    await _delete(_legacyEmailKey);
+    await _delete(_legacyPasswordKey);
+    await _delete(_legacyEnabledKey);
   }
 
   Future<String?> _read(String key) async {

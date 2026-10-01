@@ -347,6 +347,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (confirmed != true || !mounted) return;
 
+    // The server only removes a factor from a session that has had its code.
+    // A fingerprint sign-in skips that step, so ask for it now.
+    if (auth.mfaStepUpNeeded) {
+      final verified = await _confirmAuthenticatorCode(auth);
+      if (!verified || !mounted) return;
+    }
+
     setState(() => _togglingTwoFactor = true);
     try {
       for (final factor in factors) {
@@ -366,6 +373,82 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _togglingTwoFactor = false);
     }
+  }
+
+  /// Asks for the current authenticator code and verifies it. Returns false
+  /// when cancelled.
+  Future<bool> _confirmAuthenticatorCode(AuthProvider auth) async {
+    final controller = TextEditingController();
+    String? error;
+    bool busy = false;
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(
+            dialogContext.t('Enter your code', 'आफ्नो कोड लेख्नुहोस्'),
+          ),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: InputDecoration(
+              labelText: dialogContext.t(
+                'Authentication code',
+                'प्रमाणीकरण कोड',
+              ),
+              hintText: '000000',
+              counterText: '',
+              errorText: error,
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: busy
+                  ? null
+                  : () => Navigator.pop(dialogContext, false),
+              child: Text(dialogContext.t('Cancel', 'रद्द गर्नुहोस्')),
+            ),
+            FilledButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      final code = controller.text.trim();
+                      if (code.length != 6) {
+                        setDialogState(
+                          () => error = dialogContext.t(
+                            'Enter the 6-digit code',
+                            '६ अंकको कोड लेख्नुहोस्',
+                          ),
+                        );
+                        return;
+                      }
+                      setDialogState(() {
+                        busy = true;
+                        error = null;
+                      });
+                      try {
+                        await auth.verifyMfa(code);
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext, true);
+                        }
+                      } catch (err) {
+                        if (!dialogContext.mounted) return;
+                        setDialogState(() {
+                          busy = false;
+                          error = AppFailure.from(err).message;
+                        });
+                      }
+                    },
+              child: Text(dialogContext.t('Verify', 'प्रमाणित गर्नुहोस्')),
+            ),
+          ],
+        ),
+      ),
+    );
+    return ok == true;
   }
 
   void _open(BuildContext context, Widget page) {
@@ -720,13 +803,6 @@ class _SettingTile extends StatelessWidget {
 
 enum _AvatarAction { camera, gallery, remove }
 
-class _PasswordEntry {
-  const _PasswordEntry(this.email, this.password);
-
-  final String email;
-  final String password;
-}
-
 /// Biometric sign-in, "remember me" and sign-out for the local account.
 /// Notifications: the OS permission, and whether the AI is allowed to send
 /// anything at all.
@@ -967,8 +1043,11 @@ class _SecurityCardState extends State<_SecurityCard> {
 
   Future<void> _load() async {
     final BiometricService biometric = context.read<BiometricService>();
+    final String? email = context.read<AuthProvider>().userEmail;
     final BiometricCapability capability = await biometric.capability();
-    final bool enabled = await biometric.isEnabled();
+    // This switch is for the signed-in account only. Another account on the
+    // same phone having fingerprint sign-in says nothing about this one.
+    final bool enabled = await biometric.isEnabledFor(email);
     final bool remember = await biometric.rememberMe();
     if (!mounted) return;
     setState(() {
@@ -981,9 +1060,15 @@ class _SecurityCardState extends State<_SecurityCard> {
   Future<void> _toggleBiometric(bool value) async {
     if (_busy) return;
     final BiometricService biometric = context.read<BiometricService>();
+    final AuthProvider auth = context.read<AuthProvider>();
+    final String? email = auth.userEmail;
+    if (email == null || email.isEmpty) {
+      showMessage(context, 'Create an account to use biometric sign-in.');
+      return;
+    }
 
     if (!value) {
-      await biometric.disable();
+      await biometric.disable(email);
       if (!mounted) return;
       setState(() => _biometricEnabled = false);
       showMessage(context, 'Biometric sign-in turned off.');
@@ -1005,13 +1090,13 @@ class _SecurityCardState extends State<_SecurityCard> {
       );
       if (!verified) return;
 
-      // Reuse the stored pair when there is one, otherwise the password has to
-      // be re-entered before it can be sealed into the keystore.
-      _PasswordEntry? entry = await _storedEntry(biometric);
-      entry ??= await _promptForPassword();
-      if (entry == null) return;
+      // The password has to be typed once more before it can be sealed into
+      // the keystore, and it is checked against this account only.
+      final String? password = await _promptForPassword(email);
+      if (password == null) return;
 
-      await biometric.enable(email: entry.email, password: entry.password);
+      // Being inside the app means this account has fully signed in here.
+      await biometric.enable(email: email, password: password, trusted: true);
       if (!mounted) return;
       setState(() => _biometricEnabled = true);
       showMessage(context, '${_capability.kind.label} sign-in is ready.');
@@ -1020,17 +1105,13 @@ class _SecurityCardState extends State<_SecurityCard> {
     }
   }
 
-  Future<_PasswordEntry?> _storedEntry(BiometricService biometric) async {
-    final stored = await biometric.readCredentials();
-    if (stored == null) return null;
-    return _PasswordEntry(stored.email, stored.password);
-  }
-
-  Future<_PasswordEntry?> _promptForPassword() async {
+  /// Asks for the signed-in account's password and returns it once the server
+  /// has accepted it, or null when cancelled.
+  ///
+  /// There is no email field on purpose: checking a different email here would
+  /// sign that account in underneath the settings screen.
+  Future<String?> _promptForPassword(String email) async {
     final AuthProvider auth = context.read<AuthProvider>();
-    final TextEditingController emailController = TextEditingController(
-      text: auth.userEmail ?? '',
-    );
     final TextEditingController passwordController = TextEditingController();
     String? error;
     bool busy = false;
@@ -1043,16 +1124,14 @@ class _SecurityCardState extends State<_SecurityCard> {
           title: const Text('Confirm your password'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email'),
-              ),
+              Text(email, style: Theme.of(dialogContext).textTheme.bodySmall),
               const SizedBox(height: 12),
               TextField(
                 controller: passwordController,
                 obscureText: true,
+                autofocus: true,
                 decoration: InputDecoration(
                   labelText: 'Password',
                   errorText: error,
@@ -1071,12 +1150,9 @@ class _SecurityCardState extends State<_SecurityCard> {
               onPressed: busy
                   ? null
                   : () async {
-                      final String email = emailController.text.trim();
                       final String password = passwordController.text;
-                      if (email.isEmpty || password.isEmpty) {
-                        setDialogState(
-                          () => error = 'Enter your email and password',
-                        );
+                      if (password.isEmpty) {
+                        setDialogState(() => error = 'Enter your password');
                         return;
                       }
                       setDialogState(() {
@@ -1084,9 +1160,7 @@ class _SecurityCardState extends State<_SecurityCard> {
                         error = null;
                       });
                       try {
-                        // Supabase has no "check password" call, so the pair is
-                        // validated by signing in again.
-                        await auth.signIn(email: email, password: password);
+                        await auth.verifyCurrentPassword(password);
                         if (dialogContext.mounted) {
                           Navigator.of(dialogContext).pop(true);
                         }
@@ -1098,15 +1172,15 @@ class _SecurityCardState extends State<_SecurityCard> {
                         });
                       }
                     },
-              child: Text(busy ? 'Verifyingâ€¦' : 'Enable'),
+              child: Text(busy ? 'Verifying…' : 'Enable'),
             ),
           ],
         ),
       ),
     );
 
-    if (confirmed != true) return null;
-    return _PasswordEntry(emailController.text.trim(), passwordController.text);
+    final String password = passwordController.text;
+    return confirmed == true ? password : null;
   }
 
   Future<void> _toggleRememberMe(bool value) async {

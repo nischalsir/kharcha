@@ -54,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final BiometricCapability capability = await biometric.capability();
     final bool remember = await biometric.rememberMe();
     final bool enabled = await biometric.isEnabled();
-    final String? savedEmail = await biometric.lastEmail();
+    final String? savedEmail = await biometric.rememberedEmail();
     if (!mounted) return;
     setState(() {
       _capability = capability;
@@ -110,7 +110,8 @@ class _LoginScreenState extends State<LoginScreen> {
     required String email,
     required String password,
   }) async {
-    if (!_rememberMe || _biometricEnabled || !_capability.available) return;
+    if (!_rememberMe || !_capability.available) return;
+    if (await biometric.isEnabledFor(email)) return;
     if (await biometric.wasSuggested()) return;
     await biometric.markSuggested();
     if (!mounted) return;
@@ -150,14 +151,21 @@ class _LoginScreenState extends State<LoginScreen> {
     final bool verified = await biometric.authenticate(
       reason: 'Enable $kind sign-in',
     );
-    if (!verified) return;
-    await biometric.enable(email: email, password: password);
+    if (!verified || !mounted) return;
+    // Only an account that has finished signing in, authenticator code
+    // included, may later use the fingerprint in place of that code.
+    final bool fullySignedIn = !context.read<AuthProvider>().mfaPending;
+    await biometric.enable(
+      email: email,
+      password: password,
+      trusted: fullySignedIn,
+    );
     if (mounted) setState(() => _biometricEnabled = true);
   }
 
-  /// "Remember me" keeps the account in the encrypted vault so the next launch
-  /// can prefill it and (when enabled) unlock with a fingerprint instead of
-  /// typing the password again.
+  /// Records who just signed in: the email to prefill next time, and a fresh
+  /// password for this account's fingerprint entry if it has one. Each is
+  /// keyed to this account, so another account's entries are never touched.
   Future<void> _persistLogin(
     BiometricService biometric, {
     required String email,
@@ -165,9 +173,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }) async {
     await biometric.setRememberMe(_rememberMe);
     if (_rememberMe) {
-      await biometric.saveCredentials(email: email, password: password);
+      await biometric.setRememberedEmail(email);
+      await biometric.updatePassword(email: email, password: password);
     } else {
-      await biometric.disable();
+      await biometric.setRememberedEmail(null);
+      await biometric.disable(email);
     }
   }
 
@@ -175,29 +185,53 @@ class _LoginScreenState extends State<LoginScreen> {
     final AuthProvider auth = context.read<AuthProvider>();
     final BiometricService biometric = context.read<BiometricService>();
 
-    final credentials = await biometric.readCredentials();
-    if (credentials == null) {
+    final accounts = await biometric.accounts();
+    if (accounts.isEmpty) {
       auth.setError(
         FailureKind.syncFailed,
         'No saved account. Sign in with your password first.',
       );
+      if (mounted) setState(() => _biometricEnabled = false);
       return;
     }
 
     setState(() => _isLoading = true);
     auth.clearError();
+    BiometricAccount? account;
     try {
       final bool verified = await biometric.authenticate(
         reason: 'Unlock your Kharcha account',
       );
-      if (!verified) return;
+      if (!verified || !mounted) return;
+      // The fingerprint proves who holds the phone, not which account they
+      // mean, so with several accounts the user has to say.
+      account = await chooseBiometricAccount(context, accounts);
+      if (account == null) return;
       await auth.signIn(
-        email: credentials.email,
-        password: credentials.password,
+        email: account.email,
+        password: account.password,
+        trustedDevice: account.trusted,
       );
+      if (await biometric.rememberMe()) {
+        await biometric.setRememberedEmail(account.email);
+      }
       if (mounted) _returnToShell();
-    } catch (_) {
-      // The failure is already exposed through AuthProvider.
+    } catch (error) {
+      // The failure is already exposed through AuthProvider. A password that
+      // was changed elsewhere can never work again, so that entry is removed
+      // rather than left to fail on every tap.
+      if (account != null && AuthProvider.isWrongCredentials(error)) {
+        await biometric.disable(account.email);
+        final bool any = await biometric.isEnabled();
+        if (mounted) {
+          setState(() => _biometricEnabled = any);
+          auth.setError(
+            FailureKind.syncFailed,
+            'The saved password for ${account.email} no longer works. '
+            'Sign in with your password.',
+          );
+        }
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

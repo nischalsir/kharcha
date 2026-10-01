@@ -28,6 +28,18 @@ class _VersionScreenState extends State<VersionScreen> {
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
     (
+      'Several accounts can use fingerprint sign-in on one phone',
+      'एउटै फोनमा धेरै खाताले फिंगरप्रिन्ट साइन इन प्रयोग गर्न सक्छन्',
+    ),
+    (
+      'Fingerprint sign-in no longer asks for the authenticator code',
+      'फिंगरप्रिन्ट साइन इनमा अब प्रमाणक कोड सोधिँदैन',
+    ),
+    (
+      'Switching accounts never shows another account’s data',
+      'खाता बदल्दा अर्को खाताको डाटा कहिल्यै देखिँदैन',
+    ),
+    (
       'A picture for every festival in the calendar',
       'पात्रोमा हरेक चाडपर्वको तस्बिर',
     ),

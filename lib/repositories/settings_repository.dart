@@ -60,6 +60,20 @@ class SettingsRepository {
     await _cache.writeBoolSetting(_seedFlag, true);
   }
 
+  /// Gives an account that has just taken over the cache its built-in
+  /// categories and payment methods, if it turned out to have none.
+  ///
+  /// Call only after that account's own data has been fetched: seeding first
+  /// would upload the defaults over whatever the account already customised.
+  Future<void> reseedDefaults() async {
+    await _cache.writeBoolSetting(_seedFlag, false);
+    await ensureDefaults();
+  }
+
+  /// Leaves the seeding to the next launch, for when the account's data could
+  /// not be fetched and it is unknown whether it has categories of its own.
+  Future<void> deferDefaults() => _cache.writeBoolSetting(_seedFlag, false);
+
   List<CategoryModel> categories({CategoryKind? kind}) {
     final list =
         readTyped<CategoryModel>(
