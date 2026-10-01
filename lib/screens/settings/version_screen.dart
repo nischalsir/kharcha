@@ -27,25 +27,25 @@ class _VersionScreenState extends State<VersionScreen> {
 
   /// What changed in the installed version. Update with each release.
   static const List<(String, String)> _whatsNew = <(String, String)>[
+    ('Updates download directly from this page', 'अपडेट यही पृष्ठबाट सिधै डाउनलोड हुन्छ'),
+    ('Profile photo upload fixed', 'प्रोफाइल फोटो अपलोड ठीक भयो'),
     ('Budgets rebuilt: edit, delete, daily allowance', 'बजेट नयाँ: सम्पादन, मेटाउने, दैनिक सीमा'),
-    ('Category and weekly budgets now work', 'श्रेणी र साप्ताहिक बजेट अब चल्छ'),
     ('Two-factor sign-in switch', 'दुई-चरण साइन इन स्विच'),
-    ('No more false "update available"', 'गलत "अपडेट उपलब्ध" हटाइयो'),
   ];
 
   Future<void> _checkForUpdate() async {
     setState(() => _checking = true);
-    final latest = await UpdateService().checkForUpdate();
+    final update = await UpdateService().checkForUpdate();
     if (!mounted) return;
     setState(() => _checking = false);
-    if (latest == null) {
+    if (update == null) {
       showMessage(
         context,
         context.t('You have the latest version.', 'तपाईंसँग नवीनतम संस्करण छ।'),
       );
       return;
     }
-    await UpdateService().maybeShowUpdateDialog(context);
+    await UpdateService.showUpdateDialog(context, update);
   }
 
   Future<void> _open(String url) async {

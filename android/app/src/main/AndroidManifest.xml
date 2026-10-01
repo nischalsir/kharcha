@@ -84,6 +84,20 @@
             android:resource="@color/notification_accent" />
     </application>
     <queries>
+        <!-- Lets the app open links, the mail app and the dialer (Android 11+
+             hides other apps unless the intents are declared here). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />

@@ -1,64 +1,95 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
-import '../core/l10n/app_l10n.dart';
 import '../core/app_info.dart';
+import '../core/l10n/app_l10n.dart';
+
+/// A newer release than the one installed.
+class UpdateInfo {
+  const UpdateInfo({required this.version, required this.downloadUrl});
+
+  final String version;
+
+  /// The release's APK when it has one, otherwise the release page.
+  final String downloadUrl;
+}
 
 class UpdateService {
-  UpdateService({http.Client? client})
-      : _client = client ?? http.Client();
+  UpdateService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
   static const String _repo = 'nischalsir/kharcha';
-  static const String _releasesUrl = 'https://api.github.com/repos/$_repo/releases/latest';
+  static const String _releasesUrl =
+      'https://api.github.com/repos/$_repo/releases/latest';
+  static const String _fallbackPage =
+      'https://github.com/$_repo/releases/latest';
 
-  /// Checks if a newer version is available on GitHub.
-  /// Returns the latest version string if an update is available, null otherwise.
-  Future<String?> checkForUpdate() async {
+  /// The latest GitHub release if it is newer than the installed app, or null
+  /// when up to date (or the check could not be made).
+  Future<UpdateInfo?> checkForUpdate() async {
     try {
-      final response = await _client.get(
-        Uri.parse(_releasesUrl),
-        headers: {'Accept': 'application/vnd.github.v3+json'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await _client
+          .get(
+            Uri.parse(_releasesUrl),
+            headers: <String, String>{
+              'Accept': 'application/vnd.github.v3+json',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return null;
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final latestTag = data['tag_name'] as String?; // e.g., "v1.0.1"
-        if (latestTag != null && latestTag.isNotEmpty) {
-          final latestVersion = latestTag.startsWith('v')
-              ? latestTag.substring(1)
-              : latestTag;
-          if (_isNewer(latestVersion, AppInfo.version)) {
-            return latestVersion;
+      final data = jsonDecode(response.body);
+      if (data is! Map) return null;
+      final tag = data['tag_name'];
+      if (tag is! String || tag.isEmpty) return null;
+      final version = tag.startsWith('v') ? tag.substring(1) : tag;
+      if (!_isNewer(version, AppInfo.version)) return null;
+
+      // Link straight to the APK so "Update" starts the download, instead of
+      // dropping the user on a web page to hunt for the file.
+      String? apk;
+      final assets = data['assets'];
+      if (assets is List) {
+        for (final asset in assets) {
+          if (asset is! Map) continue;
+          final name = '${asset['name'] ?? ''}'.toLowerCase();
+          final url = asset['browser_download_url'];
+          if (name.endsWith('.apk') && url is String && url.isNotEmpty) {
+            apk = url;
+            break;
           }
         }
       }
+      final page = data['html_url'];
+      return UpdateInfo(
+        version: version,
+        downloadUrl: apk ?? (page is String ? page : _fallbackPage),
+      );
     } catch (_) {
-      // Silently fail - update check is non-critical
+      // The update check is never worth interrupting the user for.
+      return null;
     }
-    return null;
   }
 
   /// Shows an update dialog if a newer version is available.
   Future<void> maybeShowUpdateDialog(BuildContext context) async {
-    final latest = await checkForUpdate();
-    if (latest == null || !context.mounted) return;
+    final update = await checkForUpdate();
+    if (update == null || !context.mounted) return;
+    await showUpdateDialog(context, update);
+  }
 
-    await showDialog<void>(
+  static Future<void> showUpdateDialog(BuildContext context, UpdateInfo update) {
+    return showDialog<void>(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => _UpdateDialog(
-        currentVersion: AppInfo.version,
-        latestVersion: latest,
-        releaseUrl: 'https://github.com/$_repo/releases/latest',
-      ),
+      builder: (context) => _UpdateDialog(update: update),
     );
   }
 
-  bool _isNewer(String latest, String current) {
+  static bool _isNewer(String latest, String current) {
     final latestParts = latest.split('.').map(int.tryParse).toList();
     final currentParts = current.split('.').map(int.tryParse).toList();
     for (int i = 0; i < 3; i++) {
@@ -72,51 +103,68 @@ class UpdateService {
 }
 
 class _UpdateDialog extends StatelessWidget {
-  const _UpdateDialog({
-    required this.currentVersion,
-    required this.latestVersion,
-    required this.releaseUrl,
-  });
+  const _UpdateDialog({required this.update});
 
-  final String currentVersion;
-  final String latestVersion;
-  final String releaseUrl;
+  final UpdateInfo update;
+
+  /// Opens the download in the browser. Launched directly: gating on
+  /// `canLaunchUrl` returns false on Android 11+ unless the manifest declares
+  /// the intent, which made this button silently do nothing.
+  Future<void> _download(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final copied = L10n.t(
+      context,
+      'Could not open the browser. Download link copied.',
+      'ब्राउजर खोल्न सकिएन। डाउनलोड लिङ्क कपी भयो।',
+    );
+    Navigator.of(context).pop();
+    var opened = false;
+    try {
+      opened = await launchUrl(
+        Uri.parse(update.downloadUrl),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      opened = false;
+    }
+    if (opened) return;
+    await Clipboard.setData(ClipboardData(text: update.downloadUrl));
+    messenger.showSnackBar(SnackBar(content: Text(copied)));
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
       title: Row(
-        children: [
+        children: <Widget>[
           Icon(Icons.system_update_rounded, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
-          Text(L10n.t(context, 'Update Available', 'अपडेट उपलब्ध छ')),
+          Flexible(
+            child: Text(L10n.t(context, 'Update available', 'अपडेट उपलब्ध छ')),
+          ),
         ],
       ),
       content: Text(
         L10n.t(
           context,
-          'A new version ($latestVersion) is available. You are on $currentVersion. '
-          'Tap "Update Now" to download the latest APK.',
-          'नयाँ संस्करण ($latestVersion) उपलब्ध छ। तपाईं $currentVersion मा हुनुहुन्छ। '
-          'नयाँ APK डाउनलोड गर्न "अहिले अपडेट गर्नुहोस्" थिच्नुहोस्।',
+          'Version ${update.version} is available. You are on '
+              '${AppInfo.version}. The download starts in your browser; open '
+              'the file when it finishes to install.',
+          'संस्करण ${update.version} उपलब्ध छ। तपाईं ${AppInfo.version} मा '
+              'हुनुहुन्छ। डाउनलोड ब्राउजरमा सुरु हुन्छ; सकिएपछि फाइल खोलेर '
+              'इन्स्टल गर्नुहोस्।',
         ),
       ),
-      actions: [
+      actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(L10n.t(context, 'Later', 'पछि')),
         ),
         FilledButton.icon(
           icon: const Icon(Icons.download_rounded),
-          label: Text(L10n.t(context, 'Update Now', 'अहिले अपडेट गर्नुहोस्')),
-          onPressed: () async {
-            Navigator.of(context).pop();
-            final uri = Uri.parse(releaseUrl);
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-            }
-          },
+          label: Text(L10n.t(context, 'Download', 'डाउनलोड')),
+          onPressed: () => _download(context),
         ),
       ],
     );

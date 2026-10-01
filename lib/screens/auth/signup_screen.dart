@@ -325,8 +325,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     validator: (value) {
                       final email = value?.trim() ?? '';
-                      if (email.isEmpty)
+                      if (email.isEmpty) {
                         return context.t('Email is required', 'इमेल आवश्यक छ');
+                      }
                       if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,}$')
                           .hasMatch(email)) {
                         return context.t(
@@ -363,11 +364,12 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     validator: (value) {
                       final password = value ?? '';
-                      if (password.isEmpty)
+                      if (password.isEmpty) {
                         return context.t(
                           'Password is required',
                           'पासवर्ड आवश्यक छ',
                         );
+                      }
                       if (password.length < 6) {
                         return context.t(
                           'Password must be at least 6 characters',
