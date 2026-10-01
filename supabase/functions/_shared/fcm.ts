@@ -57,8 +57,12 @@ export function readServiceAccount(): ServiceAccount | null {
 
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
   // Strip the PEM armour and decode to DER for WebCrypto, which only takes
-  // PKCS#8 bytes.
+  // PKCS#8 bytes. A key pasted into the dashboard or a shell often arrives with
+  // its newlines double-escaped, leaving literal `\n` pairs after JSON.parse;
+  // those are not whitespace, so they are turned back into newlines first or
+  // atob() fails with "Failed to decode base64".
   const body = pem
+    .replace(/\\[rn]/g, '\n')
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')
     .replace(/\s+/g, '');
@@ -216,13 +220,16 @@ export async function sendMessage(message: FcmMessage): Promise<SendResult> {
     let code = `HTTP_${response.status}`;
     try {
       const payload = await response.json();
+      // The FCM-specific `errorCode` in `details` wins over the generic gRPC
+      // `status`: an uninstalled app comes back as status NOT_FOUND with
+      // errorCode UNREGISTERED, and only the latter marks the token as dead.
+      const details = Array.isArray(payload?.error?.details)
+        ? payload.error.details as Array<{ errorCode?: unknown }>
+        : [];
+      const match = details.find((detail) => typeof detail?.errorCode === 'string');
       const status = payload?.error?.status;
-      if (typeof status === 'string') code = status;
-      else if (Array.isArray(payload?.error?.details)) {
-        const details = payload.error.details as Array<{ errorCode?: unknown }>;
-        const match = details.find((detail) => typeof detail?.errorCode === 'string');
-        if (typeof match?.errorCode === 'string') code = match.errorCode;
-      }
+      if (typeof match?.errorCode === 'string') code = match.errorCode;
+      else if (typeof status === 'string') code = status;
     } catch {
       // Non-JSON error body; the HTTP status is enough to classify.
     }
