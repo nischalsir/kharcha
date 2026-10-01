@@ -68,3 +68,9 @@ kharcha-35c62-firebase-adminsdk-*.json
 /*.xls
 /*.xlsx
 /*.csv
+
+# Node dependencies (e.g. firebase/rules-tests/node_modules)
+node_modules/
+
+# Local agent scratch files
+__agent__/
