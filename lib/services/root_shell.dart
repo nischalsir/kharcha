@@ -8,6 +8,7 @@ import '../providers/friend_provider.dart';
 import '../widgets/common/app_bottom_nav.dart';
 import '../widgets/common/glass_background.dart';
 import '../widgets/common/root_drawer.dart';
+import '../widgets/common/whats_new_dialog.dart';
 import '../screens/friends/friends_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/more/more_screen.dart';
@@ -36,7 +37,11 @@ class _RootShellState extends State<RootShell>
     super.initState();
     AppNavRouteObserver.bind(_nav);
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkMessages());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkMessages();
+      // Once after an update: what changed in this version.
+      if (mounted) unawaited(maybeShowWhatsNew(context));
+    });
   }
 
   /// Looks for payment alerts that arrived by text since the last look. Does

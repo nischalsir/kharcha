@@ -10,13 +10,14 @@ import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/update_dialog.dart';
+import '../../widgets/common/whats_new_dialog.dart';
 
 /// About the app: what it is, what changed, how to update, who made it.
 class VersionScreen extends StatefulWidget {
   const VersionScreen({super.key});
 
   static const String developerName = 'Nischal Pandey';
-  static const String instagramUrl = 'https://instagram.com/nischalsir';
+  static const String instagramUrl = WhatsNew.instagramUrl;
   static const String repoUrl = 'https://github.com/nischalsir/kharcha';
   static const String releasesUrl = '$repoUrl/releases';
 
@@ -35,176 +36,9 @@ class _VersionScreenState extends State<VersionScreen> {
     });
   }
 
-  /// What changed in the installed version. Update with each release.
-  static const List<(String, String)> _whatsNew = <(String, String)>[
-    (
-      'Pick a phone number from your contacts for a friend or a pasal',
-      'साथी वा पसलका लागि सम्पर्कबाट फोन नम्बर छान्नुहोस्',
-    ),
-    (
-      'Phone numbers with a country code, like +977 9812345678',
-      'देश कोडसहितका फोन नम्बर, जस्तै +977 9812345678',
-    ),
-    (
-      'Reports export as PDF or CSV: save to your phone or share',
-      'प्रतिवेदन PDF वा CSV मा निर्यात: फोनमा सुरक्षित वा साझा गर्नुहोस्',
-    ),
-    (
-      'A new welcome page: one screen, with Get started and Login',
-      'नयाँ स्वागत पृष्ठ: एउटै स्क्रिन, सुरु गर्ने र लगइन',
-    ),
-    (
-      'Updates download and install from inside the app',
-      'अपडेट एपभित्रै डाउनलोड र इन्स्टल हुन्छ',
-    ),
-    (
-      'Khalti transaction history files are read',
-      'Khalti को कारोबार विवरण फाइल पढिन्छ',
-    ),
-    (
-      'Fixed: statement files could be seen but not picked',
-      'सुधार: स्टेटमेन्ट फाइल देखिन्थ्यो तर छान्न मिल्दैनथ्यो',
-    ),
-    (
-      'Settings is shorter: Backup, Help and About are on the More page',
-      'सेटिङ छोटो: ब्याकअप, मद्दत र बारे "थप" पृष्ठमा',
-    ),
-    (
-      'Statement PDFs from wallets read correctly',
-      'वालेटका स्टेटमेन्ट PDF ठीकसँग पढिन्छन्',
-    ),
-    (
-      'Import a statement without choosing where it is from',
-      'कहाँबाट हो नछानी स्टेटमेन्ट आयात गर्नुहोस्',
-    ),
-    (
-      'Select all on the import review; tap a row to tick it',
-      'आयात समीक्षामा "सबै छान्नुहोस्"; पङ्क्ति थिचेर छान्नुहोस्',
-    ),
-    (
-      'Profile has its own page, opened from More; Settings is settings only',
-      'प्रोफाइलको आफ्नै पृष्ठ, "थप" बाट खुल्छ; सेटिङमा सेटिङ मात्र',
-    ),
-    (
-      'Your profile picture on the More page, under Profile',
-      '"थप" पृष्ठमा प्रोफाइल अन्तर्गत तपाईंको प्रोफाइल तस्बिर',
-    ),
-    (
-      'Share a statement PDF straight into Kharcha',
-      'स्टेटमेन्ट PDF सिधै Kharcha मा Share गर्नुहोस्',
-    ),
-    (
-      'Statement PDFs from more banks, checked against their balance',
-      'धेरै बैंकका स्टेटमेन्ट PDF, ब्यालेन्ससँग जाँचेर',
-    ),
-    ('Khalti and other wallets as sources', 'Khalti र अन्य वालेट स्रोत'),
-    (
-      'Suggestions arrive on their own, morning to night',
-      'सुझाव आफैं आउँछन्, बिहानदेखि रातिसम्म',
-    ),
-    (
-      'Flamey knows your habits, and may roast them a little',
-      'Flamey ले बानी चिन्छ, अलिकति जिस्काउँछ पनि',
-    ),
-    (
-      'Flamey reacts when you tap, hold or swipe it',
-      'छुँदा, थिच्दा वा स्वाइप गर्दा Flamey प्रतिक्रिया दिन्छ',
-    ),
-    ('A tidier More page', 'सफा "थप" पृष्ठ'),
-    (
-      'Google Drive backup is kept to your own account',
-      'Google Drive ब्याकअप तपाईंकै खातामा मात्र',
-    ),
-    (
-      'Pictures are saved on your phone, so pages open faster',
-      'तस्बिरहरू फोनमै सुरक्षित हुन्छन्, पृष्ठ छिटो खुल्छन्',
-    ),
-    (
-      'Statement guide ends with Done and returns you to the page',
-      'स्टेटमेन्ट मार्गदर्शन “सम्पन्न” मा सकिन्छ र पृष्ठमा फर्काउँछ',
-    ),
-    (
-      'Import bank and eSewa statements: PDF, Excel or CSV',
-      'बैंक र eSewa स्टेटमेन्ट आयात: PDF, Excel वा CSV',
-    ),
-    (
-      'Step-by-step guide for downloading your statement',
-      'स्टेटमेन्ट डाउनलोड गर्ने चरणबद्ध मार्गदर्शन',
-    ),
-    (
-      'Importing the same statement twice adds nothing twice',
-      'एउटै स्टेटमेन्ट दोहोर्‍याएर आयात गर्दा कारोबार दोहोरिँदैन',
-    ),
-    ('Meet Flamey, your money buddy', 'Flamey, तपाईंको पैसाको साथी'),
-    (
-      'Clear “Signing in” and “Signing out” screens',
-      'स्पष्ट “साइन इन” र “साइन आउट” स्क्रिन',
-    ),
-    (
-      'A backup can only be restored into the account that made it',
-      'ब्याकअप बनाउने खातामा मात्र पुनर्स्थापना हुन्छ',
-    ),
-    ('Theme choices side by side', 'थिम विकल्प एउटै पङ्क्तिमा'),
-    (
-      'Update prompt with Download, Later and Don’t remind',
-      'डाउनलोड, पछि र नसम्झाउने विकल्पसहित अपडेट सूचना',
-    ),
-    (
-      'Sign-in problems show as a notice from the bottom',
-      'साइन इन समस्या तलबाट सूचनाका रूपमा देखिन्छ',
-    ),
-    (
-      'A new flame with many more moods and reactions',
-      'नयाँ ज्वाला, धेरै नयाँ भाव र प्रतिक्रियाहरू',
-    ),
-    (
-      'Shop credit items: just a name, a price and a picture',
-      'पसल उधारो: नाम, मूल्य र तस्बिर मात्र',
-    ),
-    ('Calculator inside the price field', 'मूल्य फिल्डभित्रै क्याल्कुलेटर'),
-    (
-      'Weather for your own town on the Calendar',
-      'पात्रोमा तपाईंकै शहरको मौसम',
-    ),
-    (
-      'Profile pictures in the fingerprint account chooser',
-      'फिंगरप्रिन्ट खाता छनोटमा प्रोफाइल तस्बिर',
-    ),
-    (
-      'Pull down on any page to refresh it',
-      'जुनसुकै पृष्ठ तल तानेर रिफ्रेस गर्नुहोस्',
-    ),
-    ('Cleaner date on the home card', 'गृह कार्डमा सफा मिति'),
-    (
-      'Several accounts can use fingerprint sign-in on one phone',
-      'एउटै फोनमा धेरै खाताले फिंगरप्रिन्ट साइन इन प्रयोग गर्न सक्छन्',
-    ),
-    (
-      'Fingerprint sign-in no longer asks for the authenticator code',
-      'फिंगरप्रिन्ट साइन इनमा अब प्रमाणक कोड सोधिँदैन',
-    ),
-    (
-      'Switching accounts never shows another account’s data',
-      'खाता बदल्दा अर्को खाताको डाटा कहिल्यै देखिँदैन',
-    ),
-    (
-      'A picture for every festival in the calendar',
-      'पात्रोमा हरेक चाडपर्वको तस्बिर',
-    ),
-    (
-      'Import your bank PDF or eSewa Excel statement',
-      'बैंक PDF वा eSewa Excel स्टेटमेन्ट आयात',
-    ),
-    ('Weather on today’s calendar card', 'आजको पात्रो कार्डमा मौसम'),
-    (
-      'Smaller profile card, cleaner edit profile',
-      'सानो प्रोफाइल कार्ड, सफा प्रोफाइल सम्पादन',
-    ),
-    (
-      'Clearer warning when a new password repeats the old one',
-      'नयाँ पासवर्ड पुरानै भए स्पष्ट चेतावनी',
-    ),
-  ];
+  /// What changed in the installed version; shared with the pop-up that
+  /// shows it once after an update.
+  static const List<(String, String)> _whatsNew = WhatsNew.items;
 
   Future<void> _open(String url) async {
     final ok = await launchUrl(
