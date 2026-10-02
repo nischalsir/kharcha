@@ -228,6 +228,12 @@ class _UpdateDialog extends StatelessWidget {
     final notes = updates.releaseNotes ?? '';
     final latest = AppInfo.short(updates.latestVersion ?? '');
     final installed = AppInfo.short(updates.installedVersion);
+    // Once the update is on its way there is nothing left to put off: the
+    // two ways out would only sit under the progress bar and the Install
+    // button, inviting a tap that abandons a download already made.
+    final underWay =
+        updates.installState == UpdateInstallState.downloading ||
+        updates.installState == UpdateInstallState.ready;
 
     return AlertDialog(
       contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
@@ -295,22 +301,24 @@ class _UpdateDialog extends StatelessWidget {
         ),
       ),
       actionsAlignment: MainAxisAlignment.spaceBetween,
-      actions: <Widget>[
-        TextButton(
-          onPressed: () {
-            updates.dontRemind();
-            Navigator.of(context).pop();
-          },
-          child: Text(
-            context.t('Don’t remind', 'फेरि नसम्झाउनुहोस्'),
-            style: TextStyle(color: glass.textSecondary),
-          ),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(context.t('Later', 'पछि')),
-        ),
-      ],
+      actions: underWay
+          ? null
+          : <Widget>[
+              TextButton(
+                onPressed: () {
+                  updates.dontRemind();
+                  Navigator.of(context).pop();
+                },
+                child: Text(
+                  context.t('Don’t remind', 'फेरि नसम्झाउनुहोस्'),
+                  style: TextStyle(color: glass.textSecondary),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(context.t('Later', 'पछि')),
+              ),
+            ],
     );
   }
 }

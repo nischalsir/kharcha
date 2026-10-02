@@ -212,9 +212,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 child: Text(
                   '${provider.totalMatching} found with '
                   '$filterCount filter${filterCount == 1 ? '' : 's'}',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: glass.textSecondary,
-                  ),
+                  style: Theme.of(context).textTheme.labelMedium
+                      ?.copyWith(color: glass.textSecondary),
                 ),
               ),
               TextButton(

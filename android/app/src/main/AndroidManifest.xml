@@ -14,6 +14,16 @@
         Kharcha as a source the first time.
     -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!--
+        Reading bank and wallet payment alerts, so they can be added as
+        transactions without typing. Asked for only when the user starts a
+        scan from More > Import from SMS; the messages are read on the phone
+        and nothing leaves it until the user picks what to import.
+    -->
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
     <!-- Approximate only, and only for the weather on the Calendar page. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!--
@@ -46,6 +56,10 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- What a long press on the app icon offers. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <!--
                 Statements shared into the app: "Share" on a PDF, Excel or CSV
                 statement in a bank app or a file manager lists Kharcha, and
@@ -96,9 +110,10 @@
                 android:resource="@xml/update_paths" />
         </provider>
         <!--
-            The home-screen widget: today's spending and an Add button.
-            Exported because it is the launcher, another app, that asks it
-            to draw; it accepts nothing but Android's own widget update.
+            The home-screen widgets: today's spending, this month, and quick
+            actions. Exported because it is the launcher, another app, that
+            asks them to draw; they accept nothing but Android's own widget
+            update.
         -->
         <receiver
             android:name=".KharchaWidgetProvider"
@@ -110,6 +125,28 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/kharcha_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".KharchaMonthWidgetProvider"
+            android:exported="true"
+            android:label="@string/app_widget_this_month">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/kharcha_widget_month_info" />
+        </receiver>
+        <receiver
+            android:name=".KharchaActionsWidgetProvider"
+            android:exported="true"
+            android:label="@string/app_widget_actions_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/kharcha_widget_actions_info" />
         </receiver>
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"

@@ -75,6 +75,19 @@ void main() {
     expect(find.text(_hint), findsNothing);
   });
 
+  testWidgets('a name is required to sign up', (tester) async {
+    await _pump(tester);
+    await _fillForm(tester);
+    await tester.enterText(find.byType(TextFormField).at(0), '   ');
+    await _submit(tester);
+    expect(find.text('Full name is required'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Nischal Pandey');
+    await _submit(tester);
+    expect(find.text('Full name is required'), findsNothing);
+    expect(find.text('Enter your full name'), findsNothing);
+  });
+
   testWidgets('signing up without agreeing glows red, with no error card', (
     tester,
   ) async {

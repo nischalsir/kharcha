@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    What a long press on the app icon offers. Each one opens MainActivity
+    with an action, which it hands to Dart (see KharchaWidget.actionOf); the
+    page only opens for an account that is signed in.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_expense"
+        android:shortcutId="add_expense"
+        android:shortcutLongLabel="@string/shortcut_add_expense"
+        android:shortcutShortLabel="@string/shortcut_add_expense">
+        <intent
+            android:action="com.nischalpandey.kharcha.ADD_EXPENSE"
+            android:targetClass="com.nischalpandey.kharcha.MainActivity"
+            android:targetPackage="com.nischalpandey.kharcha" />
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_income"
+        android:shortcutId="add_income"
+        android:shortcutLongLabel="@string/shortcut_add_income"
+        android:shortcutShortLabel="@string/shortcut_add_income">
+        <intent
+            android:action="com.nischalpandey.kharcha.ADD_INCOME"
+            android:targetClass="com.nischalpandey.kharcha.MainActivity"
+            android:targetPackage="com.nischalpandey.kharcha" />
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_import"
+        android:shortcutId="import_statement"
+        android:shortcutLongLabel="@string/shortcut_import"
+        android:shortcutShortLabel="@string/shortcut_import_short">
+        <intent
+            android:action="com.nischalpandey.kharcha.IMPORT_STATEMENT"
+            android:targetClass="com.nischalpandey.kharcha.MainActivity"
+            android:targetPackage="com.nischalpandey.kharcha" />
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_sms"
+        android:shortcutId="scan_sms"
+        android:shortcutLongLabel="@string/shortcut_sms"
+        android:shortcutShortLabel="@string/shortcut_sms_short">
+        <intent
+            android:action="com.nischalpandey.kharcha.SCAN_SMS"
+            android:targetClass="com.nischalpandey.kharcha.MainActivity"
+            android:targetPackage="com.nischalpandey.kharcha" />
+    </shortcut>
+</shortcuts>

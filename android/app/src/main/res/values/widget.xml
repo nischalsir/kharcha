@@ -10,6 +10,24 @@
     <string name="app_widget_today">Spent today</string>
     <string name="app_widget_open">Open Kharcha</string>
     <string name="app_widget_add">+ Add</string>
+    <string name="app_widget_month_description">This month: income, spending and what is left</string>
+    <string name="app_widget_actions_description">Add an expense, add income or import a statement</string>
+    <string name="app_widget_this_month">This month</string>
+    <string name="app_widget_actions_label">Quick actions</string>
+    <string name="app_widget_income">Income</string>
+    <string name="app_widget_spent">Spent</string>
+    <string name="app_widget_saved">Saved</string>
+    <string name="app_widget_none">-</string>
+    <!-- The shortcuts on the app icon, and the same actions on the widgets. -->
+    <string name="shortcut_add_expense">Add expense</string>
+    <string name="shortcut_add_income">Add income</string>
+    <string name="shortcut_import">Import statement</string>
+    <string name="shortcut_import_short">Import</string>
+    <string name="shortcut_sms">Import from SMS</string>
+    <string name="shortcut_sms_short">From SMS</string>
+    <color name="widget_chip">#14000000</color>
+    <color name="widget_income">#1E9E45</color>
+    <color name="widget_spent">#D93025</color>
     <color name="widget_background">#F2FFFFFF</color>
     <color name="widget_text">#1C1C1E</color>
     <color name="widget_text_secondary">#6C6C70</color>

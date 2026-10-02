@@ -1,5 +1,6 @@
 package com.nischalpandey.kharcha
 
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -18,7 +19,10 @@ class MainActivity : FlutterFragmentActivity() {
     private var incomingChannel: MethodChannel? = null
     private var widgetChannel: MethodChannel? = null
 
-    /** What the home-screen widget asked for, until Dart has asked for it. */
+    /**
+     * What a home-screen widget or an icon shortcut asked for, until Dart
+     * has asked for it.
+     */
     private var widgetAction: String? = null
 
     /** The intent this activity was opened with, until Dart has asked for it. */
@@ -50,6 +54,17 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    /** The Dart call waiting for the SMS permission dialog to close. */
+    private var smsPermissionResult: MethodChannel.Result? = null
+
+    private val smsPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val pending = smsPermissionResult
+        smsPermissionResult = null
+        pending?.success(granted)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Only a fresh start carries a share to act on. After a rotation or a
         // restore the same intent comes back, and its file was already taken.
@@ -58,7 +73,7 @@ class MainActivity : FlutterFragmentActivity() {
             (intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
         if (savedInstanceState == null && !replayed) {
             launchIntent = intent
-            widgetAction = widgetActionOf(intent)
+            widgetAction = KharchaWidget.actionOf(intent)
         }
         super.onCreate(savedInstanceState)
     }
@@ -198,6 +213,38 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
+        // Bank and wallet payment alerts among the phone's text messages.
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            SMS_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "hasPermission" -> result.success(SmsReader.hasPermission(this))
+
+                "requestPermission" -> {
+                    if (SmsReader.hasPermission(this)) {
+                        result.success(true)
+                    } else if (smsPermissionResult != null) {
+                        result.error("busy", "Already asking.", null)
+                    } else {
+                        smsPermissionResult = result
+                        smsPermission.launch(Manifest.permission.READ_SMS)
+                    }
+                }
+
+                "read" -> {
+                    val since = (call.argument<Number>("since") ?: 0).toLong()
+                    val limit = (call.argument<Number>("limit") ?: 500).toInt()
+                    copier.execute {
+                        val messages = SmsReader.read(applicationContext, since, limit)
+                        runOnUiThread { result.success(messages) }
+                    }
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+
         // A statement shared into the app from a bank app or a file manager.
         incomingChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -232,7 +279,7 @@ class MainActivity : FlutterFragmentActivity() {
     // The app is already open (singleTop) and something else was shared in.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        val action = widgetActionOf(intent)
+        val action = KharchaWidget.actionOf(intent)
         if (action != null) {
             val widget = widgetChannel
             // The engine is not up yet: keep it for `takeInitialAction`.
@@ -257,10 +304,6 @@ class MainActivity : FlutterFragmentActivity() {
         super.onDestroy()
     }
 
-    /** The widget action an intent carries, by the name Dart knows it by. */
-    private fun widgetActionOf(intent: Intent?): String? =
-        if (intent?.action == KharchaWidget.ACTION_ADD_EXPENSE) "add_expense" else null
-
     private companion object {
         const val NOTIFICATION_SETTINGS_CHANNEL =
             "com.nischalpandey.kharcha/notification_settings"
@@ -274,5 +317,7 @@ class MainActivity : FlutterFragmentActivity() {
             "com.nischalpandey.kharcha/contacts"
         const val HOME_WIDGET_CHANNEL =
             "com.nischalpandey.kharcha/home_widget"
+        const val SMS_CHANNEL =
+            "com.nischalpandey.kharcha/sms"
     }
 }

@@ -227,9 +227,9 @@ class StatementEntry {
   }
 
   // Whole words only: "CHIPS" is not an IPS transfer.
-  static final RegExp _qrWord = RegExp(r'QR');
-  static final RegExp _cardWord = RegExp(r'(POS|CARD)');
-  static final RegExp _bankWord = RegExp(r'(IPS|CIPS|CONNECTIPS|CHQ|CHEQUE)');
+  static final RegExp _qrWord = RegExp(r'\bQR\b');
+  static final RegExp _cardWord = RegExp(r'\b(POS|CARD)\b');
+  static final RegExp _bankWord = RegExp(r'\b(IPS|CIPS|CONNECTIPS|CHQ|CHEQUE)\b');
 
   /// Best-effort payment method from the statement description.
   static PaymentMethod inferMethod(

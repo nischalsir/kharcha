@@ -403,9 +403,7 @@ class _BudgetFormState extends State<_BudgetForm> {
   late BudgetPeriod _period = widget.existing?.period ?? BudgetPeriod.monthly;
   bool _saving = false;
 
-  static String _plain(double value) => value == value.roundToDouble()
-      ? value.toStringAsFixed(0)
-      : value.toStringAsFixed(2);
+  static String _plain(double value) => value.toStringAsFixed(2);
 
   @override
   void dispose() {

@@ -36,7 +36,7 @@ class BackupService {
   /// A JSON-encodable snapshot of all local tables.
   Map<String, dynamic> snapshot() {
     final tables = <String, dynamic>{};
-    for (final entity in SyncEntity.values) {
+    for (final entity in SyncEntity.personal) {
       tables[entity.table] = cache.rows(entity).map(_clean).toList();
     }
     return <String, dynamic>{
@@ -79,7 +79,7 @@ class BackupService {
     final tables = _readTables(jsonText);
     var records = 0;
     var tableCount = 0;
-    for (final entity in SyncEntity.values) {
+    for (final entity in SyncEntity.personal) {
       final raw = tables[entity.table];
       if (raw is! List) continue;
       final count = raw.whereType<Map>().length;
@@ -98,7 +98,7 @@ class BackupService {
     final tables = _readTables(jsonText);
     var records = 0;
     var tableCount = 0;
-    for (final entity in SyncEntity.values) {
+    for (final entity in SyncEntity.personal) {
       final raw = tables[entity.table];
       if (raw is! List) continue;
       var wroteAny = false;

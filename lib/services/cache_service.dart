@@ -106,6 +106,57 @@ class CacheService {
     return value;
   }
 
+  /// The stored row whatever its state, including one marked deleted that is
+  /// still waiting to be uploaded.
+  Map<String, dynamic>? rawRow(SyncEntity entity, String id) =>
+      _table(entity)[id];
+
+  /// Forgets a row and any upload queued for it, as if it had never been
+  /// written. For a row the server will never accept.
+  Future<void> discard(SyncEntity entity, String id) async {
+    final removedOp = _pending.remove('${entity.table}:$id') != null;
+    final removedRow = _table(entity).remove(id) != null;
+    if (removedOp) await _persistPending();
+    if (removedRow) {
+      await _persistRows(entity);
+      _emit(<SyncEntity>{entity});
+    }
+  }
+
+  /// Makes a table hold exactly [rows], as the server sees it now. Rows with
+  /// an upload still queued are kept as they are locally.
+  Future<void> replaceRows(
+    SyncEntity entity,
+    List<Map<String, dynamic>> rows,
+  ) async {
+    final table = _table(entity);
+    final next = <String, Map<String, dynamic>>{};
+    for (final raw in rows) {
+      final row = entity.fromRemote(raw);
+      if (row['deleted_at'] != null) continue;
+      next[entity.recordId(row)] = row;
+    }
+    for (final entry in table.entries) {
+      if (_pending.containsKey('${entity.table}:${entry.key}')) {
+        next[entry.key] = entry.value;
+      }
+    }
+    table
+      ..clear()
+      ..addAll(next);
+    await _persistRows(entity);
+    _emit(<SyncEntity>{entity});
+  }
+
+  /// Empties a table and drops every upload queued for it.
+  Future<void> clearEntity(SyncEntity entity) async {
+    _pending.removeWhere((_, op) => op.entity == entity);
+    await _persistPending();
+    _table(entity).clear();
+    await _persistRows(entity);
+    _emit(<SyncEntity>{entity});
+  }
+
   Future<void> putRow(SyncEntity entity, Map<String, dynamic> row) async {
     _table(entity)[entity.recordId(row)] = Map<String, dynamic>.from(row);
     await _persistRows(entity);

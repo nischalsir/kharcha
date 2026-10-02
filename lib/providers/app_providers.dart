@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import '../repositories/budget_repository.dart';
 import '../repositories/festival_budget_repository.dart';
 import '../repositories/friend_repository.dart';
+import '../repositories/household_repository.dart';
+import '../repositories/loan_repository.dart';
 import '../repositories/pasal_repository.dart';
 import '../repositories/recurring_payment_repository.dart';
 import '../repositories/savings_goal_repository.dart';
@@ -26,6 +28,8 @@ import 'dashboard_provider.dart';
 import 'festival_budget_provider.dart';
 import 'festival_provider.dart';
 import 'friend_provider.dart';
+import 'household_provider.dart';
+import 'loan_provider.dart';
 import 'pasal_provider.dart';
 import 'recurring_payment_provider.dart';
 import 'report_provider.dart';
@@ -48,6 +52,8 @@ class AppEnvironment {
     required this.festivalService,
     required this.savingsGoalRepository,
     required this.festivalBudgetRepository,
+    required this.loanRepository,
+    required this.householdRepository,
   });
 
   final CacheService cache;
@@ -62,6 +68,8 @@ class AppEnvironment {
   final FestivalService festivalService;
   final SavingsGoalRepository savingsGoalRepository;
   final FestivalBudgetRepository festivalBudgetRepository;
+  final LoanRepository loanRepository;
+  final HouseholdRepository householdRepository;
 
   static Future<AppEnvironment> bootstrap() async {
     final cache = await CacheService.create();
@@ -69,6 +77,12 @@ class AppEnvironment {
     final sync = SyncService(cache: cache, remote: remote);
     final dates = NepaliDateService();
     final transactionRepository = TransactionRepository(cache, sync);
+    final recurringRepository = RecurringPaymentRepository(
+      cache,
+      sync,
+      transactionRepository,
+      dates,
+    );
     return AppEnvironment(
       cache: cache,
       sync: sync,
@@ -77,12 +91,14 @@ class AppEnvironment {
       transactionRepository: transactionRepository,
       friendRepository: FriendRepository(cache, sync),
       budgetRepository: BudgetRepository(cache, sync),
-      recurringRepository: RecurringPaymentRepository(
+      recurringRepository: recurringRepository,
+      loanRepository: LoanRepository(
         cache,
         sync,
+        recurringRepository,
         transactionRepository,
-        dates,
       ),
+      householdRepository: HouseholdRepository(cache, sync),
       pasalRepository: PasalRepository(cache, sync),
       festivalService: FestivalService(dates),
       savingsGoalRepository: SavingsGoalRepository(cache, sync),
@@ -163,6 +179,18 @@ class AppProviders {
       repository: env.festivalBudgetRepository,
       transactions: env.transactionRepository,
       festivals: env.festivalService,
+      dates: env.dates,
+    );
+  }
+
+  static LoanProvider loans(AppEnvironment env) {
+    return LoanProvider(cache: env.cache, repository: env.loanRepository);
+  }
+
+  static HouseholdProvider household(AppEnvironment env) {
+    return HouseholdProvider(
+      cache: env.cache,
+      repository: env.householdRepository,
       dates: env.dates,
     );
   }

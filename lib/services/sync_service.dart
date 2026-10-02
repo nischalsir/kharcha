@@ -99,6 +99,16 @@ class SyncService extends ChangeNotifier {
 
   static const String _ownerKey = 'cache.owner';
 
+  /// Whether someone is signed in on a configured backend.
+  bool get canReachServer => _remote.isConfigured && _remote.hasSession;
+
+  /// The signed-in account's id.
+  String? get userId => _remote.userId;
+
+  /// Calls a server function. Needs a connection: there is nothing to queue.
+  Future<Object?> callServer(String name, Map<String, dynamic> params) =>
+      _remote.rpc(name, params);
+
   /// The account the local cache belongs to.
   String? get cacheOwner => _cache.readSetting(_ownerKey);
 
@@ -260,6 +270,7 @@ class SyncService extends ChangeNotifier {
   Future<void> _push(int account) async {
     for (final entity in SyncEntity.values) {
       if (account != _account) return;
+      if (entity.readOnly) continue;
       final ops = _cache
           .pendingOperations()
           .where((op) => op.entity == entity && !op.failed)
@@ -313,6 +324,12 @@ class SyncService extends ChangeNotifier {
 
   Future<void> _pull(int account) async {
     for (final entity in SyncEntity.values) {
+      if (entity.shared) {
+        final rows = await _remote.fetchShared(entity);
+        if (account != _account) return;
+        await _cache.replaceRows(entity, rows);
+        continue;
+      }
       var cursor = _cache.cursor(entity);
       while (true) {
         final rows = await _remote.pullChanges(

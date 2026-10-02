@@ -18,7 +18,7 @@ class ImagePreload {
   /// Pictures seen before signing in: the logo and the introduction's.
   static List<String> startup({required double devicePixelRatio}) => <String>[
     AuthBrand.logoUrl((AuthBrand.logoSize * devicePixelRatio).round()),
-    IntroductionScreen.heroImageUrl,
+    ...IntroductionScreen.pictureUrls,
   ];
 
   /// Pictures used inside the app: the statement guides and every festival.

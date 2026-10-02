@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,26 +9,122 @@ import '../../core/router/route_paths.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../services/app_images.dart';
 
+/// One of the pictures the introduction shows on its disc.
+@immutable
+class IntroPicture {
+  const IntroPicture({
+    required this.imageId,
+    required this.label,
+    required this.labelNe,
+    required this.fallback,
+  });
+
+  /// Cloudinary public id.
+  final String imageId;
+
+  /// What the picture shows, for a screen reader.
+  final String label;
+  final String labelNe;
+
+  /// Stands in when the picture cannot be fetched (a first launch offline).
+  final IconData fallback;
+
+  /// The picture cut out of its background and trimmed to its own edges, so
+  /// that it stands on the disc, served as WebP/AVIF at a phone-sized width.
+  String get url =>
+      'https://res.cloudinary.com/dh3rzo7bt/image/upload/'
+      'e_background_removal/e_trim/f_auto,q_auto,w_720/$imageId.png';
+}
+
 /// The first thing a new user sees: one page, not a walk-through.
 ///
-/// A picture standing on a glass disc in a warm glow, what the app is for in
-/// two lines, and the two ways on: create an account, or sign in. It is dark
-/// whatever the theme, like a title card.
-class IntroductionScreen extends StatelessWidget {
+/// Three pictures taking turns on a glass disc in a warm glow, what the app
+/// is for in two lines, and the two ways on: create an account, or sign in.
+/// The pictures change by themselves and can be swiped; the words and the
+/// buttons stay where they are. It is dark whatever the theme, like a title
+/// card.
+class IntroductionScreen extends StatefulWidget {
   const IntroductionScreen({super.key});
 
-  /// Cloudinary public id of the picture on the disc.
-  static const String heroImageId = 'kharcha/intro/wallet';
+  /// The pictures, in the order they are shown: recording what is spent,
+  /// budgets and savings, and sharing costs with friends.
+  static const List<IntroPicture> pictures = <IntroPicture>[
+    IntroPicture(
+      imageId: 'qiwpmjgzfclytnrv5tgh',
+      label: 'Flamey holding a phone with a list of expenses',
+      labelNe: 'खर्चको सूची भएको फोन समातेको Flamey',
+      fallback: Icons.receipt_long_rounded,
+    ),
+    IntroPicture(
+      imageId: 'stwv5wtm46f3pfjftb13',
+      label: 'Flamey between a spending chart and a piggy bank',
+      labelNe: 'खर्चको चार्ट र खुत्रुकेबीच Flamey',
+      fallback: Icons.pie_chart_rounded,
+    ),
+    IntroPicture(
+      imageId: 'b3qorzldimac95asnxng',
+      label: 'Friends sharing momo and splitting the bill',
+      labelNe: 'मम खाँदै बिल बाँड्दै गरेका साथीहरू',
+      fallback: Icons.people_alt_rounded,
+    ),
+  ];
 
-  /// The picture, cut out of its background and trimmed to its own edges so
-  /// that it stands on the disc, served as WebP/AVIF at a phone-sized width.
-  /// Also read by the image preloader.
-  static const String heroImageUrl =
-      'https://res.cloudinary.com/dh3rzo7bt/image/upload/'
-      'e_background_removal/e_trim/f_auto,q_auto,w_720/$heroImageId.png';
+  /// Where the pictures are fetched from. Also read by the image preloader.
+  static List<String> get pictureUrls => <String>[
+    for (final picture in pictures) picture.url,
+  ];
+
+  /// How long each picture stays before the next one slides in.
+  static const Duration pictureInterval = Duration(seconds: 4);
 
   static const Color _accent = Color(0xFFF07F13);
   static const Color _accentDeep = Color(0xFFD9650A);
+
+  @override
+  State<IntroductionScreen> createState() => _IntroductionScreenState();
+}
+
+class _IntroductionScreenState extends State<IntroductionScreen> {
+  final PageController _pictures = PageController();
+
+  /// Which picture is on the disc, for the dots under the words.
+  final ValueNotifier<int> _shown = ValueNotifier<int>(0);
+  Timer? _turn;
+
+  static const Color _accent = IntroductionScreen._accent;
+
+  @override
+  void initState() {
+    super.initState();
+    _turn = Timer.periodic(IntroductionScreen.pictureInterval, (_) {
+      if (!_pictures.hasClients) return;
+      final next = (_shown.value + 1) % IntroductionScreen.pictures.length;
+      _pictures.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOutCubic,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _turn?.cancel();
+    _pictures.dispose();
+    _shown.dispose();
+    super.dispose();
+  }
+
+  /// Someone who swipes is choosing what to look at: the pictures stop
+  /// changing under their finger.
+  bool _onScroll(ScrollNotification notification) {
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null) {
+      _turn?.cancel();
+      _turn = null;
+    }
+    return false;
+  }
 
   /// Marks the introduction as seen and goes to [route].
   Future<void> _leave(BuildContext context, String route) async {
@@ -65,6 +163,13 @@ class IntroductionScreen extends StatelessWidget {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final words = _words(context);
+                  final hero = NotificationListener<ScrollNotification>(
+                    onNotification: _onScroll,
+                    child: _Hero(
+                      controller: _pictures,
+                      onChanged: (index) => _shown.value = index,
+                    ),
+                  );
                   const padding = EdgeInsets.fromLTRB(24, 8, 24, 20);
                   // On a phone of ordinary height the picture takes whatever
                   // the words leave. On a very short one it keeps a small
@@ -75,7 +180,7 @@ class IntroductionScreen extends StatelessWidget {
                       padding: padding,
                       child: Column(
                         children: <Widget>[
-                          const Expanded(child: _Hero()),
+                          Expanded(child: hero),
                           ...words,
                         ],
                       ),
@@ -85,7 +190,7 @@ class IntroductionScreen extends StatelessWidget {
                     padding: padding,
                     child: Column(
                       children: <Widget>[
-                        const SizedBox(height: 180, child: _Hero()),
+                        SizedBox(height: 180, child: hero),
                         ...words,
                       ],
                     ),
@@ -134,7 +239,10 @@ class IntroductionScreen extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 22),
-      const _Ornament(color: _accent),
+      ValueListenableBuilder<int>(
+        valueListenable: _shown,
+        builder: (context, shown, _) => _Ornament(color: _accent, shown: shown),
+      ),
       const SizedBox(height: 22),
       _GetStartedButton(
         label: context.t('Get started', 'सुरु गर्नुहोस्'),
@@ -157,9 +265,13 @@ class IntroductionScreen extends StatelessWidget {
   }
 }
 
-/// The picture on its glass disc, lit from behind.
+/// The pictures on their glass disc, lit from behind. The glow and the disc
+/// stay still; only the picture standing on the disc slides.
 class _Hero extends StatelessWidget {
-  const _Hero();
+  const _Hero({required this.controller, required this.onChanged});
+
+  final PageController controller;
+  final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -206,38 +318,45 @@ class _Hero extends StatelessWidget {
                   ),
                 ),
                 // Standing on the disc: its foot is a little above the
-                // disc's middle.
+                // disc's middle. As wide as the space, so a swipe anywhere
+                // across the picture turns it.
                 Positioned(
+                  left: 0,
+                  right: 0,
                   bottom: size * 0.04 + discHeight * 0.42,
-                  child: Image(
-                    image: AppImages.provider(IntroductionScreen.heroImageUrl),
-                    width: size * 0.66,
-                    height: size * 0.66,
-                    fit: BoxFit.contain,
-                    alignment: Alignment.bottomCenter,
-                    semanticLabel: context.t(
-                      'A wallet with coins and a receipt',
-                      'सिक्का र रसिदसहितको वालेट',
-                    ),
-                    frameBuilder: (context, child, frame, sync) =>
-                        AnimatedOpacity(
-                          opacity: sync || frame != null ? 1 : 0,
-                          duration: const Duration(milliseconds: 300),
-                          child: child,
-                        ),
-                    // The first launch can be offline: an icon stands in.
-                    errorBuilder: (_, _, _) => SizedBox(
-                      width: size * 0.66,
-                      height: size * 0.66,
-                      child: Align(
+                  height: size * 0.66,
+                  child: PageView.builder(
+                    key: const ValueKey<String>('intro-pictures'),
+                    controller: controller,
+                    onPageChanged: onChanged,
+                    itemCount: IntroductionScreen.pictures.length,
+                    itemBuilder: (context, index) {
+                      final picture = IntroductionScreen.pictures[index];
+                      return Image(
+                        image: AppImages.provider(picture.url),
+                        fit: BoxFit.contain,
                         alignment: Alignment.bottomCenter,
-                        child: Icon(
-                          Icons.account_balance_wallet_rounded,
-                          size: size * 0.42,
-                          color: const Color(0xFF5E8A5A),
+                        semanticLabel: context.t(
+                          picture.label,
+                          picture.labelNe,
                         ),
-                      ),
-                    ),
+                        frameBuilder: (context, child, frame, sync) =>
+                            AnimatedOpacity(
+                              opacity: sync || frame != null ? 1 : 0,
+                              duration: const Duration(milliseconds: 300),
+                              child: child,
+                            ),
+                        // The first launch can be offline: an icon stands in.
+                        errorBuilder: (_, _, _) => Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Icon(
+                            picture.fallback,
+                            size: size * 0.42,
+                            color: const Color(0xFFE9A77C),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -309,24 +428,42 @@ class _GlassDiscPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Three dots on a line, under the words.
+/// Three dots on a line, under the words: one for each picture, the one for
+/// the picture on the disc lit and a little larger.
 class _Ornament extends StatelessWidget {
-  const _Ornament({required this.color});
+  const _Ornament({required this.color, required this.shown});
 
   final Color color;
+  final int shown;
 
   @override
   Widget build(BuildContext context) {
-    Widget dot() => Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    final faint = color.withValues(alpha: 0.4);
+    Widget dot(int index) => SizedBox(
+      width: 10,
+      height: 10,
+      child: Center(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          width: index == shown ? 10 : 7,
+          height: index == shown ? 10 : 7,
+          decoration: BoxDecoration(
+            color: index == shown ? color : faint,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
     );
-    Widget line() => Container(width: 12, height: 2, color: color);
+    Widget line() => Container(width: 12, height: 2, color: faint);
     return ExcludeSemantics(
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: <Widget>[dot(), line(), dot(), line(), dot()],
+        children: <Widget>[
+          for (var i = 0; i < IntroductionScreen.pictures.length; i++) ...[
+            if (i > 0) line(),
+            dot(i),
+          ],
+        ],
       ),
     );
   }

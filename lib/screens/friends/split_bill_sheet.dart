@@ -260,9 +260,5 @@ class _SplitBillFormState extends State<_SplitBillForm> {
     );
   }
 
-  /// Whole rupees are shown plainly; a share with paisa shows them.
-  static String _money(double value) => CurrencyFormatter.format(
-    value,
-    decimals: value == value.roundToDouble() ? 0 : 2,
-  );
+  static String _money(double value) => CurrencyFormatter.format(value);
 }

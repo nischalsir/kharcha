@@ -22,6 +22,8 @@ import 'providers/dashboard_provider.dart';
 import 'providers/festival_budget_provider.dart';
 import 'providers/festival_provider.dart';
 import 'providers/friend_provider.dart';
+import 'providers/household_provider.dart';
+import 'providers/loan_provider.dart';
 import 'providers/pasal_provider.dart';
 import 'providers/push_provider.dart';
 import 'providers/recurring_payment_provider.dart';
@@ -40,6 +42,8 @@ import 'screens/festivals/festivals_screen.dart';
 import 'screens/friends/friend_detail_screen.dart';
 import 'screens/friends/friends_screen.dart';
 import 'screens/goals/goals_screen.dart';
+import 'screens/household/household_screen.dart';
+import 'screens/loans/loans_screen.dart';
 import 'screens/pasal/add_pasal_credit_screen.dart';
 import 'screens/pasal/add_pasal_screen.dart';
 import 'screens/pasal/pasal_credit_history_screen.dart';
@@ -47,6 +51,7 @@ import 'screens/pasal/pasal_detail_screen.dart';
 import 'screens/pasal/pasal_payment_history_screen.dart';
 import 'screens/pasal/pasal_screen.dart';
 import 'screens/payments/payments_screen.dart';
+import 'screens/payments/sms_import_screen.dart';
 import 'screens/payments/statement_import_screen.dart';
 import 'screens/reports/reports_screen.dart';
 import 'screens/settings/backup_restore_screen.dart';
@@ -155,6 +160,12 @@ class KharchaApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<FestivalBudgetProvider>(
           create: (_) => AppProviders.festivalBudgets(env),
+        ),
+        ChangeNotifierProvider<LoanProvider>(
+          create: (_) => AppProviders.loans(env),
+        ),
+        ChangeNotifierProvider<HouseholdProvider>(
+          create: (_) => AppProviders.household(env),
         ),
         ChangeNotifierProvider<DashboardProvider>(
           create: (_) => AppProviders.dashboard(env),
@@ -266,6 +277,9 @@ class KharchaApp extends StatelessWidget {
     RoutePaths.budgets => const BudgetsScreen(),
     RoutePaths.goals => const GoalsScreen(),
     RoutePaths.wallets => const WalletsScreen(),
+    RoutePaths.loans => const LoansScreen(),
+    RoutePaths.household => const HouseholdScreen(),
+    RoutePaths.smsImport => const SmsImportScreen(),
     RoutePaths.reports => const ReportsScreen(),
     RoutePaths.calculator => const CalculatorScreen(),
     RoutePaths.festivals => const FestivalsScreen(),
@@ -440,8 +454,9 @@ class _AuthWrapperState extends State<_AuthWrapper>
   }
 
   void _receiveWidgetAction(String action) {
-    if (!mounted || action != HomeWidgetService.addExpenseAction) return;
-    _pendingShortcut = RoutePaths.addExpense;
+    final route = HomeWidgetService.actionRoutes[action];
+    if (!mounted || route == null) return;
+    _pendingShortcut = route;
     _openPendingShortcut();
   }
 
@@ -480,6 +495,7 @@ class _AuthWrapperState extends State<_AuthWrapper>
     final nepali = context.read<NepaliDateService>().devanagari;
     final data = dashboard.data;
     final month = CurrencyFormatter.format(data.totalExpense);
+    String words(String en, String ne) => nepali ? ne : en;
     unawaited(
       service.update(
         HomeWidgetData(
@@ -489,6 +505,16 @@ class _AuthWrapperState extends State<_AuthWrapper>
           month: nepali ? 'यो महिना · $month' : 'This month · $month',
           label: nepali ? 'आजको खर्च' : 'Spent today',
           add: nepali ? '+ थप्नुहोस्' : '+ Add',
+          monthTitle: words('This month', 'यो महिना'),
+          income: CurrencyFormatter.format(data.totalIncome),
+          spent: month,
+          saved: CurrencyFormatter.format(data.netSavings),
+          incomeLabel: words('Income', 'आम्दानी'),
+          spentLabel: words('Spent', 'खर्च'),
+          savedLabel: words('Saved', 'बचत'),
+          expenseAction: words('Add expense', 'खर्च थप्नुहोस्'),
+          incomeAction: words('Add income', 'आम्दानी थप्नुहोस्'),
+          importAction: words('Import', 'आयात'),
         ),
       ),
     );
@@ -676,6 +702,9 @@ class _AuthWrapperState extends State<_AuthWrapper>
           fetched: sync.status == SyncStatus.synced,
         );
       }
+      // After the account's own rows have arrived, so a category it already
+      // has on the server is recognised rather than copied.
+      if (auth.userId == userId) await settings.claimDefaultIds(userId);
     } catch (error) {
       debugPrint('Auth: could not prepare the account ($error)');
     } finally {

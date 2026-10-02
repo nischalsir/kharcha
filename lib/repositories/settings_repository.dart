@@ -1,6 +1,7 @@
 import '../core/constants/categories.dart';
 import '../core/errors/app_failure.dart';
 import '../core/utils/id_generator.dart';
+import '../core/utils/json_parsers.dart';
 import '../models/app_settings_model.dart';
 import '../models/category_model.dart';
 import '../models/payment_method.dart';
@@ -17,16 +18,134 @@ class SettingsRepository {
   final CacheService _cache;
   final SyncService _sync;
 
+  /// The id of a built-in category.
+  ///
+  /// Derived from the account, so two phones on one account seed the same
+  /// rows, and two accounts never share one. With no account yet (before the
+  /// first sign-in) the id is the old shared one; [claimDefaultIds] moves it
+  /// to the account's own once there is one.
+  static String categoryId(String key, String? owner) => owner == null
+      ? stableId('category:$key')
+      : stableId('category:$key:$owner');
+
+  /// The id of a built-in payment method. See [categoryId].
+  static String paymentMethodId(String code, String? owner) => owner == null
+      ? stableId('payment_method:$code')
+      : stableId('payment_method:$code:$owner');
+
+  /// Moves the built-in categories and payment methods off the ids every
+  /// account used to share.
+  ///
+  /// Those ids were the same for everyone, and a row's id is unique across
+  /// the whole server, so only the first account to upload them ever could:
+  /// everyone else's categories never synced. Each row gets the account's own
+  /// id, and what pointed at the old one (transactions, recurring payments,
+  /// budgets) is pointed at the new one. Returns how many rows it moved, and
+  /// does nothing once there is nothing left to move.
+  Future<int> claimDefaultIds(String userId) async {
+    final stamp = jsonTimestamp(DateTime.now());
+    var moved = 0;
+
+    // The account's own copy on the server, as opposed to a local row whose
+    // upload is still queued because the server keeps refusing it.
+    bool isOwn(SyncEntity entity, Map<String, dynamic> row) =>
+        row['user_id'] == userId ||
+        !_cache.hasPending(entity, entity.recordId(row));
+
+    Future<void> retire(SyncEntity entity, Map<String, dynamic> row) async {
+      if (isOwn(entity, row)) {
+        if (row['deleted_at'] != null) return;
+        await _sync.recordWrite(entity, <String, dynamic>{
+          ...row,
+          'deleted_at': stamp,
+          'updated_at': stamp,
+        });
+      } else {
+        await _cache.discard(entity, entity.recordId(row));
+      }
+    }
+
+    Map<String, dynamic> copyAs(Map<String, dynamic> row, String id) {
+      return <String, dynamic>{...row, 'id': id, 'updated_at': stamp}
+        ..remove('user_id')
+        ..remove('server_updated_at');
+    }
+
+    final categoryIds = <String, String>{};
+    for (final item in DefaultCategories.all) {
+      final legacy = categoryId(item.key, null);
+      final row = _cache.rawRow(SyncEntity.categories, legacy);
+      if (row == null) continue;
+      final next = categoryId(item.key, userId);
+      categoryIds[legacy] = next;
+      if (row['deleted_at'] == null &&
+          _cache.rawRow(SyncEntity.categories, next) == null) {
+        await _sync.recordWrite(SyncEntity.categories, copyAs(row, next));
+      }
+      moved++;
+    }
+    if (categoryIds.isNotEmpty) {
+      for (final entity in <SyncEntity>[
+        SyncEntity.transactions,
+        SyncEntity.recurringTransactions,
+        SyncEntity.budgets,
+      ]) {
+        for (final row in _cache.rows(entity)) {
+          final next = categoryIds[row['category_id']];
+          if (next == null) continue;
+          await _sync.recordWrite(entity, <String, dynamic>{
+            ...row,
+            'category_id': next,
+            'updated_at': stamp,
+          });
+        }
+      }
+      for (final legacy in categoryIds.keys) {
+        final row = _cache.rawRow(SyncEntity.categories, legacy);
+        if (row != null) await retire(SyncEntity.categories, row);
+      }
+    }
+
+    // Payment methods are one per code per account on the server, so an
+    // account that did upload the shared row keeps it; only a row the server
+    // refused is given the account's own id.
+    for (final method in PaymentMethod.values) {
+      final legacy = paymentMethodId(method.code, null);
+      final next = paymentMethodId(method.code, userId);
+      final legacyRow = _cache.rawRow(SyncEntity.paymentMethods, legacy);
+      final nextRow = _cache.rawRow(SyncEntity.paymentMethods, next);
+      if (legacyRow == null) continue;
+      if (isOwn(SyncEntity.paymentMethods, legacyRow)) {
+        // A second copy made on this phone before the first arrived.
+        if (nextRow != null) {
+          await _cache.discard(SyncEntity.paymentMethods, next);
+          moved++;
+        }
+        continue;
+      }
+      if (nextRow == null) {
+        await _sync.recordWrite(
+          SyncEntity.paymentMethods,
+          copyAs(legacyRow, next),
+        );
+      }
+      await _cache.discard(SyncEntity.paymentMethods, legacy);
+      moved++;
+    }
+    return moved;
+  }
+
   Future<void> ensureDefaults() async {
     if (_cache.readBoolSetting(_seedFlag) == true) return;
     final now = DateTime.now();
+    final owner = _sync.cacheOwner;
     if (categories().isEmpty) {
       final rows = <Map<String, dynamic>>[];
       for (var i = 0; i < DefaultCategories.all.length; i++) {
         final item = DefaultCategories.all[i];
         rows.add(
           CategoryModel(
-            id: stableId('category:${item.key}'),
+            id: categoryId(item.key, owner),
             name: item.name,
             kind: item.kind,
             icon: item.icon,
@@ -46,7 +165,7 @@ class SettingsRepository {
         final method = PaymentMethod.values[i];
         rows.add(
           PaymentMethodOption(
-            id: stableId('payment_method:${method.code}'),
+            id: paymentMethodId(method.code, owner),
             method: method,
             label: method.label,
             sortOrder: i,

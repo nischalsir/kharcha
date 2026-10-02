@@ -34,11 +34,10 @@ class CurrencyFormatter {
     return '$sign$whole$fraction';
   }
 
-  static String format(
-    double value, {
-    String? symbol,
-    int decimals = 0,
-  }) {
+  /// Money is always written with its paisa, `NPR 1,000.00`, so an amount
+  /// reads the same everywhere and a figure like 100.25 is never rounded
+  /// away on screen.
+  static String format(double value, {String? symbol, int decimals = 2}) {
     final text = number(value.abs(), decimals: decimals);
     final isZero = double.parse(value.abs().toStringAsFixed(decimals)) == 0;
     final sign = value < 0 && !isZero ? '-' : '';

@@ -34,6 +34,7 @@ class StatementImportScreen extends StatefulWidget {
     super.key,
     this.service,
     this.initialResult,
+    this.label,
     this.incoming,
     this.incomingFiles,
   });
@@ -44,6 +45,11 @@ class StatementImportScreen extends StatefulWidget {
   /// Opens straight on the review of an already-parsed statement. Used by
   /// tests; the app always starts from a file.
   final StatementParseResult? initialResult;
+
+  /// What [initialResult] was read from when it was not a file, e.g. `Text
+  /// messages`. Shown where the file name would be, and makes Cancel close
+  /// the page instead of going back to choosing a file.
+  final String? label;
 
   /// A file another app shared into Kharcha. It is read as soon as the screen
   /// opens, exactly as if it had been chosen here.
@@ -88,6 +94,7 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
     if (initial != null && _result == null) {
       _importer.markAlreadyImported(initial.entries);
       _result = initial;
+      _fileName ??= widget.label;
     }
   }
 
@@ -354,12 +361,14 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
                             child: OutlinedButton(
                               onPressed: _importing
                                   ? null
+                                  : widget.label != null
+                                  ? () => Navigator.pop(context)
                                   : () => setState(() => _result = null),
                               style: OutlinedButton.styleFrom(
                                 minimumSize: const Size.fromHeight(50),
                               ),
                               child: Text(
-                                nothingNew
+                                nothingNew && widget.label == null
                                     ? context.t('Another file', 'अर्को फाइल')
                                     : context.t('Cancel', 'रद्द गर्नुहोस्'),
                               ),

@@ -130,6 +130,28 @@ class MoreScreen extends StatelessWidget {
                 onTap: () => open(RoutePaths.wallets),
               ),
               _Row(
+                key: const ValueKey<String>('more-loans'),
+                icon: Icons.request_quote_rounded,
+                color: const Color(0xFFFF9F0A),
+                title: context.t('Loans & EMI', 'ऋण र किस्ता'),
+                subtitle: context.t(
+                  'Instalments, interest and what is left',
+                  'किस्ता, ब्याज र तिर्न बाँकी',
+                ),
+                onTap: () => open(RoutePaths.loans),
+              ),
+              _Row(
+                key: const ValueKey<String>('more-household'),
+                icon: Icons.groups_rounded,
+                color: const Color(0xFF5E5CE6),
+                title: context.t('Household', 'घरपरिवार'),
+                subtitle: context.t(
+                  'A ledger shared with family',
+                  'परिवारसँग साझा खाता',
+                ),
+                onTap: () => open(RoutePaths.household),
+              ),
+              _Row(
                 key: const ValueKey<String>('more-reports'),
                 icon: Icons.bar_chart_rounded,
                 color: const Color(0xFF0A84FF),
@@ -166,6 +188,17 @@ class MoreScreen extends StatelessWidget {
                   'बैंक, eSewa र Khalti का फाइल',
                 ),
                 onTap: () => open(RoutePaths.statementImport),
+              ),
+              _Row(
+                key: const ValueKey<String>('more-sms'),
+                icon: Icons.sms_rounded,
+                color: const Color(0xFF30D158),
+                title: context.t('Import from SMS', 'SMS बाट आयात'),
+                subtitle: context.t(
+                  'Bank and wallet payment alerts',
+                  'बैंक र वालेटका भुक्तानी सन्देश',
+                ),
+                onTap: () => open(RoutePaths.smsImport),
               ),
               _Row(
                 key: const ValueKey<String>('more-calculator'),

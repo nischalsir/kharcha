@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kharcha_app/core/errors/app_failure.dart';
+import 'package:kharcha_app/core/router/route_paths.dart';
 import 'package:kharcha_app/core/theme/app_theme.dart';
 import 'package:kharcha_app/core/utils/split_math.dart';
 import 'package:kharcha_app/core/utils/wallet_math.dart';
@@ -687,6 +688,38 @@ void main() {
       expect(calls.map((c) => c.method), <String>['update', 'clear', 'update']);
     });
 
+    test('every widget button and icon shortcut opens a page the app has', () {
+      expect(
+        HomeWidgetService.actionRoutes.keys,
+        containsAll(<String>[
+          'add_expense',
+          'add_income',
+          'import_statement',
+          'scan_sms',
+        ]),
+      );
+      for (final route in HomeWidgetService.actionRoutes.values) {
+        expect(RoutePaths.isKnown(route), isTrue, reason: route);
+      }
+    });
+
+    test('a text left out is not sent, so the widget keeps its own', () {
+      expect(data.toMap().containsKey('income'), isFalse);
+      const full = HomeWidgetData(
+        day: '2026-10-02',
+        today: 'NPR 1.00',
+        zero: 'NPR 0.00',
+        month: 'm',
+        label: 'l',
+        add: 'a',
+        income: 'NPR 5.00',
+        spent: 'NPR 3.00',
+        saved: 'NPR 2.00',
+      );
+      expect(full.toMap()['saved'], 'NPR 2.00');
+      expect(full == data, isFalse);
+    });
+
     test('a tap on its button reaches the app', () async {
       final service = HomeWidgetService(channel: channel);
       addTearDown(service.dispose);
@@ -851,10 +884,10 @@ void main() {
         ],
       );
       expect(find.text('Bank to eSewa'), findsOneWidget);
-      expect(find.text('NPR 2,500'), findsOneWidget);
+      expect(find.text('NPR 2,500.00'), findsOneWidget);
       expect(find.textContaining('Transfer •'), findsOneWidget);
       // It is in neither total.
-      expect(find.text('NPR 0'), findsNWidgets(2));
+      expect(find.text('NPR 0.00'), findsNWidgets(2));
       expect(tester.takeException(), isNull);
     });
 
@@ -883,8 +916,8 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       expect(find.text('Dashain fund'), findsOneWidget);
       expect(find.text('25%'), findsOneWidget);
-      expect(find.text('NPR 5,000 / NPR 20,000'), findsOneWidget);
-      expect(find.text('NPR 15,000 to go'), findsOneWidget);
+      expect(find.text('NPR 5,000.00 / NPR 20,000.00'), findsOneWidget);
+      expect(find.text('NPR 15,000.00 to go'), findsOneWidget);
 
       // Adding the rest reaches it.
       await tester.tap(find.text('Dashain fund'));
@@ -923,9 +956,9 @@ void main() {
           ChangeNotifierProvider<WalletProvider>.value(value: provider),
         ],
       );
-      expect(find.text('NPR 21,500'), findsOneWidget);
-      expect(find.text('NPR 1,500'), findsOneWidget);
-      expect(find.text('NPR 20,000'), findsOneWidget);
+      expect(find.text('NPR 21,500.00'), findsOneWidget);
+      expect(find.text('NPR 1,500.00'), findsOneWidget);
+      expect(find.text('NPR 20,000.00'), findsOneWidget);
       for (final method in PaymentMethod.values) {
         expect(
           find.byKey(ValueKey<String>('wallet-${method.code}')),
@@ -981,8 +1014,8 @@ void main() {
       await tester.tap(find.text('Ram'));
       await tester.tap(find.text('Sita'));
       await tester.pumpAndSettle();
-      expect(find.text('Each friend owes you NPR 500'), findsOneWidget);
-      expect(find.text('Your share is NPR 500'), findsOneWidget);
+      expect(find.text('Each friend owes you NPR 500.00'), findsOneWidget);
+      expect(find.text('Your share is NPR 500.00'), findsOneWidget);
 
       await tester.ensureVisible(find.text('Split'));
       await tester.tap(find.text('Split'));

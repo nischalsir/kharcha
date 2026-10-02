@@ -80,6 +80,12 @@ class AppSettingsProvider extends ChangeNotifier with CacheAware {
     }
   }
 
+  /// See [SettingsRepository.claimDefaultIds].
+  Future<void> claimDefaultIds(String userId) async {
+    final moved = await _repository.claimDefaultIds(userId);
+    if (moved > 0) refreshFromCache();
+  }
+
   ThemeMode get themeMode {
     switch (_settings.themeMode) {
       case AppThemeMode.light:

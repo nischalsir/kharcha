@@ -11,6 +11,7 @@ import '../../providers/transaction_provider.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/receipt_field.dart';
+
 import 'package:flutter/services.dart';
 
 /// Records a single expense or income.
@@ -61,7 +62,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     super.dispose();
   }
 
-  String get _titleLabel => _type == TransactionType.expense ? 'Expense' : 'Income';
+  String get _titleLabel =>
+      _type == TransactionType.expense ? 'Expense' : 'Income';
 
   /// Keeps the selected category valid for the current type: switching between
   /// expense and income swaps the available categories, and a category that no
@@ -91,7 +93,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final amount = parseAmount(_amount.text)!;
     String? categoryName;
     final categories = _categoriesFor(_type);
-    final resolvedCategoryId = _categoryId ?? (categories.isNotEmpty ? categories.first.id : null);
+    final resolvedCategoryId =
+        _categoryId ?? (categories.isNotEmpty ? categories.first.id : null);
     for (final category in categories) {
       if (category.id == resolvedCategoryId) {
         categoryName = category.name;
@@ -133,7 +136,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       return;
     }
     setState(() => _saving = false);
-    showMessage(context, provider.errorMessage ?? 'Could not save $_titleLabel.');
+    showMessage(
+      context,
+      provider.errorMessage ?? 'Could not save $_titleLabel.',
+    );
   }
 
   @override
@@ -174,7 +180,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               const FieldLabel('Amount'),
               TextFormField(
                 controller: _amount,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(hintText: '0'),
                 validator: validateAmount,
               ),

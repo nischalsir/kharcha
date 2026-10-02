@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../core/router/route_paths.dart';
+
 /// What the home-screen widget shows, as ready-made text.
 @immutable
 class HomeWidgetData {
@@ -13,6 +15,16 @@ class HomeWidgetData {
     required this.month,
     required this.label,
     required this.add,
+    this.monthTitle = '',
+    this.income = '',
+    this.spent = '',
+    this.saved = '',
+    this.incomeLabel = '',
+    this.spentLabel = '',
+    this.savedLabel = '',
+    this.expenseAction = '',
+    this.incomeAction = '',
+    this.importAction = '',
   });
 
   /// The day [today] was worked out for, as `yyyy-MM-dd`. The widget shows
@@ -35,18 +47,48 @@ class HomeWidgetData {
   /// The text on the button, e.g. `+ Add`.
   final String add;
 
+  /// The month widget: its heading, and this month's income, spending and
+  /// what is left of the two, each with its caption.
+  final String monthTitle;
+  final String income;
+  final String spent;
+  final String saved;
+  final String incomeLabel;
+  final String spentLabel;
+  final String savedLabel;
+
+  /// The words on the action buttons: add an expense, add income, import.
+  final String expenseAction;
+  final String incomeAction;
+  final String importAction;
+
   static String dayOf(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-'
       '${date.month.toString().padLeft(2, '0')}-'
       '${date.day.toString().padLeft(2, '0')}';
 
+  /// Only what was given: a text left empty falls back to the widget's own
+  /// English wording.
   Map<String, String> toMap() => <String, String>{
-    'day': day,
-    'today': today,
-    'zero': zero,
-    'month': month,
-    'label': label,
-    'add': add,
+    for (final entry in <String, String>{
+      'day': day,
+      'today': today,
+      'zero': zero,
+      'month': month,
+      'label': label,
+      'add': add,
+      'monthTitle': monthTitle,
+      'income': income,
+      'spent': spent,
+      'saved': saved,
+      'incomeLabel': incomeLabel,
+      'spentLabel': spentLabel,
+      'savedLabel': savedLabel,
+      'expenseAction': expenseAction,
+      'incomeAction': incomeAction,
+      'importAction': importAction,
+    }.entries)
+      if (entry.value.isNotEmpty) entry.key: entry.value,
   };
 
   @override
@@ -54,15 +96,16 @@ class HomeWidgetData {
       other is HomeWidgetData && mapEquals(other.toMap(), toMap());
 
   @override
-  int get hashCode => Object.hash(day, today, zero, month, label, add);
+  int get hashCode => Object.hashAll(toMap().values);
 }
 
-/// The Android home-screen widget, from the app's side.
+/// The Android home-screen widgets and icon shortcuts, from the app's side.
 ///
 /// A widget is drawn by the launcher and cannot run Dart, so the app pushes
-/// it its figures whenever they change and the native side stores and shows
-/// them (android/.../KharchaWidget.kt). In the other direction the widget's
-/// Add button opens the app, and the tap arrives here as an action.
+/// the widgets their figures whenever they change and the native side stores
+/// and shows them (android/.../KharchaWidget.kt). In the other direction a
+/// widget button, or a shortcut from a long press on the app icon, opens the
+/// app, and the tap arrives here as an action.
 class HomeWidgetService {
   HomeWidgetService({MethodChannel? channel})
     : _channel = channel ?? const MethodChannel(channelName) {
@@ -73,6 +116,14 @@ class HomeWidgetService {
 
   /// The widget's Add button.
   static const String addExpenseAction = 'add_expense';
+
+  /// The page each action opens. An action that is not listed is ignored.
+  static const Map<String, String> actionRoutes = <String, String>{
+    addExpenseAction: RoutePaths.addExpense,
+    'add_income': RoutePaths.addIncome,
+    'import_statement': RoutePaths.statementImport,
+    'scan_sms': RoutePaths.smsImport,
+  };
 
   final MethodChannel _channel;
   final StreamController<String> _actions =

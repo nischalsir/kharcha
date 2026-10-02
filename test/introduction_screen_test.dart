@@ -99,12 +99,46 @@ void main() {
     expect(find.textContaining('Track spending, budgets'), findsOneWidget);
     expect(find.text('Get started'), findsOneWidget);
     expect(find.text('Login'), findsOneWidget);
-    // No walk-through: nothing to swipe, skip or step through.
-    expect(find.byType(PageView), findsNothing);
+    // No walk-through: nothing to skip or step through. Only the pictures
+    // turn, and the words and buttons stay.
     expect(find.text('Skip'), findsNothing);
     expect(find.text('Next'), findsNothing);
     // The picture cannot be fetched in a test: its stand-in is shown.
     await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.takeException(), isNull);
+    await close(tester);
+  });
+
+  testWidgets('three pictures take turns, and a swipe turns them too', (
+    tester,
+  ) async {
+    await open(tester);
+    final pictures = find.byKey(const ValueKey<String>('intro-pictures'));
+    PageController controller() =>
+        tester.widget<PageView>(pictures).controller!;
+
+    expect(IntroductionScreen.pictures, hasLength(3));
+    expect(find.byIcon(Icons.receipt_long_rounded), findsOneWidget);
+    expect(controller().page, 0);
+
+    // Left alone, the next picture comes by itself.
+    await tester.pump(IntroductionScreen.pictureInterval);
+    await tester.pumpAndSettle();
+    expect(controller().page, 1);
+    expect(find.byIcon(Icons.pie_chart_rounded), findsOneWidget);
+
+    // A swipe turns it, and from then on the pictures wait for the user.
+    await tester.drag(pictures, const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(controller().page, 2);
+    expect(find.byIcon(Icons.people_alt_rounded), findsOneWidget);
+    await tester.pump(IntroductionScreen.pictureInterval * 2);
+    await tester.pumpAndSettle();
+    expect(controller().page, 2);
+
+    // The words and the two ways on never moved.
+    expect(find.text('Know Where\nYour Money Goes'), findsOneWidget);
+    expect(find.text('Get started'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await close(tester);
   });

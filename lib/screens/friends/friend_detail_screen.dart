@@ -589,7 +589,7 @@ class _PaymentForm extends StatefulWidget {
 
 class _PaymentFormState extends State<_PaymentForm> {
   late final TextEditingController _amount = TextEditingController(
-    text: widget.remaining.toStringAsFixed(0),
+    text: widget.remaining.toStringAsFixed(2),
   );
   final TextEditingController _notes = TextEditingController();
   DateTime _paidAt = DateTime.now();

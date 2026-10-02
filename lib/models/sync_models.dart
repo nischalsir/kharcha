@@ -25,12 +25,37 @@ enum SyncEntity {
   transactions('transactions'),
   budgets('budgets'),
   savingsGoals('savings_goals'),
-  festivalBudgets('festival_budgets');
+  festivalBudgets('festival_budgets'),
+  loans('loans'),
+  households('households', shared: true, readOnly: true),
+  householdMembers('household_members', shared: true, readOnly: true),
+  householdTransactions('household_transactions', shared: true);
 
-  const SyncEntity(this.table, {this.conflictColumn = 'id'});
+  const SyncEntity(
+    this.table, {
+    this.conflictColumn = 'id',
+    this.shared = false,
+    this.readOnly = false,
+  });
 
   final String table;
   final String conflictColumn;
+
+  /// True for a table several accounts read: its rows are whatever the
+  /// server lets this account see, not only the ones it wrote. Such a table
+  /// is fetched whole on every sync, because a row the account may no longer
+  /// see (it left the household) cannot be reported as changed.
+  final bool shared;
+
+  /// True for a table the app never writes to directly; changes go through
+  /// server functions.
+  final bool readOnly;
+
+  /// The tables that hold one account's own data: what a backup contains.
+  static List<SyncEntity> get personal => <SyncEntity>[
+    for (final entity in values)
+      if (!entity.shared) entity,
+  ];
 
   static const String settingsRecordId = 'settings';
 

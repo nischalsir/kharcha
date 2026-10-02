@@ -45,6 +45,15 @@ class RoutePaths {
 
   /// Wallets: what each payment method holds, and transfers between them.
   static const String wallets = '/wallets';
+  /// Loans being repaid in monthly instalments.
+  static const String loans = '/loans';
+
+  /// The ledger shared with family or flatmates.
+  static const String household = '/household';
+
+  /// Payment alerts read from the phone's text messages.
+  static const String smsImport = '/payments/sms';
+
   static const String reports = '/reports';
   static const String calculator = '/calculator';
   static const String festivals = '/festivals';
@@ -90,6 +99,9 @@ class RoutePaths {
     budgets,
     goals,
     wallets,
+    loans,
+    household,
+    smsImport,
     reports,
     calculator,
     festivals,

@@ -43,9 +43,7 @@ class _FilterFormState extends State<_FilterForm> {
 
   static String _plain(double? value) {
     if (value == null) return '';
-    return value == value.roundToDouble()
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(2);
+    return value.toStringAsFixed(2);
   }
 
   @override

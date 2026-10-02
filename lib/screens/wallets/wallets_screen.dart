@@ -194,9 +194,7 @@ class _BalanceFormState extends State<_BalanceForm> {
   late final TextEditingController _amount;
   bool _saving = false;
 
-  static String _plain(double value) => value == value.roundToDouble()
-      ? value.toStringAsFixed(0)
-      : value.toStringAsFixed(2);
+  static String _plain(double value) => value.toStringAsFixed(2);
 
   @override
   void initState() {

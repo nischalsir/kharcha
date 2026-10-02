@@ -12,11 +12,12 @@ void main() {
   const double dpr = 2.75;
   const double width = 1080 / dpr;
 
-  test('before sign-in: the logo and the introduction picture', () {
+  test('before sign-in: the logo and the introduction pictures', () {
     final urls = ImagePreload.startup(devicePixelRatio: dpr);
     expect(urls, contains(AuthBrand.logoUrl((76 * dpr).round())));
-    expect(urls, contains(IntroductionScreen.heroImageUrl));
-    expect(urls, hasLength(2));
+    expect(urls, containsAll(IntroductionScreen.pictureUrls));
+    expect(IntroductionScreen.pictureUrls, hasLength(3));
+    expect(urls, hasLength(4));
   });
 
   test('the guide slides are fetched at the width the slide asks for', () {

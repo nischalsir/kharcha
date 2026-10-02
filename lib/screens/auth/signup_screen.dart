@@ -327,12 +327,31 @@ class _SignupScreenState extends State<SignupScreen> {
                     controller: _nameController,
                     textInputAction: TextInputAction.next,
                     autofillHints: const <String>[AutofillHints.name],
+                    textCapitalization: TextCapitalization.words,
                     decoration: buildInputDecoration(
                       context,
                       label: 'Full name',
-                      hint: 'Optional',
+                      hint: context.t('Your name', 'तपाईंको नाम'),
                       prefixIcon: Icons.person_outline_rounded,
                     ),
+                    // The name is how the app, and a household's other
+                    // members, address the account: it cannot be left out.
+                    validator: (value) {
+                      final name = value?.trim() ?? '';
+                      if (name.isEmpty) {
+                        return context.t(
+                          'Full name is required',
+                          'पूरा नाम आवश्यक छ',
+                        );
+                      }
+                      if (name.length < 2) {
+                        return context.t(
+                          'Enter your full name',
+                          'पूरा नाम लेख्नुहोस्',
+                        );
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 14),
                   TextFormField(

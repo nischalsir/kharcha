@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="widget_chip">#24FFFFFF</color>
+    <color name="widget_income">#30D158</color>
+    <color name="widget_spent">#FF453A</color>
     <color name="widget_background">#F21C1C1E</color>
     <color name="widget_text">#FFFFFF</color>
     <color name="widget_text_secondary">#98989F</color>

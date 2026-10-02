@@ -56,6 +56,41 @@ class SupabaseService {
     }
   }
 
+  /// Every row of a shared table this account may see, oldest first.
+  Future<List<Map<String, dynamic>>> fetchShared(
+    SyncEntity entity, {
+    int pageSize = 500,
+  }) async {
+    final client = _requireClient();
+    final all = <Map<String, dynamic>>[];
+    try {
+      for (var from = 0; ; from += pageSize) {
+        final page = await client
+            .from(entity.table)
+            .select()
+            .isFilter('deleted_at', null)
+            .order('created_at', ascending: true)
+            .order('id', ascending: true)
+            .range(from, from + pageSize - 1);
+        all.addAll(page);
+        if (page.length < pageSize) break;
+      }
+      return all;
+    } catch (error) {
+      throw AppFailure.from(error);
+    }
+  }
+
+  /// Calls a server function and returns what it returned.
+  Future<Object?> rpc(String name, Map<String, dynamic> params) async {
+    final client = _requireClient();
+    try {
+      return await client.rpc(name, params: params);
+    } catch (error) {
+      throw AppFailure.from(error);
+    }
+  }
+
   Future<List<Map<String, dynamic>>> pullChanges(
     SyncEntity entity, {
     String? cursor,
