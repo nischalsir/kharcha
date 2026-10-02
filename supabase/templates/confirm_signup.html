@@ -1,0 +1,77 @@
+<!--
+  Supabase > Authentication > Emails > Templates > Confirm signup
+  Subject: Your Kharcha code: {{ .Token }}
+  Paste everything below this comment into "Message body".
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFF4EA" style="background-color:#FFF4EA;margin:0;padding:0;">
+  <tr>
+    <td align="center" style="padding:32px 12px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:460px;background-color:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #FFE1C7;">
+        <tr>
+          <td height="6" bgcolor="#FF6B35" style="height:6px;line-height:6px;font-size:0;background-color:#FF6B35;background-image:linear-gradient(90deg,#FFC93C,#FF6B35,#E8422A);">&nbsp;</td>
+        </tr>
+        <tr>
+          <td align="center" bgcolor="#FFF1E0" style="background-color:#FFF1E0;padding:26px 24px 8px 24px;">
+            <div style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:800;letter-spacing:4px;color:#E8422A;">KHARCHA</div>
+            <img src="https://raw.githubusercontent.com/nischalsir/kharcha/main/docs/email/flamey-welcome.png" width="148" height="148" alt="Flamey, the Kharcha flame, celebrating" style="display:block;border:0;outline:none;width:148px;height:148px;margin:6px auto 0 auto;">
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:22px 28px 6px 28px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <h1 style="margin:0;font-size:24px;line-height:30px;font-weight:800;color:#2B1A12;">Welcome to Kharcha!</h1>
+            <p style="margin:10px 0 0 0;font-size:15px;line-height:23px;color:#6B5B53;">
+              I'm Flamey. I'll keep an eye on where your money goes, and yes, I will have opinions about it.
+            </p>
+            <p style="margin:14px 0 0 0;font-size:15px;line-height:23px;color:#2B1A12;font-weight:600;">
+              Enter this code in the app to finish signing up:
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:14px 28px 4px 28px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+              <tr>
+                <td align="center" bgcolor="#FFF4EA" style="background-color:#FFF4EA;border:2px dashed #FFB27A;border-radius:18px;padding:16px 26px 16px 34px;font-family:'SF Mono',Consolas,'Courier New',monospace;font-size:36px;line-height:42px;font-weight:800;letter-spacing:8px;color:#E8422A;">{{ .Token }}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:12px 28px 22px 28px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <p style="margin:0;font-size:13px;line-height:20px;color:#9A8A80;">
+              The code works once and expires soon.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 28px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td height="1" bgcolor="#FFE9D6" style="height:1px;line-height:1px;font-size:0;background-color:#FFE9D6;">&nbsp;</td></tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:18px 28px 6px 28px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td width="34" valign="top" style="font-size:20px;line-height:24px;">&#128236;</td>
+                <td valign="top" style="font-size:13px;line-height:20px;color:#6B5B53;">
+                  <strong style="color:#2B1A12;">Found me in spam?</strong>
+                  Tap "Not spam" so my next email lands in your inbox.
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:14px 28px 26px 28px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <p style="margin:0;font-size:12px;line-height:19px;color:#B3A59C;">
+              Didn't create a Kharcha account? You can ignore this email.<br>
+              Kharcha &middot; know where your money goes
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
