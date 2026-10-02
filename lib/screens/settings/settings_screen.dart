@@ -13,7 +13,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/push_provider.dart';
 import '../../services/account_avatar_cache.dart';
 import '../../services/biometric_service.dart';
-import '../../services/push_notification_service.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/common/sync_status.dart';
 import '../../widgets/common/auth_widgets.dart';
@@ -21,6 +20,7 @@ import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/theme_mode_selector.dart';
+import 'app_permissions_card.dart';
 import 'change_password_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'two_factor_screen.dart';
@@ -163,6 +163,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 24),
+                _SectionHeader(
+                  title: context.t('App Permissions', 'एप अनुमतिहरू'),
+                ),
+                const SizedBox(height: 8),
+                const AppPermissionsCard(),
                 const SizedBox(height: 24),
                 _SectionHeader(title: context.t('Notifications', 'सूचनाहरू')),
                 const SizedBox(height: 8),
@@ -690,44 +696,6 @@ class _NotificationSettingsCard extends StatefulWidget {
 }
 
 class _NotificationSettingsCardState extends State<_NotificationSettingsCard> {
-  bool _busy = false;
-
-  Future<void> _togglePermission(PushProvider push) async {
-    if (_busy) return;
-    if (push.permission == PushPermission.denied) {
-      // Android will not show the dialog again once it has been denied, so the
-      // only honest thing to offer is the system settings page.
-      final opened = await push.openSystemSettings();
-      if (!mounted) return;
-      if (!opened) {
-        showMessage(context, 'Could not open Android settings.');
-        return;
-      }
-      // The user may have flipped it there; re-read on return.
-      await push.initialize();
-      return;
-    }
-
-    setState(() => _busy = true);
-    final granted = await push.enable();
-    if (!mounted) return;
-    setState(() => _busy = false);
-    if (granted) {
-      showMessage(context, 'Notifications are on.');
-      return;
-    }
-    if (push.permission == PushPermission.denied) {
-      showMessage(
-        context,
-        'Notifications are blocked. Turn them on in Android settings.',
-      );
-      return;
-    }
-    if (push.error != null) {
-      showMessage(context, push.error!);
-    }
-  }
-
   Future<void> _toggleAiContent(
     AppSettingsProvider settings,
     NotificationPrefs prefs,
@@ -774,50 +742,9 @@ class _NotificationSettingsCardState extends State<_NotificationSettingsCard> {
       );
     }
 
-    final on =
-        push.permission == PushPermission.authorized ||
-        push.permission == PushPermission.provisional;
-
     return GlassCard(
       child: Column(
         children: <Widget>[
-          SwitchListTile(
-            value: on,
-            onChanged: _busy ? null : (_) => _togglePermission(push),
-            secondary: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF30D158).withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.notifications_active_rounded,
-                color: Color(0xFF30D158),
-                size: 22,
-              ),
-            ),
-            title: Text(
-              context.t('Allow notifications', 'सूचना अनुमति दिनुहोस्'),
-              style: theme.textTheme.titleMedium,
-            ),
-            subtitle: Text(
-              push.permission == PushPermission.denied
-                  ? context.t(
-                      'Blocked. Open Android settings to allow.',
-                      'अवरुद्ध। अनुमति दिन Android सेटिङ खोल्नुहोस्।',
-                    )
-                  : context.t(
-                      'Budget alerts and reminders',
-                      'बजेट चेतावनी र सम्झना',
-                    ),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: glass.textSecondary,
-              ),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-          ),
-          const Divider(height: 1),
           SwitchListTile(
             value: prefs.aiContent,
             // The AI job is server-side, so the switch works either way; it

@@ -3,9 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     <!--
@@ -24,7 +22,10 @@
     <uses-feature
         android:name="android.hardware.telephony"
         android:required="false" />
-    <!-- Approximate only, and only for the weather on the Calendar page. -->
+    <!--
+        Approximate only, and only for the weather on the Calendar page. Asked
+        for from Settings > App Permissions, never by opening the Calendar.
+    -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!--
         The location plugin also brings a permission for tracking location
@@ -35,10 +36,18 @@
         android:name="android.permission.FOREGROUND_SERVICE_LOCATION"
         tools:node="remove" />
 
+    <!--
+        No backup of the app's storage: see res/xml/data_extraction_rules.xml.
+        Removing the app and installing it again is a fresh installation.
+    -->
     <application
         android:label="Kharcha"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        tools:targetApi="s">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -147,19 +156,6 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/kharcha_widget_actions_info" />
-        </receiver>
-        <receiver
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
-            android:exported="false" />
-        <receiver
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
-            </intent-filter>
         </receiver>
         <meta-data
             android:name="flutterEmbedding"

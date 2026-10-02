@@ -14,6 +14,25 @@ import '../services/nepali_date_service.dart';
 import '../services/sync_service.dart';
 import 'cache_aware.dart';
 
+/// Where an installation is with the first-use tour.
+enum TutorialStatus {
+  notStarted,
+  inProgress,
+  completed,
+  skipped;
+
+  /// Completed or skipped: either way, not to be shown again.
+  bool get isFinished =>
+      this == TutorialStatus.completed || this == TutorialStatus.skipped;
+
+  static TutorialStatus fromName(String? name) {
+    for (final status in values) {
+      if (status.name == name) return status;
+    }
+    return TutorialStatus.notStarted;
+  }
+}
+
 class AppSettingsProvider extends ChangeNotifier with CacheAware {
   AppSettingsProvider({
     required this._cache,
@@ -68,6 +87,55 @@ class AppSettingsProvider extends ChangeNotifier with CacheAware {
   bool get hasSeenIntroduction =>
       _settings.hasSeenIntroduction ||
       _cache.readBoolSetting(_introSeenKey) == true;
+
+  static const String _tutorialStatusKey = 'tutorial.status';
+  static const String _tutorialPageKey = 'tutorial.page';
+
+  /// How far this installation has got with the first-use tour.
+  ///
+  /// Kept on the phone and nowhere else: it is about the installation, not
+  /// about an account, so signing out, switching accounts or updating the
+  /// app never brings the tour back, and removing the app and installing it
+  /// again does.
+  TutorialStatus get tutorialStatus =>
+      TutorialStatus.fromName(_cache.readSetting(_tutorialStatusKey));
+
+  /// The page the tour was last on, for carrying on after an interruption.
+  int get tutorialPage =>
+      int.tryParse(_cache.readSetting(_tutorialPageKey) ?? '') ?? 0;
+
+  /// Whether the tour should be shown before anything else: on an
+  /// installation that has never been past its first screen.
+  bool get needsFirstRunTutorial => !hasSeenIntroduction;
+
+  /// Whether someone entering as a guest should be shown the tour: on an
+  /// installation where nobody has been through it or skipped it. That
+  /// includes one that was updated from a version without the tour, where a
+  /// guest is by definition new to the app.
+  bool get needsGuestTutorial => !tutorialStatus.isFinished;
+
+  /// Notes that the tour has begun and where it has got to.
+  Future<void> saveTutorialProgress(int page) async {
+    if (tutorialStatus.isFinished) return;
+    await _cache.writeSetting(
+      _tutorialStatusKey,
+      TutorialStatus.inProgress.name,
+    );
+    await _cache.writeSetting(_tutorialPageKey, '$page');
+  }
+
+  /// The tour is over, by reaching its end or by skipping it. Either way it
+  /// is not shown again on this installation.
+  Future<void> finishTutorial({required bool skipped}) async {
+    await _cache.writeSetting(
+      _tutorialStatusKey,
+      (skipped ? TutorialStatus.skipped : TutorialStatus.completed).name,
+    );
+    await _cache.removeSetting(_tutorialPageKey);
+    await _cache.writeBoolSetting(_introSeenKey, true);
+    notifyListeners();
+    await markIntroductionSeen();
+  }
 
   /// See [SettingsRepository.reseedDefaults]. [fetched] says whether the
   /// account's own data arrived first.

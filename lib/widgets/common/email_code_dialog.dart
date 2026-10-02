@@ -1,13 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/errors/app_failure.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/email_code.dart';
 import '../../providers/auth_provider.dart';
+import 'auth_widgets.dart';
+import 'code_field.dart';
 
 /// "Check the spam folder too": shown wherever a code has been emailed, since
 /// that is where a first email from a new sender most often lands.
@@ -44,8 +46,14 @@ class SpamHint extends StatelessWidget {
   }
 }
 
-/// Asks for the 6-digit code emailed when an account is created, and confirms
-/// the account with it. Confirming signs the account in.
+/// What to say when a code that is too short is sent.
+String incompleteCodeMessage(BuildContext context) => context.t(
+  'Enter all ${EmailCode.length} digits of the code from the email.',
+  'इमेलमा आएको कोडका ${L10n.neNumber(EmailCode.length)} वटै अंक लेख्नुहोस्।',
+);
+
+/// Asks for the code emailed when an account is created, and confirms the
+/// account with it. Confirming signs the account in.
 ///
 /// Pops `true` once that has happened, `false` when it is closed without.
 class EmailCodeDialog extends StatefulWidget {
@@ -78,12 +86,13 @@ class EmailCodeDialog extends StatefulWidget {
 }
 
 class _EmailCodeDialogState extends State<EmailCodeDialog> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _code = TextEditingController();
 
   bool _busy = false;
-  String? _error;
-  String? _note;
+
+  /// The code as it was when the server refused it; the boxes are drawn in
+  /// the error colour until it is changed.
+  String? _refused;
 
   /// Seconds until another code may be sent.
   int _wait = EmailCodeDialog.resendAfterSeconds;
@@ -118,23 +127,34 @@ class _EmailCodeDialogState extends State<EmailCodeDialog> {
   String _messageOf(Object error) =>
       context.read<AuthProvider>().error ?? AppFailure.from(error).message;
 
+  /// Said in a notice from the bottom of the screen, above this dialog, the
+  /// same way every other sign-in problem is.
+  void _say(String message, {AuthNoticeKind kind = AuthNoticeKind.error}) =>
+      showOverlayNotice(context, message, kind: kind);
+
   Future<void> _verify() async {
-    if (_busy || !_formKey.currentState!.validate()) return;
+    if (_busy) return;
+    final code = EmailCode.clean(_code.text);
+    if (!EmailCode.canSubmit(code)) {
+      setState(() => _refused = _code.text);
+      _say(incompleteCodeMessage(context));
+      return;
+    }
     setState(() {
       _busy = true;
-      _error = null;
-      _note = null;
+      _refused = null;
     });
     final auth = context.read<AuthProvider>();
     try {
-      await auth.confirmSignUp(email: widget.email, code: _code.text);
+      await auth.confirmSignUp(email: widget.email, code: code);
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;
       final message = _messageOf(error);
-      // Said here, by the field, not on the page behind the dialog.
+      // Said here, not on the page behind the dialog.
       auth.clearError();
-      setState(() => _error = message);
+      setState(() => _refused = _code.text);
+      _say(message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -144,23 +164,21 @@ class _EmailCodeDialogState extends State<EmailCodeDialog> {
     if (_busy) return;
     setState(() {
       _busy = true;
-      _error = null;
-      _note = null;
+      _refused = null;
     });
     final auth = context.read<AuthProvider>();
     final sent = context.t('A new code is on its way.', 'नयाँ कोड पठाइँदैछ।');
     try {
       await auth.resendSignUpCode(widget.email);
       if (!mounted) return;
-      setState(() {
-        _note = sent;
-        _startWait();
-      });
+      _code.clear();
+      setState(_startWait);
+      _say(sent, kind: AuthNoticeKind.success);
     } catch (error) {
       if (!mounted) return;
       final message = _messageOf(error);
       auth.clearError();
-      setState(() => _error = message);
+      _say(message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -168,94 +186,55 @@ class _EmailCodeDialogState extends State<EmailCodeDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final glass = context.glass;
-    final error = _error;
-    final note = _note;
-
     return AlertDialog(
+      // Room for a box per digit on a narrow phone.
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       title: Text(context.t('Confirm your email', 'इमेल पुष्टि गर्नुहोस्')),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Text(
-                context.t(
-                  'Enter the 6-digit code we sent to ${widget.email}.',
-                  '${widget.email} मा पठाइएको ६ अंकको कोड लेख्नुहोस्।',
-                ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              context.t(
+                'Enter the ${EmailCode.length}-digit code we sent to '
+                    '${widget.email}.',
+                '${widget.email} मा पठाइएको '
+                    '${L10n.neNumber(EmailCode.length)} अंकको कोड लेख्नुहोस्।',
               ),
-              const SizedBox(height: 8),
-              const SpamHint(),
-              const SizedBox(height: 16),
-              TextFormField(
-                key: const ValueKey<String>('email-code-field'),
+            ),
+            const SizedBox(height: 8),
+            const SpamHint(),
+            const SizedBox(height: 18),
+            Center(
+              child: CodeField(
                 controller: _code,
+                fieldKey: const ValueKey<String>('email-code-field'),
                 autofocus: true,
-                keyboardType: TextInputType.number,
-                textInputAction: TextInputAction.done,
-                maxLength: 6,
-                autofillHints: const <String>[AutofillHints.oneTimeCode],
-                inputFormatters: <TextInputFormatter>[
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                decoration: InputDecoration(
-                  labelText: context.t('Verification code', 'प्रमाणीकरण कोड'),
-                  hintText: '000000',
-                  counterText: '',
-                ),
-                validator: (value) =>
-                    RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
-                    ? null
-                    : context.t(
-                        'Enter the 6-digit code',
-                        '६ अंकको कोड लेख्नुहोस्',
-                      ),
-                onFieldSubmitted: (_) => _verify(),
+                enabled: !_busy,
+                hasError: _refused != null && _refused == _code.text,
+                // Every digit in: no need to reach for the button.
+                onCompleted: (_) => _verify(),
+                onSubmitted: (_) => _verify(),
               ),
-              if (error != null) ...<Widget>[
-                const SizedBox(height: 8),
-                Text(
-                  error,
-                  key: const ValueKey<String>('email-code-error'),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: glass.danger,
-                  ),
-                ),
-              ],
-              if (note != null) ...<Widget>[
-                const SizedBox(height: 8),
-                Text(
-                  note,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: glass.success,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 4),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: TextButton(
-                  key: const ValueKey<String>('email-code-resend'),
-                  onPressed: _busy || _wait > 0 ? null : _resend,
-                  child: Text(
-                    _wait > 0
-                        ? context.t(
-                            'Send again in ${_wait}s',
-                            '${L10n.neNumber(_wait)} सेकेन्डमा फेरि पठाउनुहोस्',
-                          )
-                        : context.t(
-                            'Send the code again',
-                            'कोड फेरि पठाउनुहोस्',
-                          ),
-                  ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton(
+                key: const ValueKey<String>('email-code-resend'),
+                onPressed: _busy || _wait > 0 ? null : _resend,
+                child: Text(
+                  _wait > 0
+                      ? context.t(
+                          'Send again in ${_wait}s',
+                          '${L10n.neNumber(_wait)} सेकेन्डमा फेरि पठाउनुहोस्',
+                        )
+                      : context.t('Send the code again', 'कोड फेरि पठाउनुहोस्'),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
       actions: <Widget>[

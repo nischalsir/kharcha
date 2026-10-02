@@ -1,18 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kharcha_app/core/theme/app_theme.dart';
 import 'package:kharcha_app/models/financial_summary.dart';
-import 'package:kharcha_app/providers/auth_provider.dart';
-import 'package:kharcha_app/screens/auth/signup_screen.dart';
-import 'package:kharcha_app/services/biometric_service.dart';
-import 'package:kharcha_app/services/google_account.dart';
-import 'package:kharcha_app/services/nepali_date_service.dart';
-import 'package:kharcha_app/widgets/common/auth_widgets.dart';
 import 'package:kharcha_app/widgets/common/flame_mascot.dart';
-import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -91,117 +80,5 @@ void main() {
         reason: reaction.name,
       );
     }
-  });
-
-  group('the name and photo chosen in the app outlive a Google sign-in', () {
-    const cloud = 'https://res.cloudinary.com/demo/image/upload/v1/a.jpg';
-    const google = 'https://lh3.googleusercontent.com/a/photo';
-
-    test('an account that never used Google has its own copies noted', () {
-      expect(
-        AuthProvider.ownProfileChanges(<String, dynamic>{
-          'full_name': ' Nischal ',
-          'avatar_url': cloud,
-        }, hasGoogle: false),
-        <String, dynamic>{
-          'kharcha_name': 'Nischal',
-          'kharcha_avatar_url': cloud,
-        },
-      );
-    });
-
-    test('what Google wrote over them is put back', () {
-      expect(
-        AuthProvider.ownProfileChanges(<String, dynamic>{
-          'full_name': 'Google Name',
-          'avatar_url': google,
-          'kharcha_name': 'Nischal',
-          'kharcha_avatar_url': cloud,
-        }, hasGoogle: true),
-        <String, dynamic>{'full_name': 'Nischal', 'avatar_url': cloud},
-      );
-    });
-
-    test('a new Google account keeps the name and photo Google gave', () {
-      expect(
-        AuthProvider.ownProfileChanges(<String, dynamic>{
-          'full_name': 'Google Name',
-          'avatar_url': google,
-        }, hasGoogle: true),
-        isEmpty,
-      );
-    });
-
-    test('nothing is written when everything already agrees', () {
-      expect(
-        AuthProvider.ownProfileChanges(<String, dynamic>{
-          'full_name': 'Nischal',
-          'avatar_url': cloud,
-          'kharcha_name': 'Nischal',
-          'kharcha_avatar_url': cloud,
-        }, hasGoogle: true),
-        isEmpty,
-      );
-      expect(
-        AuthProvider.ownProfileChanges(
-          const <String, dynamic>{},
-          hasGoogle: false,
-        ),
-        isEmpty,
-      );
-    });
-  });
-
-  testWidgets('sign-up offers Google, and still asks for the terms first', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(480, 2000);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
-    FlutterSecureStorage.setMockInitialValues(<String, String>{});
-    // This build has a Google client id.
-    const config = MethodChannel('com.nischalpandey.kharcha/app_config');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(config, (call) async => 'web-client-id');
-    addTearDown(() {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(config, null);
-      GoogleAccount.resetForTest();
-    });
-    GoogleAccount.resetForTest();
-    final auth = AuthProvider();
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<AuthProvider>.value(value: auth),
-          Provider<BiometricService>(create: (_) => BiometricService()),
-          Provider<NepaliDateService>(create: (_) => NepaliDateService()),
-        ],
-        child: MaterialApp(theme: AppTheme.light(), home: const SignupScreen()),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final button = find.byKey(const ValueKey<String>('google-sign-in'));
-    expect(button, findsOneWidget);
-    expect(find.text('Continue with Google'), findsOneWidget);
-    expect(find.byType(GoogleLogo), findsOneWidget);
-
-    // Not ticked: the terms row is flagged and Google is never opened.
-    await tester.tap(button);
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Tick the box to continue.'), findsOneWidget);
-    expect(auth.failure, isNull);
-    expect(tester.takeException(), isNull);
-  });
-
-  test('a server without the Google provider says so plainly', () {
-    final failure = AuthProvider.describeAuthError(
-      const AuthException(
-        'Provider (issuer "https://accounts.google.com") is not enabled',
-        statusCode: '400',
-      ),
-    );
-    expect(failure.message, contains('not switched on'));
   });
 }

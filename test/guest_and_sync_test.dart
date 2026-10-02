@@ -718,27 +718,11 @@ void main() {
     });
   });
 
-  group('Google sign-in problems are named', () {
-    test('a server set up with another app\'s Google client', () {
-      final failure = AuthProvider.describeAuthError(
-        const AuthApiException(
-          'Unacceptable audience in id_token: '
-          '[810183040812-abc.apps.googleusercontent.com]',
-          statusCode: '400',
-        ),
-      );
-      expect(failure.message, contains('not fully set up'));
-      // The technical part stays out of what the person reads.
-      expect(failure.message, isNot(contains('audience')));
-      expect(failure.message, isNot(contains('googleusercontent')));
-    });
-
-    test('anything else the server refuses is not called a sync problem', () {
-      final failure = AuthProvider.describeAuthError(
-        const AuthApiException('Something unexpected', statusCode: '500'),
-      );
-      expect(failure.message, 'Could not sign in. Please try again.');
-      expect(failure.message, isNot(contains('sync')));
-    });
+  test('anything the server refuses is not called a sync problem', () {
+    final failure = AuthProvider.describeAuthError(
+      const AuthApiException('Something unexpected', statusCode: '500'),
+    );
+    expect(failure.message, 'Could not sign in. Please try again.');
+    expect(failure.message, isNot(contains('sync')));
   });
 }

@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kharcha_app/main.dart';
 import 'package:kharcha_app/providers/app_providers.dart';
-import 'package:kharcha_app/screens/auth/introduction_screen.dart';
+import 'package:kharcha_app/screens/tutorial/tutorial_screen.dart';
 import 'package:kharcha_app/services/flamey_controller.dart';
 import 'package:kharcha_app/services/incoming_file_service.dart';
 import 'package:provider/provider.dart';
@@ -56,10 +56,11 @@ void main() {
     }
 
     expect(tester.takeException(), isNull);
-    expect(find.byType(IntroductionScreen), findsOneWidget);
+    // A fresh installation opens on the first-use tour.
+    expect(find.byType(TutorialScreen), findsOneWidget);
 
     // The things the screens reach for are all there.
-    final context = tester.element(find.byType(IntroductionScreen));
+    final context = tester.element(find.byType(TutorialScreen));
     expect(context.read<FlameyController>(), isNotNull);
     expect(context.read<IncomingFileService>(), isNotNull);
 

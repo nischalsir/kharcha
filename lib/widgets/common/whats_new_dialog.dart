@@ -22,6 +22,22 @@ class WhatsNew {
   /// English and Nepali, newest first.
   static const List<(String, String)> items = <(String, String)>[
     (
+      'A tour of the app for anyone new to it',
+      'एपमा नयाँ जो कोहीका लागि एउटा परिचय',
+    ),
+    (
+      'Settings > App Permissions: notifications, location and SMS in one place',
+      'सेटिङ > एप अनुमतिहरू: सूचना, स्थान र SMS एकै ठाउँमा',
+    ),
+    (
+      'Emailed codes can now be 8 digits, typed or pasted',
+      'इमेलमा आउने कोड अब ८ अंकको हुन सक्छ, टाइप वा पेस्ट गर्नुहोस्',
+    ),
+    (
+      'The Calendar no longer asks for your location',
+      'पात्रोले अब तपाईंको स्थान माग्दैन',
+    ),
+    (
       'Explore as guest: use the app with no account, all on this phone',
       'पाहुनाको रूपमा हेर्नुहोस्: खाता बिना, सबै यही फोनमा',
     ),
@@ -38,12 +54,8 @@ class WhatsNew {
       '"पासवर्ड बिर्सनुभयो?" अब पासवर्ड फिल्डकै छेउमा छ',
     ),
     (
-      'Continue with Google: sign in or sign up without a password',
-      'Google बाट जारी राख्नुहोस्: पासवर्ड बिना साइन इन वा साइन अप',
-    ),
-    (
-      'New accounts confirm their email with a 6-digit code',
-      'नयाँ खाताले ६ अंकको कोडबाट इमेल पुष्टि गर्छ',
+      'New accounts confirm their email with a code',
+      'नयाँ खाताले कोडबाट इमेल पुष्टि गर्छ',
     ),
     (
       'Flamey now roasts your spending habits, using your own numbers',

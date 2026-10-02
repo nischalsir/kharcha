@@ -19,7 +19,11 @@ void main() {
 
   test('a version is shown without a trailing .0', () {
     expect(AppInfo.short('1.1.0'), '1.1');
-    expect(AppInfo.short('2.0.0'), '2.0');
+    // A major release keeps all three.
+    expect(AppInfo.short('2.0.0'), '2.0.0');
+    expect(AppInfo.short('3.0.0'), '3.0.0');
+    expect(AppInfo.short('2.1.0'), '2.1');
+    expect(AppInfo.short('2.0.1'), '2.0.1');
     expect(AppInfo.short('1.3.1'), '1.3.1');
     expect(AppInfo.short('1.10.0'), '1.10');
     // Only the last of three numbers is dropped.

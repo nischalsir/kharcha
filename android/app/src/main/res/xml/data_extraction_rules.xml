@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Nothing the app stores is copied to a cloud backup or to a new phone.
+
+    Everything worth keeping is on the account's server and comes back at
+    sign-in. What is on the phone is tied to this installation: the signed-in
+    session (its keys do not survive a restore), one account's cached data,
+    and the note that the first-use tour has been seen. Restoring those onto a
+    fresh installation would bring back a half-working session and skip the
+    tour for someone who has just installed the app.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

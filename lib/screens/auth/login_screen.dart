@@ -1,18 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/errors/app_failure.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../core/router/route_paths.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/email_code.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/account_avatar_cache.dart';
 import '../../services/biometric_service.dart';
-import '../../services/google_account.dart';
 import '../../widgets/common/auth_widgets.dart';
+import '../../widgets/common/code_field.dart';
 import '../../widgets/common/email_code_dialog.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
@@ -36,16 +36,10 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _biometricEnabled = false;
   BiometricCapability _capability = BiometricCapability.none;
 
-  /// Whether this build can sign in with Google at all.
-  bool _googleReady = false;
-
   @override
   void initState() {
     super.initState();
     _restorePreferences();
-    GoogleAccount.isConfigured().then((ready) {
-      if (mounted && ready) setState(() => _googleReady = true);
-    });
   }
 
   @override
@@ -304,28 +298,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _handleGoogleSignIn() async {
-    FocusScope.of(context).unfocus();
-    setState(() => _isLoading = true);
-
-    final AuthProvider auth = context.read<AuthProvider>();
-    final BiometricService biometric = context.read<BiometricService>();
-    auth.clearError();
-
-    try {
-      await auth.signInWithGoogle();
-      final String? email = auth.userEmail;
-      if (email != null && await biometric.rememberMe()) {
-        await biometric.setRememberedEmail(email);
-      }
-      if (mounted) _returnToShell();
-    } catch (_) {
-      // The failure is already exposed through AuthProvider.
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
   Future<void> _continueAsGuest() async {
     final AuthProvider auth = context.read<AuthProvider>();
     setState(() => _isLoading = true);
@@ -364,7 +336,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (navigator.mounted) {
         await showDialog<void>(
           context: context,
-          builder: (_) => _ResetPasswordCodeDialog(email: email),
+          builder: (_) => ResetPasswordCodeDialog(email: email),
         );
       }
     } catch (_) {
@@ -529,12 +501,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            if (_googleReady) ...<Widget>[
-              GoogleSignInButton(
-                onPressed: _isLoading ? null : _handleGoogleSignIn,
-              ),
-              const SizedBox(height: 12),
-            ],
             AuthGhostButton(
               label: context.t('Explore as guest', 'पाहुनाको रूपमा हेर्नुहोस्'),
               icon: Icons.visibility_outlined,
@@ -670,17 +636,17 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
   }
 }
 
-class _ResetPasswordCodeDialog extends StatefulWidget {
-  const _ResetPasswordCodeDialog({required this.email});
+class ResetPasswordCodeDialog extends StatefulWidget {
+  const ResetPasswordCodeDialog({super.key, required this.email});
 
   final String email;
 
   @override
-  State<_ResetPasswordCodeDialog> createState() =>
+  State<ResetPasswordCodeDialog> createState() =>
       _ResetPasswordCodeDialogState();
 }
 
-class _ResetPasswordCodeDialogState extends State<_ResetPasswordCodeDialog> {
+class _ResetPasswordCodeDialogState extends State<ResetPasswordCodeDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -705,17 +671,35 @@ class _ResetPasswordCodeDialogState extends State<_ResetPasswordCodeDialog> {
     _codeController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
+  /// Moves on to the password once every digit of the code is in.
+  final FocusNode _passwordFocus = FocusNode();
+
+  /// The code as it was when it was refused; the boxes are drawn in the
+  /// error colour until it is changed.
+  String? _refusedCode;
+
   Future<void> _resetPassword() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _busy = true);
+    final code = EmailCode.clean(_codeController.text);
+    final fieldsValid = _formKey.currentState!.validate();
+    if (!EmailCode.canSubmit(code)) {
+      setState(() => _refusedCode = _codeController.text);
+      showOverlayNotice(context, incompleteCodeMessage(context));
+      return;
+    }
+    if (!fieldsValid) return;
+    setState(() {
+      _busy = true;
+      _refusedCode = null;
+    });
 
     try {
       await context.read<AuthProvider>().resetPasswordWithCode(
         email: widget.email,
-        code: _codeController.text,
+        code: code,
         password: _passwordController.text,
       );
       if (!mounted) return;
@@ -735,7 +719,12 @@ class _ResetPasswordCodeDialogState extends State<_ResetPasswordCodeDialog> {
         setState(() => _rejectedPassword = _passwordController.text);
         _formKey.currentState!.validate();
       } else {
-        showMessage(context, context.read<AuthProvider>().error ?? '$error');
+        final auth = context.read<AuthProvider>();
+        final message = auth.error ?? AppFailure.from(error).message;
+        // Said over this dialog, not on the page behind it.
+        auth.clearError();
+        setState(() => _refusedCode = _codeController.text);
+        showOverlayNotice(context, message);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -745,6 +734,8 @@ class _ResetPasswordCodeDialogState extends State<_ResetPasswordCodeDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      // Room for a box per digit on a narrow phone.
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       title: Text(context.t('Enter reset code', 'रिसेट कोड लेख्नुहोस्')),
       content: Form(
         key: _formKey,
@@ -754,39 +745,32 @@ class _ResetPasswordCodeDialogState extends State<_ResetPasswordCodeDialog> {
             children: <Widget>[
               Text(
                 context.t(
-                  'Enter the 6-digit code sent to ${widget.email}.',
-                  '${widget.email} मा पठाइएको ६ अंकको कोड लेख्नुहोस्।',
+                  'Enter the ${EmailCode.length}-digit code sent to '
+                      '${widget.email}.',
+                  '${widget.email} मा पठाइएको '
+                      '${L10n.neNumber(EmailCode.length)} अंकको कोड '
+                      'लेख्नुहोस्।',
                 ),
               ),
               const SizedBox(height: 8),
               const SpamHint(),
+              const SizedBox(height: 18),
+              CodeField(
+                controller: _codeController,
+                fieldKey: const ValueKey<String>('reset-code-field'),
+                autofocus: true,
+                enabled: !_busy,
+                hasError:
+                    _refusedCode != null &&
+                    _refusedCode == _codeController.text,
+                onChanged: (_) => setState(() {}),
+                onCompleted: (_) => _passwordFocus.requestFocus(),
+                onSubmitted: (_) => _passwordFocus.requestFocus(),
+              ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _codeController,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                inputFormatters: <TextInputFormatter>[
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                decoration: InputDecoration(
-                  labelText: context.t('Reset code', 'रिसेट कोड'),
-                  hintText: '000000',
-                  counterText: '',
-                ),
-                validator: (value) {
-                  if (!RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')) {
-                    return context.t(
-                      'Enter the 6-digit code',
-                      '६ अंकको कोड लेख्नुहोस्',
-                    );
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
                 controller: _passwordController,
+                focusNode: _passwordFocus,
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   labelText: context.t('New password', 'नयाँ पासवर्ड'),

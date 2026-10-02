@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/google_account.dart';
 import '../../widgets/common/auth_widgets.dart';
 import '../../widgets/common/email_code_dialog.dart';
 import '../../widgets/common/form_helpers.dart';
@@ -36,15 +35,6 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
 
   /// Signing in to an account that already exists, rather than creating one.
   bool _existing = false;
-  bool _googleReady = false;
-
-  @override
-  void initState() {
-    super.initState();
-    GoogleAccount.isConfigured().then((ready) {
-      if (mounted && ready) setState(() => _googleReady = true);
-    });
-  }
 
   @override
   void dispose() {
@@ -104,11 +94,6 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
       return EmailCodeDialog.show(context, email: email);
     });
   }
-
-  Future<void> _google() => _run((auth) async {
-    await auth.signInWithGoogle();
-    return true;
-  });
 
   @override
   Widget build(BuildContext context) {
@@ -240,10 +225,6 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
                 ],
               ),
             ),
-            if (_googleReady) ...<Widget>[
-              const SizedBox(height: 16),
-              GoogleSignInButton(onPressed: _busy ? null : _google),
-            ],
             const SizedBox(height: 12),
             TextButton(
               key: const ValueKey<String>('guest-upgrade-switch'),

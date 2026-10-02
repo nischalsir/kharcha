@@ -1,10 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/errors/app_failure.dart';
-import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/biometric_service.dart';
@@ -348,6 +348,154 @@ void showAuthNotice(
     );
 }
 
+OverlayEntry? _overlayNotice;
+
+/// Takes down the notice put up by [showOverlayNotice], if one is up.
+void dismissOverlayNotice() {
+  final entry = _overlayNotice;
+  _overlayNotice = null;
+  if (entry != null && entry.mounted) entry.remove();
+}
+
+/// The same notice as [showAuthNotice], for when a dialog is open.
+///
+/// A dialog covers the page, and a notice shown on the page would sit
+/// behind it, dimmed. This one is drawn over everything, at the bottom of
+/// the screen and clear of the keyboard, and leaves on its own. Showing
+/// another replaces it.
+void showOverlayNotice(
+  BuildContext context,
+  String message, {
+  AuthNoticeKind kind = AuthNoticeKind.error,
+}) {
+  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  if (overlay == null) return;
+  dismissOverlayNotice();
+  late final OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (_) => _OverlayNotice(
+      message: message,
+      kind: kind,
+      onDone: () {
+        if (identical(_overlayNotice, entry)) dismissOverlayNotice();
+      },
+    ),
+  );
+  _overlayNotice = entry;
+  overlay.insert(entry);
+}
+
+class _OverlayNotice extends StatefulWidget {
+  const _OverlayNotice({
+    required this.message,
+    required this.kind,
+    required this.onDone,
+  });
+
+  final String message;
+  final AuthNoticeKind kind;
+
+  /// Called when the notice has been up long enough.
+  final VoidCallback onDone;
+
+  @override
+  State<_OverlayNotice> createState() => _OverlayNoticeState();
+}
+
+class _OverlayNoticeState extends State<_OverlayNotice> {
+  Timer? _timer;
+
+  String get message => widget.message;
+  AuthNoticeKind get kind => widget.kind;
+
+  @override
+  void initState() {
+    super.initState();
+    // Errors stay longer: they are the ones that have to be read. The timer
+    // lives and dies with the notice, so nothing is left running once the
+    // page it was shown over has gone.
+    _timer = Timer(
+      Duration(seconds: kind == AuthNoticeKind.success ? 3 : 5),
+      widget.onDone,
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    final accent = switch (kind) {
+      AuthNoticeKind.error => glass.danger,
+      AuthNoticeKind.warning => glass.warning,
+      AuthNoticeKind.success => glass.success,
+    };
+    final symbol = switch (kind) {
+      AuthNoticeKind.error => Icons.error_outline_rounded,
+      AuthNoticeKind.warning => Icons.warning_amber_rounded,
+      AuthNoticeKind.success => Icons.check_circle_outline_rounded,
+    };
+    final media = MediaQuery.of(context);
+    return Positioned(
+      left: 16,
+      right: 16,
+      bottom: media.viewInsets.bottom + media.padding.bottom + 16,
+      child: IgnorePointer(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          builder: (context, shown, child) => Opacity(
+            opacity: shown,
+            child: Transform.translate(
+              offset: Offset(0, 12 * (1 - shown)),
+              child: child,
+            ),
+          ),
+          child: Semantics(
+            liveRegion: true,
+            child: Material(
+              key: const ValueKey<String>('overlay-notice'),
+              color: glass.surfaceStrong,
+              elevation: 6,
+              shadowColor: Colors.black38,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: accent.withValues(alpha: 0.5)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Icon(symbol, color: accent, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        message,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Turns whatever sign-in failure the [AuthProvider] reports into a notice
 /// from the bottom of the screen.
 ///
@@ -414,17 +562,12 @@ class AuthGhostButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
-    this.leading,
     this.tint,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
-
-  /// Shown before the label in place of [icon], for a mark with colours of
-  /// its own.
-  final Widget? leading;
   final Color? tint;
 
   @override
@@ -449,10 +592,7 @@ class AuthGhostButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              if (leading != null) ...<Widget>[
-                leading!,
-                const SizedBox(width: 10),
-              ] else if (icon != null) ...<Widget>[
+              if (icon != null) ...<Widget>[
                 Icon(icon, size: 20, color: color),
                 const SizedBox(width: 10),
               ],
@@ -472,76 +612,6 @@ class AuthGhostButton extends StatelessWidget {
       ),
     );
   }
-}
-
-/// "Continue with Google", on the sign-in and sign-up pages.
-class GoogleSignInButton extends StatelessWidget {
-  const GoogleSignInButton({super.key, required this.onPressed});
-
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) => AuthGhostButton(
-    key: const ValueKey<String>('google-sign-in'),
-    label: context.t('Continue with Google', 'Google बाट जारी राख्नुहोस्'),
-    leading: const GoogleLogo(),
-    tint: Theme.of(context).colorScheme.onSurface,
-    onPressed: onPressed,
-  );
-}
-
-/// Google's four-colour "G".
-class GoogleLogo extends StatelessWidget {
-  const GoogleLogo({super.key, this.size = 20});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) =>
-      CustomPaint(size: Size.square(size), painter: const _GoogleLogoPainter());
-}
-
-class _GoogleLogoPainter extends CustomPainter {
-  const _GoogleLogoPainter();
-
-  static const Color _blue = Color(0xFF4285F4);
-  static const Color _green = Color(0xFF34A853);
-  static const Color _yellow = Color(0xFFFBBC05);
-  static const Color _red = Color(0xFFEA4335);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = size.width * 0.2;
-    final ring = (Offset.zero & size).deflate(stroke / 2);
-    // Degrees clockwise from three o'clock, where the bar of the G sits.
-    void arc(Color color, double from, double to) => canvas.drawArc(
-      ring,
-      from * math.pi / 180,
-      (to - from) * math.pi / 180,
-      false,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke,
-    );
-    arc(_red, 200, 315);
-    arc(_yellow, 140, 200);
-    arc(_green, 45, 140);
-    arc(_blue, 0, 45);
-    final middle = size.height / 2;
-    canvas.drawRect(
-      Rect.fromLTRB(
-        size.width / 2,
-        middle - stroke / 2,
-        size.width,
-        middle + stroke / 2,
-      ),
-      Paint()..color = _blue,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_GoogleLogoPainter oldDelegate) => false;
 }
 
 /// Label + optional subtitle with a trailing switch, used for "remember me"

@@ -34,7 +34,6 @@ import 'providers/savings_goal_provider.dart';
 import 'providers/transaction_provider.dart';
 import 'providers/update_provider.dart';
 import 'providers/wallet_provider.dart';
-import 'screens/auth/introduction_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/mfa_challenge_screen.dart';
 import 'screens/auth/signup_screen.dart';
@@ -62,6 +61,7 @@ import 'screens/settings/profile_edit_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/settings/version_screen.dart';
 import 'screens/transactions/add_transaction_screen.dart';
+import 'screens/tutorial/tutorial_screen.dart';
 import 'screens/wallets/wallets_screen.dart';
 import 'services/root_shell.dart';
 import 'services/biometric_service.dart';
@@ -260,7 +260,7 @@ class KharchaApp extends StatelessWidget {
   /// so a row or a notification can never lead to a route that crashes.
   @visibleForTesting
   static Widget? pageFor(String name, String? id) => switch (name) {
-    RoutePaths.introduction => const IntroductionScreen(),
+    RoutePaths.introduction => const TutorialScreen(),
     RoutePaths.login => const LoginScreen(),
     RoutePaths.signup => const SignupScreen(),
     RoutePaths.home => const RootShell(),
@@ -929,9 +929,13 @@ class _AuthWrapperState extends State<_AuthWrapper>
           return GlassBackground(child: const _BootLoading());
         }
 
-        // Show introduction if not seen
-        if (!settingsProvider.hasSeenIntroduction) {
-          return const IntroductionScreen();
+        // A fresh installation starts with the tour. An installation that
+        // has been past it (including one updated from an older version)
+        // never sees it here again.
+        if (settingsProvider.needsFirstRunTutorial) {
+          return const TutorialScreen(
+            key: ValueKey<String>('tutorial-first-run'),
+          );
         }
 
         // Show login if not authenticated
@@ -952,6 +956,12 @@ class _AuthWrapperState extends State<_AuthWrapper>
           return _signedOutSeen
               ? AccountTransitionView.signingIn(email: authProvider.userEmail)
               : GlassBackground(child: const _BootLoading());
+        }
+
+        // Someone entering as a guest on a phone where nobody has been
+        // through the tour is new to the app: they get it once, before Home.
+        if (authProvider.isLocalGuest && settingsProvider.needsGuestTutorial) {
+          return const TutorialScreen(key: ValueKey<String>('tutorial-guest'));
         }
 
         // Keyed by account, so switching rebuilds every screen from scratch

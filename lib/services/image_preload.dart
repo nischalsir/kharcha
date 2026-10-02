@@ -1,5 +1,4 @@
 import '../models/statement_entry.dart';
-import '../screens/auth/introduction_screen.dart';
 import '../screens/payments/statement_guide_screen.dart';
 import '../widgets/common/auth_widgets.dart';
 import '../widgets/common/festival_image.dart';
@@ -15,10 +14,10 @@ class ImagePreload {
   /// home card, and (null) the full-width day card.
   static const List<double?> _festivalWidths = <double?>[46, 64, null];
 
-  /// Pictures seen before signing in: the logo and the introduction's.
+  /// Pictures seen before signing in: the logo. The first-use tour draws its
+  /// own pictures and needs nothing fetched.
   static List<String> startup({required double devicePixelRatio}) => <String>[
     AuthBrand.logoUrl((AuthBrand.logoSize * devicePixelRatio).round()),
-    ...IntroductionScreen.pictureUrls,
   ];
 
   /// Pictures used inside the app: the statement guides and every festival.
