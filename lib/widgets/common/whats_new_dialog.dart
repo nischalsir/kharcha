@@ -22,6 +22,14 @@ class WhatsNew {
   /// English and Nepali, newest first.
   static const List<(String, String)> items = <(String, String)>[
     (
+      'Google Drive backup: connect your Google account in Settings',
+      'Google Drive ब्याकअप: सेटिङमा आफ्नो Google खाता जोड्नुहोस्',
+    ),
+    (
+      'SMS import: paste messages when Android blocks the permission',
+      'SMS आयात: Android ले अनुमति रोक्दा सन्देश टाँस्नुहोस्',
+    ),
+    (
       'A bell on Home opens your notifications, the new ones on top',
       'होमको घण्टीले सूचनाहरू खोल्छ, नयाँ सूचना माथि',
     ),
