@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,14 +9,13 @@ import '../../core/router/route_paths.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/push_category.dart';
 import '../../providers/notification_inbox_provider.dart';
-import '../../services/notification_inbox.dart';
 import '../../services/nepali_date_service.dart';
-import '../../widgets/common/empty_state.dart';
-import '../../widgets/common/glass_background.dart';
+import '../../services/notification_inbox.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/mornye_chrome.dart';
 
 /// The bell on Home: how many notifications have not been read, and the way
-/// to the page that lists them.
+/// to the sheet that lists them.
 class NotificationBell extends StatelessWidget {
   const NotificationBell({super.key});
 
@@ -32,8 +32,7 @@ class NotificationBell extends StatelessWidget {
       child: IconButton(
         key: const ValueKey<String>('notification-bell'),
         tooltip: context.t('Notifications', 'सूचनाहरू'),
-        onPressed: () =>
-            Navigator.of(context).pushNamed(RoutePaths.notifications),
+        onPressed: () => showNotificationsSheet(context),
         icon: Icon(
           unread > 0
               ? Icons.notifications_active_rounded
@@ -45,92 +44,204 @@ class NotificationBell extends StatelessWidget {
   }
 }
 
-/// Every notification the app has shown on this phone, newest first. The
-/// ones not read yet are highlighted; they count as read once the page has
-/// been looked at and left, or at once with "Mark all as read".
-class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
-
-  @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
+/// Opens the notifications over Home, as a sheet rising from the bottom.
+///
+/// With only a few it comes up to the middle of the screen; with more it
+/// grows, but never past the user's name at the top of Home, so the page it
+/// was opened from stays in sight. What was new is marked as read once the
+/// sheet has been looked at and closed.
+Future<void> showNotificationsSheet(BuildContext context) async {
+  final inbox = context.read<NotificationInboxProvider>();
+  unawaited(inbox.refresh());
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    elevation: 0,
+    barrierColor: const Color(0x66000000),
+    builder: (_) => const _NotificationsSheet(),
+  );
+  await inbox.markAllRead();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
-  NotificationInboxProvider? _inbox;
+class _NotificationsSheet extends StatelessWidget {
+  const _NotificationsSheet();
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _inbox ??= context.read<NotificationInboxProvider>()..refresh();
-  }
+  /// The room left above the sheet at its tallest: the greeting and the
+  /// name on Home.
+  static const double _homeHeading = 96;
 
-  @override
-  void dispose() {
-    // Seen: leaving the page reads them. After this frame, since the
-    // provider's listeners cannot be told while the page is being torn down.
-    final inbox = _inbox;
-    if (inbox != null) scheduleMicrotask(inbox.markAllRead);
-    super.dispose();
-  }
-
-  void _open(InboxItem item) {
-    final inbox = context.read<NotificationInboxProvider>();
-    unawaited(inbox.markRead(item.id));
+  void _open(BuildContext context, InboxItem item) {
+    final navigator = Navigator.of(context);
+    unawaited(context.read<NotificationInboxProvider>().markRead(item.id));
     final route = item.route;
-    // The page it came from, or a route this version no longer has: reading
-    // it is all there is to do.
-    if (!RoutePaths.isKnown(route) || route == RoutePaths.notifications) return;
-    Navigator.of(context).pushNamed(route!, arguments: item.routeArgs);
+    // No page to go to, or one this version does not have: reading it is all
+    // there is to do.
+    if (!RoutePaths.isKnown(route)) return;
+    navigator.pop();
+    navigator.pushNamed(route!, arguments: item.routeArgs);
   }
 
   @override
   Widget build(BuildContext context) {
     final inbox = context.watch<NotificationInboxProvider>();
     final theme = Theme.of(context);
-    final items = inbox.items;
-    final unread = inbox.unreadCount;
+    final glass = context.glass;
+    final media = MediaQuery.of(context);
+    final dark = theme.brightness == Brightness.dark;
 
-    return GlassBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: Text(
-            context.t('Notifications', 'सूचनाहरू'),
-            style: theme.textTheme.titleLarge,
-          ),
-          actions: <Widget>[
-            if (unread > 0)
-              TextButton(
-                key: const ValueKey<String>('notifications-read-all'),
-                onPressed: inbox.markAllRead,
-                child: Text(
-                  context.t('Mark all as read', 'सबै पढिएको चिन्ह लगाउनुहोस्'),
-                ),
-              ),
-          ],
+    final fresh = <InboxItem>[
+      for (final item in inbox.items)
+        if (!item.read) item,
+    ];
+    final earlier = <InboxItem>[
+      for (final item in inbox.items)
+        if (item.read) item,
+    ];
+
+    // useSafeArea has already taken the status bar off the height on offer.
+    final available = media.size.height - media.padding.top;
+    final half = media.size.height * 0.5;
+    final tallest = math.max(half, available - _homeHeading);
+
+    Widget heading(String text) => Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+      child: Text(
+        text.toUpperCase(),
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: glass.textTertiary,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
         ),
-        body: SafeArea(
-          child: items.isEmpty
-              ? EmptyState(
-                  icon: Icons.notifications_none_rounded,
-                  title: context.t('No notifications', 'कुनै सूचना छैन'),
-                  message: context.t(
-                    'Reminders, budget warnings and messages from Flamey '
-                        'will be kept here.',
-                    'सम्झना, बजेट चेतावनी र Flamey का सन्देश यहाँ राखिन्छन्।',
+      ),
+    );
+
+    Widget tile(InboxItem item) => Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: _NotificationTile(item: item, onTap: () => _open(context, item)),
+    );
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: half, maxHeight: tallest),
+      child: MornyeGlass.navigation(
+        blurEnabled: true,
+        radius: 32,
+        child: Material(
+          color: dark ? Colors.black : const Color(0xfff2f2f7),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: dark
+                            ? Colors.white.withValues(alpha: 0.2)
+                            : Colors.black.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
                   ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) => _NotificationTile(
-                    item: items[index],
-                    onTap: () => _open(items[index]),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          context.t('Notifications', 'सूचनाहरू'),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (fresh.isNotEmpty)
+                        TextButton(
+                          key: const ValueKey<String>('notifications-read-all'),
+                          onPressed: inbox.markAllRead,
+                          child: Text(
+                            context.t(
+                              'Mark all as read',
+                              'सबै पढिएको चिन्ह लगाउनुहोस्',
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  if (inbox.items.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Column(
+                        children: <Widget>[
+                          Icon(
+                            Icons.notifications_none_rounded,
+                            size: 44,
+                            color: glass.textTertiary,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            context.t('No notifications', 'कुनै सूचना छैन'),
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            context.t(
+                              'Reminders, budget warnings and messages from '
+                                  'Flamey will be kept here.',
+                              'सम्झना, बजेट चेतावनी र Flamey का सन्देश यहाँ '
+                                  'राखिन्छन्।',
+                            ),
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: glass.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView(
+                        key: const ValueKey<String>('notifications-list'),
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.only(bottom: 8),
+                        children: <Widget>[
+                          if (fresh.isNotEmpty) ...<Widget>[
+                            heading(context.t('New', 'नयाँ')),
+                            for (final item in fresh) tile(item),
+                          ],
+                          // A line between what is new and what was already
+                          // read.
+                          if (fresh.isNotEmpty && earlier.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(4, 2, 4, 12),
+                              child: Divider(
+                                key: const ValueKey<String>(
+                                  'notifications-divider',
+                                ),
+                                height: 1,
+                                thickness: 1,
+                                color: glass.border,
+                              ),
+                            ),
+                          if (earlier.isNotEmpty) ...<Widget>[
+                            heading(context.t('Earlier', 'पहिलेका')),
+                            for (final item in earlier) tile(item),
+                          ],
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

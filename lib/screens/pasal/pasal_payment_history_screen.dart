@@ -8,6 +8,7 @@ import '../../providers/pasal_provider.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/page_refresh.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 class PasalPaymentHistoryScreen extends StatefulWidget {
   const PasalPaymentHistoryScreen({super.key, required this.pasalId});
@@ -52,10 +53,8 @@ class _PasalPaymentHistoryScreenState extends State<PasalPaymentHistoryScreen> {
           children: <Widget>[
             Row(
               children: <Widget>[
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.arrow_back_rounded),
-                ),
+                const GlassBackButton(),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Payment History',

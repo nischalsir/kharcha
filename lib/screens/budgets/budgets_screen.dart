@@ -20,6 +20,7 @@ import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/page_refresh.dart';
 import '../../services/flamey_controller.dart';
 import 'festival_budgets_section.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 class BudgetsScreen extends StatelessWidget {
   const BudgetsScreen({super.key});
@@ -61,13 +62,7 @@ class BudgetsScreen extends StatelessWidget {
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: Navigator.of(context).canPop()
-              ? IconButton(
-                  icon: Icon(
-                    Icons.arrow_back_rounded,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                )
+              ? const GlassBackButton()
               : null,
           title: Text(
             context.t('Budgets', 'बजेटहरू'),

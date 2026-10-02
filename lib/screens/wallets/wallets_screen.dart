@@ -13,6 +13,7 @@ import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/page_refresh.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 IconData walletIcon(PaymentMethod method) => switch (method) {
   PaymentMethod.cash => Icons.payments_rounded,
@@ -57,6 +58,7 @@ class WalletsScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
+          leading: const GlassBackButton(),
           backgroundColor: Colors.transparent,
           elevation: 0,
           title: Text(

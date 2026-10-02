@@ -9,6 +9,7 @@ import '../../services/nepali_date_service.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/page_refresh.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 class PasalCreditHistoryScreen extends StatefulWidget {
   const PasalCreditHistoryScreen({super.key, required this.pasalId});
@@ -54,10 +55,8 @@ class _PasalCreditHistoryScreenState extends State<PasalCreditHistoryScreen> {
           children: <Widget>[
             Row(
               children: <Widget>[
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.arrow_back_rounded),
-                ),
+                const GlassBackButton(),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Credit History',

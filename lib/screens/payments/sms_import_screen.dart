@@ -13,6 +13,7 @@ import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
 import 'statement_import_screen.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// Where the choices about reading messages are kept, on this phone only.
 class SmsSettings {
@@ -215,6 +216,7 @@ class _SmsImportScreenState extends State<SmsImportScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
+          leading: const GlassBackButton(),
           backgroundColor: Colors.transparent,
           elevation: 0,
           title: Text(

@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/l10n/app_l10n.dart';
-import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/common/auth_widgets.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
-import '../../widgets/common/pressable_scale.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// Turns a guest into a real account without losing anything they entered.
 ///
@@ -173,9 +172,6 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final glass = context.glass;
-
     return AuthScaffold(
       child: Form(
         key: _formKey,
@@ -195,21 +191,8 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
               ),
               leading: Align(
                 alignment: Alignment.centerLeft,
-                child: PressableScale(
-                  onTap: () => Navigator.of(context).maybePop(),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: glass.fill,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      size: 20,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
+                child: GlassBackButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ),
             ),

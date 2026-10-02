@@ -10,6 +10,7 @@ import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// Change the account password.
 ///
@@ -115,13 +116,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: theme.colorScheme.onSurface,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
+          leading: const GlassBackButton(),
           title: Text(
             context.t('Change password', 'पासवर्ड परिवर्तन गर्नुहोस्'),
             style: theme.textTheme.titleLarge,

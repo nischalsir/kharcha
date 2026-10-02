@@ -108,21 +108,37 @@ void main() {
     });
   });
 
-  group('the bell and the page', () {
-    Future<NotificationInboxProvider> pump(WidgetTester tester) async {
-      tester.view.physicalSize = const Size(400, 1600);
+  group('the bell and the sheet', () {
+    Future<NotificationInboxProvider> pump(
+      WidgetTester tester, {
+      int unread = 2,
+      int read = 0,
+    }) async {
+      tester.view.physicalSize = const Size(400, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       late NotificationInboxProvider inbox;
       await tester.runAsync(() async {
-        await NotificationInbox.record(
-          _message('Budget almost used', body: '90% of Food is spent'),
-          at: DateTime.now().subtract(const Duration(minutes: 5)),
-        );
-        await NotificationInbox.record(
-          _message('Rent is due', body: 'Tomorrow'),
-          at: DateTime.now().subtract(const Duration(hours: 3)),
-        );
+        final now = DateTime.now();
+        for (var i = 0; i < read; i++) {
+          await NotificationInbox.record(
+            _message('Old $i', body: 'Read before'),
+            at: now.subtract(Duration(days: 2, minutes: i)),
+          );
+        }
+        if (read > 0) await NotificationInbox.markRead();
+        if (unread > 1) {
+          await NotificationInbox.record(
+            _message('Rent is due', body: 'Tomorrow'),
+            at: now.subtract(const Duration(hours: 3)),
+          );
+        }
+        if (unread > 0) {
+          await NotificationInbox.record(
+            _message('Budget almost used', body: '90% of Food is spent'),
+            at: now.subtract(const Duration(minutes: 5)),
+          );
+        }
         inbox = NotificationInboxProvider();
         await inbox.refresh();
       });
@@ -137,10 +153,12 @@ void main() {
           ],
           child: MaterialApp(
             theme: AppTheme.light(),
-            routes: <String, WidgetBuilder>{
-              RoutePaths.notifications: (_) => const NotificationsScreen(),
-            },
-            home: const Scaffold(body: Center(child: NotificationBell())),
+            home: const Scaffold(
+              body: Align(
+                alignment: Alignment.topRight,
+                child: NotificationBell(),
+              ),
+            ),
           ),
         ),
       );
@@ -148,13 +166,29 @@ void main() {
       return inbox;
     }
 
-    /// Lets the inbox's writes (real file-style I/O) finish, then redraws.
+    /// Lets the inbox's writes finish, then redraws.
     Future<void> settle(WidgetTester tester) async {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 50)),
       );
       await tester.pumpAndSettle();
     }
+
+    Future<void> openSheet(WidgetTester tester) async {
+      await tester.tap(find.byKey(const ValueKey<String>('notification-bell')));
+      await settle(tester);
+    }
+
+    Future<void> closeSheet(WidgetTester tester) async {
+      // A tap on the shade above the sheet.
+      await tester.tapAt(const Offset(200, 20));
+      await tester.pumpAndSettle();
+      await settle(tester);
+    }
+
+    /// From the sheet's title to the bottom of the screen.
+    double sheetHeight(WidgetTester tester) =>
+        800 - tester.getTopLeft(find.text('Notifications')).dy;
 
     testWidgets('the bell counts what has not been read', (tester) async {
       final inbox = await pump(tester);
@@ -163,18 +197,22 @@ void main() {
       expect(find.byIcon(Icons.notifications_active_rounded), findsOneWidget);
     });
 
-    testWidgets('new ones are highlighted, and leaving the page reads them', (
+    testWidgets('it rises over Home, new ones lit, and closing reads them', (
       tester,
     ) async {
       final inbox = await pump(tester);
-      await tester.tap(find.byKey(const ValueKey<String>('notification-bell')));
-      await settle(tester);
+      await openSheet(tester);
 
+      // Still on Home: the bell is under the sheet's shade, not replaced.
+      expect(
+        find.byKey(const ValueKey<String>('notification-bell')),
+        findsOneWidget,
+      );
       expect(find.text('Budget almost used'), findsOneWidget);
       expect(find.text('90% of Food is spent'), findsOneWidget);
       expect(find.text('5 min ago'), findsOneWidget);
-      expect(find.text('3 h ago'), findsOneWidget);
-      // Both still new while the page is being looked at.
+      expect(find.text('NEW'), findsOneWidget);
+      expect(find.text('EARLIER'), findsNothing);
       for (final item in inbox.items) {
         expect(
           find.byKey(ValueKey<String>('notification-dot-${item.id}')),
@@ -183,22 +221,36 @@ void main() {
       }
       expect(find.text('Mark all as read'), findsOneWidget);
 
-      // Back to Home: they have been seen.
-      await tester.pageBack();
-      // Once for the page to close, once more for what closing it set off.
-      await tester.pumpAndSettle();
-      await settle(tester);
+      await closeSheet(tester);
+      expect(find.text('Notifications'), findsNothing);
       expect(inbox.unreadCount, 0);
       expect(find.byIcon(Icons.notifications_none_rounded), findsOneWidget);
       expect(find.text('2'), findsNothing);
+    });
+
+    testWidgets('a line separates the new from the earlier', (tester) async {
+      await pump(tester, unread: 1, read: 1);
+      await openSheet(tester);
+
+      expect(find.text('NEW'), findsOneWidget);
+      expect(find.text('EARLIER'), findsOneWidget);
+      final line = find.byKey(const ValueKey<String>('notifications-divider'));
+      expect(line, findsOneWidget);
+      // New above the line, earlier below it.
+      final lineY = tester.getCenter(line).dy;
+      expect(
+        tester.getCenter(find.text('Budget almost used')).dy,
+        lessThan(lineY),
+      );
+      expect(tester.getCenter(find.text('Old 0')).dy, greaterThan(lineY));
+      await closeSheet(tester);
     });
 
     testWidgets('Mark all as read clears the highlights at once', (
       tester,
     ) async {
       final inbox = await pump(tester);
-      await tester.tap(find.byKey(const ValueKey<String>('notification-bell')));
-      await settle(tester);
+      await openSheet(tester);
 
       await tester.tap(
         find.byKey(const ValueKey<String>('notifications-read-all')),
@@ -211,33 +263,46 @@ void main() {
           findsNothing,
         );
       }
-      // Nothing left to mark.
+      // Nothing left to mark, and nothing new: only earlier ones.
       expect(find.text('Mark all as read'), findsNothing);
-      // The notifications themselves stay.
+      expect(find.text('NEW'), findsNothing);
+      expect(find.text('EARLIER'), findsOneWidget);
       expect(find.text('Rent is due'), findsOneWidget);
+      await closeSheet(tester);
     });
 
-    testWidgets('with nothing kept, the page says so', (tester) async {
-      await tester.runAsync(NotificationInbox.clear);
-      final inbox = NotificationInboxProvider();
-      addTearDown(inbox.dispose);
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            Provider<NepaliDateService>(create: (_) => NepaliDateService()),
-            ChangeNotifierProvider<NotificationInboxProvider>.value(
-              value: inbox,
-            ),
-          ],
-          child: MaterialApp(
-            theme: AppTheme.light(),
-            home: const NotificationsScreen(),
-          ),
-        ),
+    testWidgets('a few notifications come up to the middle', (tester) async {
+      await pump(tester, unread: 1);
+      await openSheet(tester);
+      // Half the 800-high screen, less the handle above the title.
+      expect(sheetHeight(tester), closeTo(400, 30));
+      await closeSheet(tester);
+    });
+
+    testWidgets('many notifications stop below the name on Home', (
+      tester,
+    ) async {
+      await pump(tester, unread: 2, read: 14);
+      await openSheet(tester);
+      final height = sheetHeight(tester);
+      expect(height, greaterThan(600));
+      // The greeting and the name stay in sight above it.
+      expect(height, lessThanOrEqualTo(800 - 96));
+      // The rest scrolls inside the sheet.
+      expect(
+        find.byKey(const ValueKey<String>('notifications-list')),
+        findsOneWidget,
       );
-      await settle(tester);
+      expect(tester.takeException(), isNull);
+      await closeSheet(tester);
+    });
+
+    testWidgets('with nothing kept, the sheet says so', (tester) async {
+      await pump(tester, unread: 0);
+      await openSheet(tester);
       expect(find.text('No notifications'), findsOneWidget);
       expect(find.text('Mark all as read'), findsNothing);
+      await closeSheet(tester);
     });
   });
 }

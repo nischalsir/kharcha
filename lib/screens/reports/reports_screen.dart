@@ -16,6 +16,7 @@ import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/page_refresh.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -135,7 +136,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
           children: <Widget>[
-            Text('Reports', style: theme.textTheme.headlineMedium),
+            Row(
+              children: <Widget>[
+                const PageBack(),
+                Expanded(
+                  child: Text('Reports', style: theme.textTheme.headlineMedium),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             SizedBox(
               height: 40,

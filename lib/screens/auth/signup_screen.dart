@@ -12,8 +12,8 @@ import '../../services/biometric_service.dart';
 import '../../widgets/common/auth_widgets.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
-import '../../widgets/common/pressable_scale.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -297,22 +297,7 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               leading: Align(
                 alignment: Alignment.centerLeft,
-                child: PressableScale(
-                  onTap: _returnToShell,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: glass.fill,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      size: 20,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ),
+                child: GlassBackButton(onPressed: _returnToShell),
               ),
             ),
             const SizedBox(height: 28),

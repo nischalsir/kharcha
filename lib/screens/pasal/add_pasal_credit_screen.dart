@@ -17,6 +17,7 @@ import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/pasal/pasal_item_image.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 class AddPasalCreditScreen extends StatefulWidget {
   const AddPasalCreditScreen({
@@ -314,7 +315,10 @@ class _AddPasalCreditScreenState extends State<AddPasalCreditScreen> {
     final isEdit = widget.existing != null;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: Text(isEdit ? 'Edit Credit' : 'Add Pasal Credit')),
+      appBar: AppBar(
+        leading: const GlassBackButton(),
+        title: Text(isEdit ? 'Edit Credit' : 'Add Pasal Credit'),
+      ),
       body: SafeArea(
         child: Form(
           key: _formKey,

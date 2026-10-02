@@ -11,6 +11,7 @@ import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// Enroll and manage authenticator-app (TOTP) two-factor authentication.
 class TwoFactorAuthScreen extends StatefulWidget {
@@ -181,13 +182,7 @@ class _TwoFactorAuthScreenState extends State<TwoFactorAuthScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: theme.colorScheme.onSurface,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
+          leading: const GlassBackButton(),
           title: Text(
             context.t('Two-factor authentication', 'दुई-चरण प्रमाणीकरण'),
             style: theme.textTheme.titleLarge,

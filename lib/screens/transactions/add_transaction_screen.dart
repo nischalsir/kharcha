@@ -13,6 +13,7 @@ import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/receipt_field.dart';
 
 import 'package:flutter/services.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// Records a single expense or income.
 ///
@@ -147,7 +148,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final categories = _categoriesFor(_type);
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: Text('Add $_titleLabel')),
+      appBar: AppBar(
+          leading: const GlassBackButton(),title: Text('Add $_titleLabel')),
       body: SafeArea(
         child: Form(
           key: _formKey,

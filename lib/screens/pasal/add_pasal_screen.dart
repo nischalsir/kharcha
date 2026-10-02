@@ -8,6 +8,8 @@ import '../../widgets/common/primary_button.dart';
 
 import 'package:flutter/services.dart';
 
+import '../../widgets/common/glass_back_button.dart';
+
 class AddPasalScreen extends StatefulWidget {
   const AddPasalScreen({super.key, this.existing});
 
@@ -90,7 +92,10 @@ class _AddPasalScreenState extends State<AddPasalScreen> {
     final isEdit = widget.existing != null;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: Text(isEdit ? 'Edit Pasal' : 'Add Pasal')),
+      appBar: AppBar(
+        leading: const GlassBackButton(),
+        title: Text(isEdit ? 'Edit Pasal' : 'Add Pasal'),
+      ),
       body: SafeArea(
         child: Form(
           key: _formKey,

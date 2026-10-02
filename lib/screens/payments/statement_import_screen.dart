@@ -19,6 +19,7 @@ import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
 import 'statement_guide_screen.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// Bring transactions in from a bank or wallet statement: pick the file (or
 /// share it into the app from the bank's own app), review what was read, then
@@ -294,13 +295,7 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: theme.colorScheme.onSurface,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
+          leading: const GlassBackButton(),
           title: Text(
             context.t('Import statement', 'स्टेटमेन्ट आयात'),
             style: theme.textTheme.titleLarge,

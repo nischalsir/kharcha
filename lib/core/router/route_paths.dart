@@ -54,9 +54,6 @@ class RoutePaths {
   /// Payment alerts read from the phone's text messages.
   static const String smsImport = '/payments/sms';
 
-  /// The notifications the app has shown on this phone.
-  static const String notifications = '/notifications';
-
   static const String reports = '/reports';
   static const String calculator = '/calculator';
   static const String festivals = '/festivals';
@@ -105,7 +102,6 @@ class RoutePaths {
     loans,
     household,
     smsImport,
-    notifications,
     reports,
     calculator,
     festivals,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 class CalculatorScreen extends StatefulWidget {
   const CalculatorScreen({super.key});
@@ -188,6 +189,11 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       bottom: false,
       child: Column(
         children: <Widget>[
+          // The way back, when the calculator was opened as a page.
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: Align(alignment: Alignment.centerLeft, child: PageBack()),
+          ),
           Expanded(
             child: Container(
               width: double.infinity,

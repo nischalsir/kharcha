@@ -14,6 +14,7 @@ import '../../widgets/calendar/day_info_card.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/festival_image.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// Bikram Sambat calendar with a month grid and a daily information card.
 ///
@@ -60,6 +61,7 @@ class _FestivalsScreenState extends State<FestivalsScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              const PageBack(),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

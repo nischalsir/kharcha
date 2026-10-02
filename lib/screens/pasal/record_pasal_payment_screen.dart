@@ -10,6 +10,7 @@ import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../services/flamey_controller.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 class RecordPasalPaymentScreen extends StatefulWidget {
   const RecordPasalPaymentScreen({
@@ -102,7 +103,10 @@ class _RecordPasalPaymentScreenState extends State<RecordPasalPaymentScreen> {
     final glass = context.glass;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('Record Payment')),
+      appBar: AppBar(
+        leading: const GlassBackButton(),
+        title: const Text('Record Payment'),
+      ),
       body: SafeArea(
         child: Form(
           key: _formKey,

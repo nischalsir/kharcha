@@ -17,6 +17,7 @@ import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/page_refresh.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// Money being put aside towards something, each goal with how far along it
 /// is and what it takes to get there on time.
@@ -61,6 +62,7 @@ class GoalsScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
+          leading: const GlassBackButton(),
           backgroundColor: Colors.transparent,
           elevation: 0,
           title: Text(

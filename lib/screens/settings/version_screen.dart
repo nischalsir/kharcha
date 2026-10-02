@@ -11,6 +11,7 @@ import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/update_dialog.dart';
 import '../../widgets/common/whats_new_dialog.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// About the app: what it is, what changed, how to update, who made it.
 class VersionScreen extends StatefulWidget {
@@ -64,13 +65,7 @@ class _VersionScreenState extends State<VersionScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: theme.colorScheme.onSurface,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
+          leading: const GlassBackButton(),
           title: Text(
             context.t('About Kharcha', 'खर्चा बारे'),
             style: theme.textTheme.titleLarge,

@@ -481,21 +481,12 @@ class _BudgetSummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              Text(
-                '${CurrencyFormatter.format(data.budgetSpent)} / '
-                '${CurrencyFormatter.format(data.monthlyBudget)}',
-                style: theme.textTheme.bodyMedium,
-              ),
-              Text(
-                '${context.t('Remaining', 'बाँकी')} ${CurrencyFormatter.format(data.budgetRemaining)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: glass.textSecondary,
-                ),
-              ),
-            ],
+          Text(
+            '${CurrencyFormatter.format(data.budgetSpent)} / '
+            '${CurrencyFormatter.format(data.monthlyBudget)}',
+            style: theme.textTheme.bodyMedium,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

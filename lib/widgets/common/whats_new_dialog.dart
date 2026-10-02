@@ -22,9 +22,8 @@ class WhatsNew {
   /// English and Nepali, newest first.
   static const List<(String, String)> items = <(String, String)>[
     (
-      'A bell on Home shows your unread notifications, with a page to read '
-          'them all',
-      'होममा घण्टीले नपढिएका सूचना देखाउँछ, सबै पढ्ने पृष्ठसहित',
+      'A bell on Home opens your notifications, the new ones on top',
+      'होमको घण्टीले सूचनाहरू खोल्छ, नयाँ सूचना माथि',
     ),
     (
       'Import from SMS: bank, eSewa and Khalti alerts become transactions',
@@ -194,39 +193,45 @@ class _WhatsNewDialog extends StatelessWidget {
                   ],
                 ),
               ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                key: const ValueKey<String>('whats-new-follow'),
-                onPressed: () => _follow(context),
-                icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                label: Text(
-                  context.t(
-                    'Follow me on Instagram',
-                    'Instagram मा फलो गर्नुहोस्',
+          ],
+        ),
+      ),
+      // Under the list, not in it: the two buttons stay in sight however
+      // long the list of changes grows.
+      actions: <Widget>[
+        SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const ValueKey<String>('whats-new-follow'),
+                  onPressed: () => _follow(context),
+                  icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                  label: Text(
+                    context.t(
+                      'Follow me on Instagram',
+                      'Instagram मा फलो गर्नुहोस्',
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Center(
-              child: Text(
+              const SizedBox(height: 2),
+              Text(
                 '@nischalsir',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: glass.textTertiary,
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-      actionsAlignment: MainAxisAlignment.center,
-      actions: <Widget>[
-        TextButton(
-          key: const ValueKey<String>('whats-new-close'),
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(context.t('Got it', 'बुझेँ')),
+              TextButton(
+                key: const ValueKey<String>('whats-new-close'),
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(context.t('Got it', 'बुझेँ')),
+              ),
+            ],
+          ),
         ),
       ],
     );

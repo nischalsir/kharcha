@@ -10,6 +10,7 @@ import '../payments/statement_import_screen.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// Help & support: ways to reach the developer, plus a short FAQ.
 class HelpSupportScreen extends StatelessWidget {
@@ -180,13 +181,7 @@ class HelpSupportScreen extends StatelessWidget {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: theme.colorScheme.onSurface,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
+          leading: const GlassBackButton(),
           title: Text(
             context.t('Help & Support', 'मद्दत र सहयोग'),
             style: theme.textTheme.titleLarge,

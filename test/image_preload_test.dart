@@ -16,8 +16,8 @@ void main() {
     final urls = ImagePreload.startup(devicePixelRatio: dpr);
     expect(urls, contains(AuthBrand.logoUrl((76 * dpr).round())));
     expect(urls, containsAll(IntroductionScreen.pictureUrls));
-    expect(IntroductionScreen.pictureUrls, hasLength(3));
-    expect(urls, hasLength(4));
+    expect(IntroductionScreen.pictureUrls, hasLength(5));
+    expect(urls, hasLength(6));
   });
 
   test('the guide slides are fetched at the width the slide asks for', () {

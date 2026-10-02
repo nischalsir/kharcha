@@ -109,7 +109,7 @@ void main() {
     await close(tester);
   });
 
-  testWidgets('three pictures take turns, and a swipe turns them too', (
+  testWidgets('the slides take turns, and a swipe turns them too', (
     tester,
   ) async {
     await open(tester);
@@ -117,28 +117,37 @@ void main() {
     PageController controller() =>
         tester.widget<PageView>(pictures).controller!;
 
-    expect(IntroductionScreen.pictures, hasLength(3));
-    expect(find.byIcon(Icons.receipt_long_rounded), findsOneWidget);
-    expect(controller().page, 0);
+    /// The headline being drawn; the other slides' words are laid out
+    /// behind it but not shown.
+    Finder shown(String title) => find.text(title).hitTestable();
 
-    // Left alone, the next picture comes by itself.
+    expect(IntroductionScreen.pictures, hasLength(5));
+    expect(find.byIcon(Icons.account_balance_wallet_rounded), findsOneWidget);
+    expect(controller().page, 0);
+    expect(shown('Know Where\nYour Money Goes'), findsOneWidget);
+    final buttonAt = tester.getTopLeft(find.text('Get started'));
+
+    // Left alone, the next slide comes by itself, words and all.
     await tester.pump(IntroductionScreen.pictureInterval);
     await tester.pumpAndSettle();
     expect(controller().page, 1);
-    expect(find.byIcon(Icons.pie_chart_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.receipt_long_rounded), findsOneWidget);
+    expect(shown('Record Every\nExpense in Seconds'), findsOneWidget);
+    expect(shown('Know Where\nYour Money Goes'), findsNothing);
 
-    // A swipe turns it, and from then on the pictures wait for the user.
+    // A swipe turns it, and from then on the slides wait for the user.
     await tester.drag(pictures, const Offset(-300, 0));
     await tester.pumpAndSettle();
     expect(controller().page, 2);
-    expect(find.byIcon(Icons.people_alt_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.pie_chart_rounded), findsOneWidget);
+    expect(shown('Budgets and\nSavings Goals'), findsOneWidget);
     await tester.pump(IntroductionScreen.pictureInterval * 2);
     await tester.pumpAndSettle();
     expect(controller().page, 2);
 
-    // The words and the two ways on never moved.
-    expect(find.text('Know Where\nYour Money Goes'), findsOneWidget);
-    expect(find.text('Get started'), findsOneWidget);
+    // The two ways on never moved.
+    expect(tester.getTopLeft(find.text('Get started')), buttonAt);
+    expect(find.text('Login'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await close(tester);
   });

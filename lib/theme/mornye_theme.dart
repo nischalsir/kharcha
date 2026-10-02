@@ -287,6 +287,16 @@ class MornyeTheme extends ThemeExtension<MornyeTheme> {
     final controlShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(12),
     );
+    // The outline of a glass card (see MornyeGlass): its radius and its rim.
+    final glassShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(28),
+      side: BorderSide(
+        color: dark
+            ? Colors.white.withValues(alpha: 0.16)
+            : Colors.black.withValues(alpha: 0.17),
+        width: 0.75,
+      ),
+    );
     return base.copyWith(
       textTheme: typography,
       primaryTextTheme: typography.apply(
@@ -350,9 +360,19 @@ class MornyeTheme extends ThemeExtension<MornyeTheme> {
         constraints: const BoxConstraints(maxWidth: 640),
         shape: tokens.sheetShape,
       ),
+      // Pop-ups are made of the same glass as the cards: the same fill, the
+      // same rounded corners and the same thin rim.
       dialogTheme: DialogThemeData(
-        backgroundColor: grouped,
-        shape: controlShape,
+        backgroundColor: scheme.surfaceContainerHigh,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.black.withValues(alpha: dark ? 0.5 : 0.2),
+        elevation: 6,
+        shape: glassShape,
+      ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: scheme.surfaceContainerHigh,
+        surfaceTintColor: Colors.transparent,
+        shape: glassShape,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

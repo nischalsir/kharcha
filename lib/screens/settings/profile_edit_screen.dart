@@ -13,6 +13,7 @@ import '../../services/app_images.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/glass_back_button.dart';
 import '../../widgets/common/primary_button.dart';
 import '../auth/guest_upgrade_screen.dart';
 import 'avatar_crop_screen.dart';
@@ -132,10 +133,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back_rounded, color: colorScheme.onSurface),
-            onPressed: () => Navigator.pop(context),
-          ),
+          leading: const GlassBackButton(),
           title: Text(
             context.t('Profile', 'प्रोफाइल'),
             style: theme.textTheme.titleLarge,

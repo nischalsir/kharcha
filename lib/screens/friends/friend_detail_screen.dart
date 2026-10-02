@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 
 import '../../widgets/common/page_refresh.dart';
 import '../../services/flamey_controller.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 String _filterLabel(FriendCreditFilter filter) {
   switch (filter) {
@@ -81,7 +82,7 @@ class FriendDetailScreen extends StatelessWidget {
     final friend = provider.friendById(friendId);
     if (friend == null) {
       return Scaffold(
-        appBar: AppBar(),
+        appBar: AppBar(leading: const GlassBackButton()),
         body: const EmptyState(
           icon: Icons.person_off_rounded,
           title: 'Friend not found',
@@ -100,6 +101,7 @@ class FriendDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const GlassBackButton(),
         title: Text(friend.name),
         actions: <Widget>[
           IconButton(

@@ -9,11 +9,16 @@ import '../../core/router/route_paths.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../services/app_images.dart';
 
-/// One of the pictures the introduction shows on its disc.
+/// One slide of the introduction: a picture for the disc, and the feature
+/// it stands for in a headline and a line.
 @immutable
 class IntroPicture {
   const IntroPicture({
     required this.imageId,
+    required this.title,
+    required this.titleNe,
+    required this.body,
+    required this.bodyNe,
     required this.label,
     required this.labelNe,
     required this.fallback,
@@ -21,6 +26,14 @@ class IntroPicture {
 
   /// Cloudinary public id.
   final String imageId;
+
+  /// The feature, in two short lines.
+  final String title;
+  final String titleNe;
+
+  /// What it does for the user, in a sentence.
+  final String body;
+  final String bodyNe;
 
   /// What the picture shows, for a screen reader.
   final String label;
@@ -38,34 +51,76 @@ class IntroPicture {
 
 /// The first thing a new user sees: one page, not a walk-through.
 ///
-/// Three pictures taking turns on a glass disc in a warm glow, what the app
-/// is for in two lines, and the two ways on: create an account, or sign in.
-/// The pictures change by themselves and can be swiped; the words and the
-/// buttons stay where they are. It is dark whatever the theme, like a title
-/// card.
+/// A carousel of the app's features: each slide is a picture on a glass disc
+/// in a warm glow, with the feature it shows named under it. The slides
+/// change by themselves and can be swiped. Under them, always in the same
+/// place, are the two ways on: create an account, or sign in. It is dark
+/// whatever the theme, like a title card.
 class IntroductionScreen extends StatefulWidget {
   const IntroductionScreen({super.key});
 
-  /// The pictures, in the order they are shown: recording what is spent,
-  /// budgets and savings, and sharing costs with friends.
+  /// The slides, in the order they are shown: what the app is for, then
+  /// one feature each.
   static const List<IntroPicture> pictures = <IntroPicture>[
     IntroPicture(
+      imageId: 'kharcha/intro/wallet',
+      title: 'Know Where\nYour Money Goes',
+      titleNe: 'तपाईंको पैसा\nकहाँ जान्छ, थाहा पाउनुहोस्',
+      body:
+          'Track spending, budgets and festivals, in your own calendar and '
+          'language',
+      bodyNe: 'खर्च, बजेट र चाडपर्व, तपाईंकै पात्रो र भाषामा',
+      label: 'A wallet with coins and a receipt',
+      labelNe: 'सिक्का र रसिदसहितको वालेट',
+      fallback: Icons.account_balance_wallet_rounded,
+    ),
+    IntroPicture(
       imageId: 'qiwpmjgzfclytnrv5tgh',
+      title: 'Record Every\nExpense in Seconds',
+      titleNe: 'हरेक खर्च\nसेकेन्डमै लेख्नुहोस्',
+      body:
+          'Type it, or import it from your bank statement and payment '
+          'messages',
+      bodyNe: 'आफैँ लेख्नुहोस्, वा बैंक स्टेटमेन्ट र सन्देशबाट आयात गर्नुहोस्',
       label: 'Flamey holding a phone with a list of expenses',
       labelNe: 'खर्चको सूची भएको फोन समातेको Flamey',
       fallback: Icons.receipt_long_rounded,
     ),
     IntroPicture(
       imageId: 'stwv5wtm46f3pfjftb13',
+      title: 'Budgets and\nSavings Goals',
+      titleNe: 'बजेट र\nबचत लक्ष्य',
+      body:
+          'Set limits by month, category or festival, and put money aside '
+          'for what matters',
+      bodyNe: 'महिना, श्रेणी वा चाडपर्व अनुसार सीमा, र चाहिने कुराका लागि बचत',
       label: 'Flamey between a spending chart and a piggy bank',
       labelNe: 'खर्चको चार्ट र खुत्रुकेबीच Flamey',
       fallback: Icons.pie_chart_rounded,
     ),
     IntroPicture(
       imageId: 'b3qorzldimac95asnxng',
+      title: 'Share Costs with\nFriends and Family',
+      titleNe: 'साथी र परिवारसँग\nखर्च बाँड्नुहोस्',
+      body:
+          'Split a bill, keep a tab at the pasal, and run one ledger for the '
+          'household',
+      bodyNe: 'बिल बाँड्नुहोस्, पसलको उधारो राख्नुहोस्, र घरको एउटै खाता चलाउनुहोस्',
       label: 'Friends sharing momo and splitting the bill',
       labelNe: 'मम खाँदै बिल बाँड्दै गरेका साथीहरू',
       fallback: Icons.people_alt_rounded,
+    ),
+    IntroPicture(
+      imageId: 'yhq42j7ar5npx5ncybxx',
+      title: 'Works Offline,\nSyncs Safely',
+      titleNe: 'अफलाइन चल्छ,\nसुरक्षित सिङ्क हुन्छ',
+      body:
+          'Everything is saved on your phone first and backed up to your '
+          'account',
+      bodyNe: 'सबै कुरा पहिले फोनमै सुरक्षित हुन्छ र खातामा ब्याकअप हुन्छ',
+      label: 'Flamey holding a phone with a lock, under a syncing cloud',
+      labelNe: 'सिङ्क हुँदै गरेको क्लाउडमुनि ताल्चा भएको फोन समातेको Flamey',
+      fallback: Icons.cloud_sync_rounded,
     ),
   ];
 
@@ -213,29 +268,40 @@ class _IntroductionScreenState extends State<IntroductionScreen> {
     final theme = Theme.of(context);
     return <Widget>[
       const SizedBox(height: 20),
-      Text(
-        context.t(
-          'Know Where\nYour Money Goes',
-          'तपाईंको पैसा\nकहाँ जान्छ, थाहा पाउनुहोस्',
-        ),
-        textAlign: TextAlign.center,
-        style: theme.textTheme.headlineMedium?.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w800,
-          height: 1.2,
-        ),
-      ),
-      const SizedBox(height: 12),
-      Text(
-        context.t(
-          'Track spending, budgets and festivals, in your own calendar and '
-              'language',
-          'खर्च, बजेट र चाडपर्व, तपाईंकै पात्रो र भाषामा',
-        ),
-        textAlign: TextAlign.center,
-        style: theme.textTheme.bodyLarge?.copyWith(
-          color: Colors.white.withValues(alpha: 0.78),
-          height: 1.4,
+      // Every slide's words are laid out, and only the shown one is drawn:
+      // the block is as tall as the tallest, so the buttons under it never
+      // move as the slides turn.
+      ValueListenableBuilder<int>(
+        valueListenable: _shown,
+        builder: (context, shown, _) => IndexedStack(
+          index: shown,
+          alignment: Alignment.topCenter,
+          children: <Widget>[
+            for (final slide in IntroductionScreen.pictures)
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    context.t(slide.title, slide.titleNe),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    context.t(slide.body, slide.bodyNe),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+          ],
         ),
       ),
       const SizedBox(height: 22),
@@ -248,16 +314,29 @@ class _IntroductionScreenState extends State<IntroductionScreen> {
         label: context.t('Get started', 'सुरु गर्नुहोस्'),
         onPressed: () => _leave(context, RoutePaths.signup),
       ),
-      const SizedBox(height: 6),
-      TextButton(
-        key: const ValueKey<String>('intro-login'),
-        onPressed: () => _leave(context, RoutePaths.login),
-        child: Text(
-          context.t('Login', 'लगइन'),
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: Colors.white,
-            decoration: TextDecoration.underline,
-            decorationColor: Colors.white70,
+      const SizedBox(height: 12),
+      // The second way on, in glass: the same width and shape as the first,
+      // without competing with it.
+      SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: OutlinedButton(
+          key: const ValueKey<String>('intro-login'),
+          onPressed: () => _leave(context, RoutePaths.login),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            backgroundColor: Colors.white.withValues(alpha: 0.08),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.28)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+          ),
+          child: Text(
+            context.t('Login', 'लगइन'),
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ),
@@ -428,8 +507,8 @@ class _GlassDiscPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Three dots on a line, under the words: one for each picture, the one for
-/// the picture on the disc lit and a little larger.
+/// Dots on a line, under the words: one for each slide, the one for the
+/// slide being shown lit and a little larger.
 class _Ornament extends StatelessWidget {
   const _Ornament({required this.color, required this.shown});
 

@@ -20,6 +20,7 @@ import 'pasal_credit_history_screen.dart';
 import 'pasal_payment_history_screen.dart';
 import 'record_pasal_payment_screen.dart';
 import '../../widgets/common/page_refresh.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 class PasalDetailScreen extends StatelessWidget {
   const PasalDetailScreen({super.key, required this.pasalId});
@@ -113,6 +114,7 @@ class PasalDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
+        leading: const GlassBackButton(),
         title: Text(pasal.name),
         actions: <Widget>[
           IconButton(

@@ -18,6 +18,7 @@ import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/page_refresh.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// Loans being repaid in monthly instalments: what is still owed, what each
 /// one costs in interest, and when the next instalment is due.
@@ -43,6 +44,7 @@ class LoansScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
+          leading: const GlassBackButton(),
           backgroundColor: Colors.transparent,
           elevation: 0,
           title: Text(

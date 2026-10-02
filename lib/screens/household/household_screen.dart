@@ -21,6 +21,7 @@ import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/page_refresh.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// A ledger shared with family or flatmates: everyone in the household sees
 /// and adds to the same list of expenses.
@@ -37,6 +38,7 @@ class HouseholdScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
+          leading: const GlassBackButton(),
           backgroundColor: Colors.transparent,
           elevation: 0,
           title: Text(

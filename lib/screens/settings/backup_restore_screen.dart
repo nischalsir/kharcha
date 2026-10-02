@@ -16,6 +16,7 @@ import '../../services/sync_service.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 /// Backup & restore screen with three transports:
 ///  * the app's Supabase Storage bucket (per-user cloud folder),
@@ -446,13 +447,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: theme.colorScheme.onSurface,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
+          leading: const GlassBackButton(),
           title: Text(
             context.t('Backup & Restore', 'ब्याकअप र रिस्टोर'),
             style: theme.textTheme.titleLarge,

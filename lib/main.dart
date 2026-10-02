@@ -45,7 +45,6 @@ import 'screens/friends/friends_screen.dart';
 import 'screens/goals/goals_screen.dart';
 import 'screens/household/household_screen.dart';
 import 'screens/loans/loans_screen.dart';
-import 'screens/notifications/notifications_screen.dart';
 import 'screens/pasal/add_pasal_credit_screen.dart';
 import 'screens/pasal/add_pasal_screen.dart';
 import 'screens/pasal/pasal_credit_history_screen.dart';
@@ -285,7 +284,6 @@ class KharchaApp extends StatelessWidget {
     RoutePaths.loans => const LoansScreen(),
     RoutePaths.household => const HouseholdScreen(),
     RoutePaths.smsImport => const SmsImportScreen(),
-    RoutePaths.notifications => const NotificationsScreen(),
     RoutePaths.reports => const ReportsScreen(),
     RoutePaths.calculator => const CalculatorScreen(),
     RoutePaths.festivals => const FestivalsScreen(),

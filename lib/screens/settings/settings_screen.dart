@@ -24,6 +24,7 @@ import 'change_password_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'two_factor_screen.dart';
 import '../../widgets/common/page_refresh.dart';
+import '../../widgets/common/glass_back_button.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -47,13 +48,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: theme.colorScheme.onSurface,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
+          leading: const GlassBackButton(),
           title: Text(
             context.t('Settings', 'सेटिङहरू'),
             style: theme.textTheme.titleLarge,
@@ -80,26 +75,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 24),
                 _SectionHeader(title: context.t('Data & Sync', 'डाटा र सिंक')),
                 const SizedBox(height: 8),
+                // As short as the Appearance card above it: one line, with
+                // the state said beside the name instead of under it.
                 GlassCard(
-                  child: Column(
+                  key: const ValueKey<String>('settings-sync'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  onTap: () => _showSyncDialog(supabase),
+                  child: Row(
                     children: <Widget>[
-                      _SettingTile(
-                        icon: Icons.cloud_sync_rounded,
-                        color: const Color(0xFF0A84FF),
-                        title: context.t('Database Sync', 'डाटाबेस सिंक'),
-                        subtitle: supabase.isConfigured
+                      const Icon(
+                        Icons.cloud_sync_rounded,
+                        color: Color(0xFF0A84FF),
+                        size: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          context.t('Database Sync', 'डाटाबेस सिंक'),
+                          style: theme.textTheme.titleSmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        supabase.isConfigured
                             ? context.t('Connected', 'जडान भयो')
                             : context.t('Not configured', 'कन्फिगर गरिएको छैन'),
-                        trailing: supabase.isConfigured
-                            ? const Icon(
-                                Icons.check_circle_rounded,
-                                color: Color(0xFF30D158),
-                              )
-                            : const Icon(
-                                Icons.warning_amber_rounded,
-                                color: Color(0xFFFF9F0A),
-                              ),
-                        onTap: () => _showSyncDialog(supabase),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: glass.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        supabase.isConfigured
+                            ? Icons.check_circle_rounded
+                            : Icons.warning_amber_rounded,
+                        color: supabase.isConfigured
+                            ? const Color(0xFF30D158)
+                            : const Color(0xFFFF9F0A),
+                        size: 18,
                       ),
                     ],
                   ),
@@ -152,53 +169,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 24),
                 _SectionHeader(title: context.t('Security', 'सुरक्षा')),
                 const SizedBox(height: 8),
-                const _SecurityCard(),
-                const SizedBox(height: 8),
-                GlassCard(
-                  child: Column(
-                    children: <Widget>[
-                      _SettingTile(
-                        icon: Icons.verified_user_rounded,
-                        color: const Color(0xFF30D158),
-                        title: context.t(
-                          'Two-factor authentication',
-                          'दुई-चरण प्रमाणीकरण',
-                        ),
-                        subtitle: auth.hasMfaEnabled
-                            ? context.t(
-                                'On: a code is asked at sign-in',
-                                'खुला: साइन इनमा कोड मागिन्छ',
-                              )
-                            : context.t(
-                                'Off: protect your account with an authenticator app',
-                                'बन्द: प्रमाणक एपले खाता सुरक्षित गर्नुहोस्',
-                              ),
-                        trailing: Switch(
-                          value: auth.hasMfaEnabled,
-                          onChanged: _togglingTwoFactor
-                              ? null
-                              : (value) => _toggleTwoFactor(auth, value),
-                        ),
-                        onTap: () =>
-                            _open(context, const TwoFactorAuthScreen()),
+                _SecurityCard(
+                  more: <Widget>[
+                    _SettingTile(
+                      icon: Icons.verified_user_rounded,
+                      color: const Color(0xFF30D158),
+                      title: context.t(
+                        'Two-factor sign-in',
+                        'दुई-चरण प्रमाणीकरण',
                       ),
-                      const Divider(height: 1),
-                      _SettingTile(
-                        icon: Icons.password_rounded,
-                        color: const Color(0xFF0A84FF),
-                        title: context.t(
-                          'Change password',
-                          'पासवर्ड परिवर्तन गर्नुहोस्',
-                        ),
-                        subtitle: context.t(
-                          'Update your account password',
-                          'तपाईंको खाता पासवर्ड अद्यावधिक गर्नुहोस्',
-                        ),
-                        onTap: () =>
-                            _open(context, const ChangePasswordScreen()),
+                      subtitle: auth.hasMfaEnabled
+                          ? context.t(
+                              'On: a code is asked at sign-in',
+                              'खुला: साइन इनमा कोड मागिन्छ',
+                            )
+                          : context.t(
+                              'Off: protect your account with an authenticator app',
+                              'बन्द: प्रमाणक एपले खाता सुरक्षित गर्नुहोस्',
+                            ),
+                      trailing: Switch(
+                        value: auth.hasMfaEnabled,
+                        onChanged: _togglingTwoFactor
+                            ? null
+                            : (value) => _toggleTwoFactor(auth, value),
                       ),
-                    ],
-                  ),
+                      onTap: () => _open(context, const TwoFactorAuthScreen()),
+                    ),
+                    const Divider(height: 1),
+                    _SettingTile(
+                      icon: Icons.password_rounded,
+                      color: const Color(0xFF0A84FF),
+                      title: context.t(
+                        'Change password',
+                        'पासवर्ड परिवर्तन गर्नुहोस्',
+                      ),
+                      subtitle: context.t(
+                        'Update your account password',
+                        'तपाईंको खाता पासवर्ड अद्यावधिक गर्नुहोस्',
+                      ),
+                      onTap: () => _open(context, const ChangePasswordScreen()),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 24),
                 // Backup, Help and About live on the More page.
@@ -690,6 +701,7 @@ class _SettingTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.trailing,
+    this.enabled = true,
     required this.onTap,
   });
 
@@ -698,32 +710,43 @@ class _SettingTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget? trailing;
+
+  /// False greys the row out and stops it answering a tap.
+  final bool enabled;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final glass = context.glass;
-    return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(12),
+    // A Material of its own: the card paints a background, and without one
+    // the row's tap highlight would be drawn underneath it.
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 22),
         ),
-        child: Icon(icon, color: color, size: 22),
+        title: Text(title, style: theme.textTheme.titleMedium),
+        subtitle: Text(
+          subtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: glass.textSecondary,
+          ),
+        ),
+        trailing:
+            trailing ??
+            Icon(Icons.chevron_right_rounded, color: glass.textTertiary),
+        enabled: enabled,
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       ),
-      title: Text(title, style: theme.textTheme.titleMedium),
-      subtitle: Text(
-        subtitle,
-        style: theme.textTheme.bodySmall?.copyWith(color: glass.textSecondary),
-      ),
-      trailing:
-          trailing ??
-          Icon(Icons.chevron_right_rounded, color: glass.textTertiary),
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
     );
   }
 }
@@ -951,7 +974,11 @@ class _NotificationSettingsCardState extends State<_NotificationSettingsCard> {
 }
 
 class _SecurityCard extends StatefulWidget {
-  const _SecurityCard();
+  const _SecurityCard({this.more = const <Widget>[]});
+
+  /// The account's own security rows (two-factor, password), shown in the
+  /// same card under this phone's.
+  final List<Widget> more;
 
   @override
   State<_SecurityCard> createState() => _SecurityCardState();
@@ -1125,42 +1152,59 @@ class _SecurityCardState extends State<_SecurityCard> {
     final theme = Theme.of(context);
     final glass = context.glass;
 
+    final biometricOn = _capability.available && !_busy;
+    // One card, and every row the same tile: the same icon box, the same
+    // text sizes and the same place for the switch or the arrow.
     return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Column(
         children: <Widget>[
-          AuthSwitchRow(
-            label: _capability.available
+          _SettingTile(
+            icon: _capability.kind.icon,
+            color: const Color(0xFF5E5CE6),
+            title: _capability.available
                 ? '${_capability.kind.label} sign-in'
                 : 'Biometric sign-in',
             subtitle: _capability.available
                 ? 'Unlock with ${_capability.kind.label.toLowerCase()} instead of a password'
                 : 'No fingerprint or face enrolled on this device',
-            icon: _capability.kind.icon,
-            value: _biometricEnabled,
-            enabled: _capability.available && !_busy,
-            onChanged: _toggleBiometric,
+            enabled: biometricOn,
+            trailing: Switch(
+              value: _biometricEnabled,
+              onChanged: biometricOn ? _toggleBiometric : null,
+            ),
+            onTap: () => _toggleBiometric(!_biometricEnabled),
           ),
-          Divider(height: 1, color: glass.textTertiary.withValues(alpha: 0.15)),
-          AuthSwitchRow(
-            label: 'Remember me',
-            subtitle: 'Keep me signed in on this device',
+          const Divider(height: 1),
+          _SettingTile(
             icon: Icons.person_pin_circle_rounded,
-            value: _rememberMe,
-            onChanged: _busy ? null : _toggleRememberMe,
+            color: const Color(0xFFFF9F0A),
+            title: 'Remember me',
+            subtitle: 'Keep me signed in on this device',
+            enabled: !_busy,
+            trailing: Switch(
+              value: _rememberMe,
+              onChanged: _busy ? null : _toggleRememberMe,
+            ),
+            onTap: () => _toggleRememberMe(!_rememberMe),
           ),
+          // One line above each row; the rows are handed over with lines of
+          // their own between them, which are left out.
+          for (final row in widget.more)
+            if (row is! Divider) ...<Widget>[const Divider(height: 1), row],
           SizedBox(
             height: 4,
             child: _busy ? const LinearProgressIndicator(minHeight: 2) : null,
           ),
-          Text(
-            'Passwords are stored in the device keystore, never in app data.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: glass.textTertiary,
-              height: 1.3,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+            child: Text(
+              'Passwords are stored in the device keystore, never in app data.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: glass.textTertiary,
+                height: 1.3,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
         ],
       ),
     );
