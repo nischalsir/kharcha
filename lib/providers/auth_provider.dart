@@ -416,6 +416,7 @@ class AuthProvider extends ChangeNotifier {
       });
 
       _isLoading = false;
+      unawaited(_keepOwnProfile());
     } catch (error) {
       _isLoading = false;
       _failure = AppFailure.from(error);
@@ -444,15 +445,22 @@ class AuthProvider extends ChangeNotifier {
       );
 
       _session = response.session;
-      // No session means the email still has to be confirmed. Keeping that
-      // user here would count as signed in and open the app with no session.
+      // No session means the email still has to be confirmed with the code
+      // that was just sent to it. Keeping that user here would count as
+      // signed in and open the app with no session.
       _user = response.session == null ? null : response.user;
       _refreshMfaState();
 
-      if (response.user != null && _session == null) {
-        _failure = const AppFailure(
+      // With confirmation on, the server answers a sign-up for an email that
+      // already has an account as if it had worked, but with no identity and
+      // no code sent. Waiting for a code then would wait for ever.
+      final identities = response.user?.identities;
+      if (response.session == null &&
+          identities != null &&
+          identities.isEmpty) {
+        throw const AppFailure(
           FailureKind.syncFailed,
-          'Please check your email to verify your account.',
+          'An account with this email already exists. Try signing in.',
         );
       }
 
@@ -465,6 +473,56 @@ class AuthProvider extends ChangeNotifier {
       _setLoading(false);
     }
   }
+
+  /// Confirms a new account with the 6-digit code emailed at sign-up. That
+  /// signs the account in.
+  Future<void> confirmSignUp({
+    required String email,
+    required String code,
+  }) async {
+    _setLoading(true);
+    _clearError();
+    try {
+      final client = _requireClient();
+      final response = await client.auth.verifyOTP(
+        type: OtpType.signup,
+        email: email.trim(),
+        token: code.trim(),
+      );
+      _session = response.session ?? client.auth.currentSession;
+      _user = _session?.user;
+      _refreshMfaState();
+      notifyListeners();
+    } catch (error) {
+      _failure = _mapAuthError(error);
+      notifyListeners();
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Emails the sign-up code again.
+  Future<void> resendSignUpCode(String email) async {
+    _clearError();
+    try {
+      await _requireClient().auth.resend(
+        type: OtpType.signup,
+        email: email.trim(),
+      );
+    } catch (error) {
+      _failure = _mapAuthError(error);
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Whether [error] is the server refusing a sign-in because the account's
+  /// email was never confirmed with its code.
+  static bool isEmailNotConfirmed(Object error) =>
+      error is AuthException &&
+      (error.code == 'email_not_confirmed' ||
+          error.message.toLowerCase().contains('email not confirmed'));
 
   /// Signs in with a password.
   ///
@@ -578,11 +636,33 @@ class AuthProvider extends ChangeNotifier {
   static AppFailure describeAuthError(Object error) {
     if (error is AuthException) {
       final message = error.message.toLowerCase();
+      if (isEmailNotConfirmed(error)) {
+        return const AppFailure(
+          FailureKind.syncFailed,
+          'This email has not been confirmed yet. Enter the code we emailed '
+          'you to finish signing in.',
+        );
+      }
+      // A sign-up or reset code that is wrong, used, or too old.
+      if (error.code == 'otp_expired' ||
+          message.contains('token has expired or is invalid')) {
+        return const AppFailure(
+          FailureKind.syncFailed,
+          'That code is wrong or has expired. Check it, or send a new one.',
+        );
+      }
+      if (error.code == 'over_email_send_rate_limit' ||
+          message.contains('email rate limit') ||
+          message.contains('for security purposes')) {
+        return const AppFailure(
+          FailureKind.syncFailed,
+          'Too many emails were asked for. Wait a minute, then try again.',
+        );
+      }
       if (message.contains('invalid login') ||
           message.contains('invalid credentials') ||
           message.contains('wrong password') ||
-          message.contains('user not found') ||
-          message.contains('email not confirmed')) {
+          message.contains('user not found')) {
         return const AppFailure(
           FailureKind.syncFailed,
           'Wrong email or password. Please try again.',

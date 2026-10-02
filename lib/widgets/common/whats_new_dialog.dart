@@ -22,6 +22,14 @@ class WhatsNew {
   /// English and Nepali, newest first.
   static const List<(String, String)> items = <(String, String)>[
     (
+      'Continue with Google: sign in or sign up without a password',
+      'Google बाट जारी राख्नुहोस्: पासवर्ड बिना साइन इन वा साइन अप',
+    ),
+    (
+      'New accounts confirm their email with a 6-digit code',
+      'नयाँ खाताले ६ अंकको कोडबाट इमेल पुष्टि गर्छ',
+    ),
+    (
       'Flamey now roasts your spending habits, using your own numbers',
       'Flamey ले अब तपाईंकै अङ्क लिएर खर्च गर्ने बानीको खिल्ली उडाउँछ',
     ),

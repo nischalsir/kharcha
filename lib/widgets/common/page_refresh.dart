@@ -17,8 +17,9 @@ enum RefreshOutcome { refreshed, offline, failed }
 
 /// Pull-to-refresh for a whole page, with the same feedback everywhere.
 ///
-/// Pulling brings Flamey down on a small glass disc at the top of the page,
-/// where it pulls a new face every beat until the refresh is over. When the
+/// Pulling the page far enough brings Flamey down on a small glass disc at
+/// the top, where it pulls a new face every beat until the refresh is over.
+/// Nothing appears for a touch that does not get that far. When the
 /// refresh has actually finished, that same disc widens into a pill naming
 /// the page, "Home page refreshed", and Flamey comes to rest on one reaction.
 /// A refresh that did not work says so instead; it is never reported as a
@@ -177,9 +178,10 @@ class _PageRefreshState extends State<PageRefresh> {
     final working =
         _status == RefreshIndicatorStatus.snap ||
         _status == RefreshIndicatorStatus.refresh;
-    final pulling =
-        _status == RefreshIndicatorStatus.drag ||
-        _status == RefreshIndicatorStatus.armed;
+    // Only once the page has been pulled far enough to refresh on release.
+    // Any touch that starts at the top of a page counts as a drag, including
+    // an ordinary scroll, and Flamey must not drop in for those.
+    final armed = _status == RefreshIndicatorStatus.armed;
 
     return Stack(
       children: <Widget>[
@@ -195,19 +197,16 @@ class _PageRefreshState extends State<PageRefresh> {
           child: IgnorePointer(
             child: Center(
               child: _RefreshPill(
-                shown: working || pulling || _noticeUp,
+                shown: working || armed || _noticeUp,
                 notice: _notice,
                 isError: _noticeIsError,
-                small: _status == RefreshIndicatorStatus.drag && !_noticeUp,
                 // Resting on one reaction once it is over, going through
-                // them while it runs, watching while the page is pulled.
+                // them while it runs, eager while the page is held down.
                 hold: _notice != null
                     ? _rest
                     : working
                     ? null
-                    : _status == RefreshIndicatorStatus.armed
-                    ? MoodFace.excited
-                    : MoodFace.calm,
+                    : MoodFace.excited,
               ),
             ),
           ),
@@ -225,7 +224,6 @@ class _RefreshPill extends StatefulWidget {
     required this.hold,
     required this.notice,
     required this.isError,
-    required this.small,
   });
 
   final bool shown;
@@ -234,9 +232,6 @@ class _RefreshPill extends StatefulWidget {
   final MoodFace? hold;
   final String? notice;
   final bool isError;
-
-  /// Slightly smaller while the page has not been pulled far enough yet.
-  final bool small;
 
   @override
   State<_RefreshPill> createState() => _RefreshPillState();
@@ -281,7 +276,7 @@ class _RefreshPillState extends State<_RefreshPill> {
         opacity: widget.shown ? 1 : 0,
         duration: duration,
         child: AnimatedScale(
-          scale: widget.small ? 0.82 : 1,
+          scale: widget.shown ? 1 : 0.82,
           duration: duration,
           child: Material(
             key: const ValueKey<String>('refresh-flamey'),

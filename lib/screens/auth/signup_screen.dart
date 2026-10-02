@@ -9,7 +9,9 @@ import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/biometric_service.dart';
+import '../../services/google_account.dart';
 import '../../widgets/common/auth_widgets.dart';
+import '../../widgets/common/email_code_dialog.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
@@ -39,6 +41,54 @@ class _SignupScreenState extends State<SignupScreen> {
   /// terms row is plain; after it, the row is outlined red while unticked and
   /// green once ticked, so the fix is shown right where the problem is.
   bool _termsFlagged = false;
+
+  /// Whether this build can sign in with Google at all.
+  bool _googleReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    GoogleAccount.isConfigured().then((ready) {
+      if (mounted && ready) setState(() => _googleReady = true);
+    });
+  }
+
+  /// Creates the account from a Google account instead of the form. The terms
+  /// still have to be agreed to; the name and email come from Google.
+  Future<void> _handleGoogleSignUp() async {
+    if (!_agreeToTerms) {
+      if (!_termsFlagged) setState(() => _termsFlagged = true);
+      HapticFeedback.mediumImpact();
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        context.t(
+          'Please agree to the Terms of Service',
+          'कृपया सेवा शर्तहरूमा सहमत हुनुहोस्',
+        ),
+        Directionality.of(context),
+      );
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    setState(() => _isLoading = true);
+
+    final AuthProvider auth = context.read<AuthProvider>();
+    final BiometricService biometric = context.read<BiometricService>();
+    auth.clearError();
+
+    try {
+      await auth.signInWithGoogle();
+      final String? email = auth.userEmail;
+      if (email != null && await biometric.rememberMe()) {
+        await biometric.setRememberedEmail(email);
+      }
+      if (mounted) _returnToShell();
+    } catch (_) {
+      // The failure is already exposed through AuthProvider.
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -89,9 +139,11 @@ class _SignupScreenState extends State<SignupScreen> {
       );
 
       if (!mounted) return;
+      // The server wants the email confirmed first: it has sent a 6-digit
+      // code, and entering it signs the new account in.
       if (auth.session == null) {
-        _showVerificationDialog();
-        return;
+        final confirmed = await EmailCodeDialog.show(context, email: email);
+        if (!confirmed || !mounted) return;
       }
 
       // The new account is now the one to prefill, not whoever used this
@@ -244,31 +296,6 @@ class _SignupScreenState extends State<SignupScreen> {
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(context.t('Close', 'बन्द गर्नुहोस्')),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showVerificationDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          context.t('Verify your email', 'तपाईंको इमेल सत्यापन गर्नुहोस्'),
-        ),
-        content: Text(
-          context.t(
-            'We sent a verification link to your inbox. Open it to activate your '
-                'account, then come back and sign in.',
-            'हामीले तपाईंको इनबक्समा सत्यापन लिङ्क पठाएका छौं। आफ्नो खाता सक्रिय गर्न '
-                'उसे खोल्नुहोस्, भनेर फेरि आउनुहोस् र साइन इन गर्नुहोस्।',
-          ),
-        ),
-        actions: <Widget>[
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(context.t('OK', 'ठिक छ')),
           ),
         ],
       ),
@@ -502,6 +529,12 @@ class _SignupScreenState extends State<SignupScreen> {
                 ],
               ),
             ),
+            if (_googleReady) ...<Widget>[
+              const SizedBox(height: 16),
+              GoogleSignInButton(
+                onPressed: _isLoading ? null : _handleGoogleSignUp,
+              ),
+            ],
             const SizedBox(height: 20),
             // Wraps onto a second line on a narrow screen or with large text,
             // where a Row would run off the edge.

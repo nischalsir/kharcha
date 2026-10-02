@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kharcha_app/core/theme/app_theme.dart';
 import 'package:kharcha_app/models/financial_summary.dart';
 import 'package:kharcha_app/providers/auth_provider.dart';
+import 'package:kharcha_app/screens/auth/signup_screen.dart';
+import 'package:kharcha_app/services/biometric_service.dart';
+import 'package:kharcha_app/services/google_account.dart';
+import 'package:kharcha_app/services/nepali_date_service.dart';
+import 'package:kharcha_app/widgets/common/auth_widgets.dart';
 import 'package:kharcha_app/widgets/common/flame_mascot.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
@@ -141,6 +150,49 @@ void main() {
         isEmpty,
       );
     });
+  });
+
+  testWidgets('sign-up offers Google, and still asks for the terms first', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(480, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    FlutterSecureStorage.setMockInitialValues(<String, String>{});
+    // This build has a Google client id.
+    const config = MethodChannel('com.nischalpandey.kharcha/app_config');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(config, (call) async => 'web-client-id');
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(config, null);
+      GoogleAccount.resetForTest();
+    });
+    GoogleAccount.resetForTest();
+    final auth = AuthProvider();
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AuthProvider>.value(value: auth),
+          Provider<BiometricService>(create: (_) => BiometricService()),
+          Provider<NepaliDateService>(create: (_) => NepaliDateService()),
+        ],
+        child: MaterialApp(theme: AppTheme.light(), home: const SignupScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final button = find.byKey(const ValueKey<String>('google-sign-in'));
+    expect(button, findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.byType(GoogleLogo), findsOneWidget);
+
+    // Not ticked: the terms row is flagged and Google is never opened.
+    await tester.tap(button);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Tick the box to continue.'), findsOneWidget);
+    expect(auth.failure, isNull);
+    expect(tester.takeException(), isNull);
   });
 
   test('a server without the Google provider says so plainly', () {

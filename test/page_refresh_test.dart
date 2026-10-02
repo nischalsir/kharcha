@@ -104,6 +104,40 @@ void main() {
     expect(find.byType(FlameMascot), findsNothing);
   });
 
+  testWidgets('scrolling or a short pull never brings Flamey in', (
+    tester,
+  ) async {
+    var refreshes = 0;
+    await tester.pumpWidget(
+      _page(
+        name: 'Home',
+        onRefresh: () async {
+          refreshes++;
+          return RefreshOutcome.refreshed;
+        },
+      ),
+    );
+
+    // A touch at the top of the page that only scrolls, then a pull too
+    // short to refresh: both are a drag to the indicator.
+    for (final offset in const <Offset>[Offset(0, -60), Offset(0, 30)]) {
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('row')),
+      );
+      for (var i = 0; i < 4; i++) {
+        await gesture.moveBy(offset / 4);
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(find.byType(FlameMascot), findsNothing);
+      }
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(FlameMascot), findsNothing);
+    }
+    expect(refreshes, 0);
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('a refresh that failed leaves Flamey looking sorry', (
     tester,
   ) async {

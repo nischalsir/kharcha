@@ -66,10 +66,17 @@ class _FlameMascotState extends State<FlameMascot>
     duration: const Duration(milliseconds: 4200),
   );
 
-  /// One hop, played each time the reaction changes.
+  /// How the whole body moves: breathing, leaning, and each reaction's own
+  /// motion. Slower than the flicker, so it reads as calm rather than busy.
+  late final AnimationController _sway = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 3800),
+  );
+
+  /// One soft hop, played each time the reaction changes.
   late final AnimationController _hop = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 460),
+    duration: const Duration(milliseconds: 700),
   );
 
   /// The reaction it had before the current one, so its colour can glide
@@ -88,7 +95,7 @@ class _FlameMascotState extends State<FlameMascot>
       return;
     }
     _animate = shouldAnimate;
-    for (final controller in <AnimationController>[_flicker, _blink]) {
+    for (final controller in <AnimationController>[_flicker, _blink, _sway]) {
       if (shouldAnimate) {
         if (!controller.isAnimating) controller.repeat();
       } else {
@@ -108,66 +115,69 @@ class _FlameMascotState extends State<FlameMascot>
   }
 
   /// How a reaction carries itself while it is on show, on top of the
-  /// breathing every flame does. [turn] is the flicker as an angle, so
-  /// whole multiples of it loop without a seam. Offsets are in flame widths.
+  /// breathing every flame does. [turn] is the sway as an angle, so whole
+  /// multiples of it loop without a seam. Offsets are in flame widths.
+  ///
+  /// Everything here is slow and small on purpose: nothing goes faster than
+  /// twice per sway, and nothing shakes. A reaction is read from the face;
+  /// the motion only has to suggest it.
   static ({double dx, double dy, double tilt, double sx, double sy}) _motion(
     MoodFace face,
     double turn,
   ) {
     final breath = math.sin(turn);
+    // 0 to 1 and back, twice per sway, easing in and out at both ends.
+    final pulse = (1 - math.cos(2 * turn)) / 2;
     var dx = 0.0;
     var dy = 0.0;
-    var tilt = math.cos(turn) * 0.04;
-    var sx = 1 - 0.03 * breath;
-    var sy = 1 + 0.04 * breath;
+    var tilt = math.cos(turn) * 0.025;
+    var sx = 1 - 0.02 * breath;
+    var sy = 1 + 0.03 * breath;
     switch (face) {
-      // Too pleased to stand still.
+      // A light bounce.
       case MoodFace.excited ||
           MoodFace.party ||
           MoodFace.yum ||
           MoodFace.starstruck:
-        dy = -math.sin(2 * turn).abs() * 0.08;
+        dy = -pulse * 0.045;
       case MoodFace.happy || MoodFace.loading:
-        dy = -math.sin(2 * turn).abs() * 0.03;
-      // Rocking with laughter at its own joke.
+        dy = -pulse * 0.02;
+      // Rocking gently at its own joke.
       case MoodFace.roasting || MoodFace.teasing:
-        tilt = math.sin(3 * turn) * 0.11;
-        dy = -math.sin(3 * turn).abs() * 0.03;
+        tilt = math.sin(2 * turn) * 0.06;
       case MoodFace.wink:
-        tilt = math.sin(2 * turn) * 0.07;
-      // A shiver.
+        tilt = breath * 0.05;
+      // Drawn up tall, holding its breath.
       case MoodFace.shocked || MoodFace.surprised:
-        dx = math.sin(9 * turn) * 0.02;
-        sy += 0.03;
-      // Shaking with it.
+        tilt = 0;
+        sx = 1 - 0.01 * breath;
+        sy = 1.03 + 0.015 * breath;
+      // Simmering.
       case MoodFace.grumpy:
-        dx = math.sin(11 * turn) * 0.018;
-      // The room is going round.
+        sx = 1 + 0.02 * pulse;
+        sy = 1 - 0.01 * pulse;
+      // The room is going round, slowly.
       case MoodFace.dizzy || MoodFace.confused:
-        tilt = math.sin(turn) * 0.14;
-        dx = math.cos(turn) * 0.03;
+        tilt = breath * 0.07;
+        dx = math.cos(turn) * 0.012;
       // Slow, deep breaths, drooping to one side.
       case MoodFace.sleepy || MoodFace.bored:
-        sx = 1 - 0.05 * breath;
-        sy = 1 + 0.06 * breath;
-        tilt = 0.06 + breath * 0.02;
-      // Slumped; the crying one sobs.
-      case MoodFace.sad || MoodFace.worried:
+        sx = 1 - 0.035 * breath;
+        sy = 1 + 0.045 * breath;
+        tilt = 0.05 + breath * 0.015;
+      // Slumped.
+      case MoodFace.sad || MoodFace.worried || MoodFace.crying:
         sy *= 0.96;
-      case MoodFace.crying:
-        sy *= 0.96;
-        dx = math.sin(7 * turn) * 0.012;
-      // A heartbeat.
+      // A slow heartbeat.
       case MoodFace.love:
-        final beat = math.max(0.0, math.sin(2 * turn));
-        sx *= 1 + 0.06 * beat * beat;
-        sy *= 1 + 0.06 * beat * beat;
+        sx *= 1 + 0.035 * pulse;
+        sy *= 1 + 0.035 * pulse;
       // Head on one side while it works something out.
       case MoodFace.thinking || MoodFace.curious:
-        tilt = -0.05 + breath * 0.02;
+        tilt = -0.045 + breath * 0.015;
       // An easy, unhurried sway.
       case MoodFace.cool || MoodFace.proud:
-        tilt = breath * 0.05;
+        tilt = breath * 0.04;
       case MoodFace.calm:
         break;
     }
@@ -178,6 +188,7 @@ class _FlameMascotState extends State<FlameMascot>
   void dispose() {
     _flicker.dispose();
     _blink.dispose();
+    _sway.dispose();
     _hop.dispose();
     super.dispose();
   }
@@ -206,7 +217,12 @@ class _FlameMascotState extends State<FlameMascot>
                 : Duration.zero,
             curve: Curves.easeOutCubic,
             builder: (context, gaze, _) => AnimatedBuilder(
-              animation: Listenable.merge(<Listenable>[_flicker, _blink, _hop]),
+              animation: Listenable.merge(<Listenable>[
+                _flicker,
+                _blink,
+                _sway,
+                _hop,
+              ]),
               builder: (context, _) {
                 final flame = CustomPaint(
                   size: Size.square(widget.size),
@@ -225,22 +241,21 @@ class _FlameMascotState extends State<FlameMascot>
                 // leaning a little each way, with its base staying put, and
                 // each reaction moves in its own way on top of that. A new
                 // reaction lifts it off the ground for a moment.
-                final motion = _motion(
-                  widget.face,
-                  _flicker.value * 2 * math.pi,
-                );
-                final hop = math.sin(_hop.value * math.pi);
+                final motion = _motion(widget.face, _sway.value * 2 * math.pi);
+                // Up and back down along a smooth curve, no snap at either end.
+                final hopWave = math.sin(_hop.value * math.pi);
+                final hop = hopWave * hopWave;
                 return Transform.translate(
                   offset: Offset(
                     motion.dx * widget.size,
-                    (motion.dy - hop * 0.14) * widget.size,
+                    (motion.dy - hop * 0.07) * widget.size,
                   ),
                   child: Transform.rotate(
                     angle: motion.tilt,
                     alignment: Alignment.bottomCenter,
                     child: Transform.scale(
-                      scaleX: motion.sx * (1 + 0.12 * hop),
-                      scaleY: motion.sy * (1 + 0.12 * hop),
+                      scaleX: motion.sx * (1 + 0.05 * hop),
+                      scaleY: motion.sy * (1 + 0.05 * hop),
                       alignment: Alignment.bottomCenter,
                       child: flame,
                     ),
@@ -284,7 +299,7 @@ class BusyFlamey extends StatefulWidget {
     MoodFace.love,
   ];
 
-  static const Duration beat = Duration(milliseconds: 650);
+  static const Duration beat = Duration(milliseconds: 1100);
 
   @override
   State<BusyFlamey> createState() => _BusyFlameyState();

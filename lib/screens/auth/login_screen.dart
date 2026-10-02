@@ -11,7 +11,9 @@ import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/account_avatar_cache.dart';
 import '../../services/biometric_service.dart';
+import '../../services/google_account.dart';
 import '../../widgets/common/auth_widgets.dart';
+import '../../widgets/common/email_code_dialog.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
@@ -34,10 +36,16 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _biometricEnabled = false;
   BiometricCapability _capability = BiometricCapability.none;
 
+  /// Whether this build can sign in with Google at all.
+  bool _googleReady = false;
+
   @override
   void initState() {
     super.initState();
     _restorePreferences();
+    GoogleAccount.isConfigured().then((ready) {
+      if (mounted && ready) setState(() => _googleReady = true);
+    });
   }
 
   @override
@@ -91,8 +99,22 @@ class _LoginScreenState extends State<LoginScreen> {
         password: password,
       );
       if (mounted) _returnToShell();
-    } catch (_) {
-      // The failure is already exposed through AuthProvider.
+    } catch (error) {
+      // The failure is already exposed through AuthProvider. An account
+      // whose sign-up code was never entered gets a fresh code and the box
+      // to enter it in, instead of a dead end.
+      if (AuthProvider.isEmailNotConfirmed(error) && mounted) {
+        auth.clearError();
+        final confirmed = await EmailCodeDialog.show(
+          context,
+          email: email,
+          sendNow: true,
+        );
+        if (confirmed) {
+          await _persistLogin(biometric, email: email, password: password);
+          if (mounted) _returnToShell();
+        }
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -245,6 +267,28 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    FocusScope.of(context).unfocus();
+    setState(() => _isLoading = true);
+
+    final AuthProvider auth = context.read<AuthProvider>();
+    final BiometricService biometric = context.read<BiometricService>();
+    auth.clearError();
+
+    try {
+      await auth.signInWithGoogle();
+      final String? email = auth.userEmail;
+      if (email != null && await biometric.rememberMe()) {
+        await biometric.setRememberedEmail(email);
+      }
+      if (mounted) _returnToShell();
+    } catch (_) {
+      // The failure is already exposed through AuthProvider.
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -436,6 +480,12 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
             const SizedBox(height: 20),
+            if (_googleReady) ...<Widget>[
+              GoogleSignInButton(
+                onPressed: _isLoading ? null : _handleGoogleSignIn,
+              ),
+              const SizedBox(height: 12),
+            ],
             AuthGhostButton(
               label: context.t('Explore as guest', 'पाहुनाको रूपमा हेर्नुहोस्'),
               icon: Icons.visibility_outlined,
@@ -622,6 +672,8 @@ class _ResetPasswordCodeDialogState extends State<_ResetPasswordCodeDialog> {
                   '${widget.email} मा पठाइएको ६ अंकको कोड लेख्नुहोस्।',
                 ),
               ),
+              const SizedBox(height: 8),
+              const SpamHint(),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _codeController,

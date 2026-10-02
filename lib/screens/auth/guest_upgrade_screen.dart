@@ -5,6 +5,7 @@ import '../../core/l10n/app_l10n.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/common/auth_widgets.dart';
+import '../../widgets/common/email_code_dialog.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
@@ -290,6 +291,8 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
         ),
         style: theme.textTheme.bodyMedium,
       ),
+      const SizedBox(height: 8),
+      const SpamHint(),
       const SizedBox(height: 14),
       TextFormField(
         controller: _code,
