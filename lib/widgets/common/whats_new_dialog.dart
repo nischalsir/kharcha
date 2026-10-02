@@ -19,111 +19,26 @@ class WhatsNew {
 
   static const String _seenKey = 'whats_new.seen_version';
 
-  /// English and Nepali, newest first.
+  /// What changed in this version, in English and Nepali. Only this
+  /// version: the pop-up says what is new since the last update, in a few
+  /// lines. Replace the list with each release; do not add to it.
   static const List<(String, String)> items = <(String, String)>[
     (
-      'A tour of the app for anyone new to it',
-      'एपमा नयाँ जो कोहीका लागि एउटा परिचय',
+      'App lock: fingerprint or the phone PIN each time Kharcha opens',
+      'एप लक: खर्चा खोल्दा हरेक पटक फिंगरप्रिन्ट वा फोनको PIN',
+    ),
+    ('Search everything from Home', 'होमबाटै सबै कुरामा खोज्नुहोस्'),
+    (
+      'Net worth: what you have, less what you owe',
+      'कुल सम्पत्ति: तपाईंसँग भएको, तिर्नुपर्ने घटाएर',
     ),
     (
-      'Settings > App Permissions: notifications, location and SMS in one place',
-      'सेटिङ > एप अनुमतिहरू: सूचना, स्थान र SMS एकै ठाउँमा',
+      'Budgets can carry over from last month',
+      'बजेट अघिल्लो महिनाबाट सार्न सकिन्छ',
     ),
     (
-      'Emailed codes can now be 8 digits, typed or pasted',
-      'इमेलमा आउने कोड अब ८ अंकको हुन सक्छ, टाइप वा पेस्ट गर्नुहोस्',
-    ),
-    (
-      'The Calendar no longer asks for your location',
-      'पात्रोले अब तपाईंको स्थान माग्दैन',
-    ),
-    (
-      'Explore as guest: use the app with no account, all on this phone',
-      'पाहुनाको रूपमा हेर्नुहोस्: खाता बिना, सबै यही फोनमा',
-    ),
-    (
-      'Your data now syncs every few minutes, on every page',
-      'तपाईंको डाटा अब हरेक केही मिनेटमा, हरेक पृष्ठमा सिङ्क हुन्छ',
-    ),
-    (
-      'A small sync mark on Home says when changes are waiting or offline',
-      'होमको सानो चिन्हले परिवर्तन बाँकी वा अफलाइन भएको बताउँछ',
-    ),
-    (
-      '"Forgot password?" is now right beside the password field',
-      '"पासवर्ड बिर्सनुभयो?" अब पासवर्ड फिल्डकै छेउमा छ',
-    ),
-    (
-      'New accounts confirm their email with a code',
-      'नयाँ खाताले कोडबाट इमेल पुष्टि गर्छ',
-    ),
-    (
-      'Flamey now roasts your spending habits, using your own numbers',
-      'Flamey ले अब तपाईंकै अङ्क लिएर खर्च गर्ने बानीको खिल्ली उडाउँछ',
-    ),
-    (
-      'Flamey has over twenty moods, from Fuming to Smitten',
-      'Flamey का बीसभन्दा बढी मुड छन्, रिसाएकोदेखि मायामा परेकोसम्म',
-    ),
-    (
-      'Every Flamey reaction has its own colour and its own way of moving',
-      'Flamey को हरेक भावको आफ्नै रङ र आफ्नै चाल छ',
-    ),
-    (
-      'Pull to refresh: Flamey pulls faces, then says the page refreshed',
-      'तानेर रिफ्रेस: Flamey ले अनुहार बदल्छ, अनि पृष्ठ रिफ्रेस भएको भन्छ',
-    ),
-    (
-      'Google Drive backup: connect your Google account in Settings',
-      'Google Drive ब्याकअप: सेटिङमा आफ्नो Google खाता जोड्नुहोस्',
-    ),
-    (
-      'SMS import: paste messages when Android blocks the permission',
-      'SMS आयात: Android ले अनुमति रोक्दा सन्देश टाँस्नुहोस्',
-    ),
-    (
-      'A bell on Home opens your notifications, the new ones on top',
-      'होमको घण्टीले सूचनाहरू खोल्छ, नयाँ सूचना माथि',
-    ),
-    (
-      'Import from SMS: bank, eSewa and Khalti alerts become transactions',
-      'SMS बाट आयात: बैंक, eSewa र Khalti का सन्देश कारोबार बन्छन्',
-    ),
-    (
-      'Household: one ledger shared with family, joined by an invite code',
-      'घरपरिवार: परिवारसँग साझा खाता, निम्तो कोडबाट जोडिने',
-    ),
-    (
-      'Loans & EMI: instalment, interest and what is left to pay',
-      'ऋण र किस्ता: किस्ता, ब्याज र तिर्न बाँकी',
-    ),
-    (
-      'Press and hold the app icon for Add expense, Add income and Import',
-      'खर्च, आम्दानी थप्न र आयात गर्न एपको आइकन थिचिराख्नुहोस्',
-    ),
-    (
-      'Three home-screen widgets: today, this month and quick actions',
-      'तीन होम स्क्रिन विजेट: आज, यो महिना र द्रुत कार्य',
-    ),
-    (
-      'Savings goals, and wallets with balances and transfers',
-      'बचत लक्ष्य, र ब्यालेन्स तथा रकम सार्ने सुविधासहित वालेट',
-    ),
-    (
-      'Receipt photos on transactions, and filters on the Payments page',
-      'कारोबारमा रसिदको फोटो, र भुक्तानी पृष्ठमा फिल्टर',
-    ),
-    (
-      'Split a bill with friends, and set a budget for a festival',
-      'साथीहरूसँग बिल बाँड्नुहोस्, र चाडपर्वका लागि बजेट राख्नुहोस्',
-    ),
-    (
-      'Amounts show paisa everywhere: NPR 1,000.00',
-      'रकममा सबैतिर पैसा देखिन्छ: NPR 1,000.00',
-    ),
-    (
-      'Fixed: built-in categories now sync for every account',
-      'सुधार: पूर्वनिर्धारित श्रेणी अब हरेक खातामा सिङ्क हुन्छन्',
+      'Add a transaction by saying it: "200 on tea"',
+      'बोलेर कारोबार थप्नुहोस्: "200 on tea"',
     ),
   ];
 

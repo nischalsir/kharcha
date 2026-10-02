@@ -45,6 +45,7 @@ class RoutePaths {
 
   /// Wallets: what each payment method holds, and transfers between them.
   static const String wallets = '/wallets';
+
   /// Loans being repaid in monthly instalments.
   static const String loans = '/loans';
 
@@ -70,6 +71,12 @@ class RoutePaths {
 
   /// Help & Support: guides and answers.
   static const String help = '/settings/help';
+
+  /// One box that looks through everything on the account.
+  static const String search = '/search';
+
+  /// What you have, what you owe, and the difference.
+  static const String netWorth = '/net-worth';
 
   static const String addExpense = '/transactions/expense/add';
   static const String addIncome = '/transactions/income/add';
@@ -110,6 +117,8 @@ class RoutePaths {
     about,
     backup,
     help,
+    search,
+    netWorth,
     addExpense,
     addIncome,
   };

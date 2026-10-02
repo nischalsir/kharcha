@@ -15,6 +15,7 @@ import '../../services/account_avatar_cache.dart';
 import '../../services/biometric_service.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/common/sync_status.dart';
+import '../../widgets/common/app_lock_gate.dart';
 import '../../widgets/common/auth_widgets.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
@@ -174,9 +175,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 8),
                 const _NotificationSettingsCard(),
                 const SizedBox(height: 24),
+                _SectionHeader(title: context.t('Security', 'सुरक्षा')),
+                const SizedBox(height: 8),
+                // The app lock guards this phone, whoever is using it. The
+                // rest belongs to an account; a guest has none to secure.
+                const AppLockCard(),
+                const SizedBox(height: 24),
                 if (!auth.isGuest) ...<Widget>[
-                  _SectionHeader(title: context.t('Security', 'सुरक्षा')),
-                  const SizedBox(height: 8),
                   _SecurityCard(
                     more: <Widget>[
                       _SettingTile(

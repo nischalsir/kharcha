@@ -196,6 +196,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
                             const SyncStatusButton(),
+                            IconButton(
+                              key: const ValueKey<String>('home-search'),
+                              tooltip: context.t('Search', 'खोज्नुहोस्'),
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () =>
+                                  Navigator.of(context)
+                                      .pushNamed(RoutePaths.search),
+                              icon: const Icon(Icons.search_rounded, size: 24),
+                            ),
                             const NotificationBell(),
                             const SizedBox(width: 4),
                             _HeaderAvatar(url: _avatarUrl, name: userName),

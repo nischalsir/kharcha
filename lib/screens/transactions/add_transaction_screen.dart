@@ -8,11 +8,14 @@ import '../../models/transaction_model.dart';
 import '../../providers/ai_insight_provider.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/transaction_provider.dart';
+import '../../core/l10n/app_l10n.dart';
+import '../../services/voice_input.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/receipt_field.dart';
 
 import 'package:flutter/services.dart';
+
 import '../../widgets/common/glass_back_button.dart';
 
 /// Records a single expense or income.
@@ -21,9 +24,12 @@ import '../../widgets/common/glass_back_button.dart';
 /// the type pre-picked, which is why the segmented control is still shown but
 /// starts locked to [initialType].
 class AddTransactionScreen extends StatefulWidget {
-  const AddTransactionScreen({super.key, this.initialType});
+  const AddTransactionScreen({super.key, this.initialType, this.voice});
 
   final TransactionType? initialType;
+
+  /// The phone's speech recogniser, replaced in tests.
+  final VoiceInput? voice;
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -143,13 +149,86 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
+  /// Fills the form from a sentence such as "200 on tea". Nothing is saved:
+  /// what was heard is put in the fields to be checked and changed.
+  Future<void> _listen() async {
+    final unavailable = context.t(
+      'This phone has no speech recognition to use.',
+      'यो फोनमा बोली चिन्ने सुविधा छैन।',
+    );
+    final failed = context.t(
+      'Could not listen. Try again, or type it in.',
+      'सुन्न सकिएन। फेरि प्रयास गर्नुहोस् वा टाइप गर्नुहोस्।',
+    );
+    final unclear = context.t(
+      'Did not catch an amount. Try "200 on tea".',
+      'रकम बुझिएन। "200 on tea" जस्तो भन्नुहोस्।',
+    );
+    final result = await (widget.voice ?? VoiceInput()).listen(
+      prompt: context.t(
+        'Say it, like "200 on tea"',
+        '"200 on tea" जस्तो भन्नुहोस्',
+      ),
+    );
+    if (!mounted) return;
+    if (result.problem != null) {
+      showMessage(
+        context,
+        result.problem == VoiceProblem.unavailable ? unavailable : failed,
+      );
+      return;
+    }
+    final words = result.words;
+    if (words == null) return;
+
+    final settings = context.read<AppSettingsProvider>();
+    final entry = SpokenEntryParser.parse(
+      words,
+      categories: settings.categories,
+    );
+    if (entry.isEmpty || entry.amount == null) {
+      showMessage(context, unclear);
+      // Whatever was said is still worth keeping as the title.
+      if (entry.title != null && _title.text.trim().isEmpty) {
+        setState(() => _title.text = entry.title!);
+      }
+      return;
+    }
+    setState(() {
+      final type = entry.type;
+      if (type != null && _formTypes.contains(type)) _type = type;
+      final amount = entry.amount!;
+      _amount.text = amount == amount.roundToDouble()
+          ? amount.toStringAsFixed(0)
+          : amount.toStringAsFixed(2);
+      if (entry.title != null) _title.text = entry.title!;
+      final allowed = _categoriesFor(_type);
+      if (allowed.any((c) => c.id == entry.categoryId)) {
+        _categoryId = entry.categoryId;
+      } else if (!allowed.any((c) => c.id == _categoryId)) {
+        _categoryId = null;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final categories = _categoriesFor(_type);
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-          leading: const GlassBackButton(),title: Text('Add $_titleLabel')),
+        leading: const GlassBackButton(),
+        title: Text('Add $_titleLabel'),
+        actions: <Widget>[
+          IconButton(
+            key: const ValueKey<String>('add-by-voice'),
+            tooltip: context.t('Say it', 'बोलेर थप्नुहोस्'),
+            onPressed: _saving ? null : _listen,
+            icon: const Icon(Icons.mic_rounded),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: SafeArea(
         child: Form(
           key: _formKey,

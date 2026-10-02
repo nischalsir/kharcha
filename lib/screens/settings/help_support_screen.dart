@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/statement_entry.dart';
 import '../payments/statement_guide_screen.dart';
 import '../payments/statement_import_screen.dart';
+import '../tutorial/tutorial_screen.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
@@ -191,6 +192,31 @@ class HelpSupportScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 48),
             children: <Widget>[
+              GlassCard(
+                padding: EdgeInsets.zero,
+                child: _ContactTile(
+                  key: const ValueKey<String>('help-tour'),
+                  icon: Icons.slideshow_rounded,
+                  color: const Color(0xFFBF5AF2),
+                  label: context.t(
+                    'Take the tour again',
+                    'परिचय फेरि हेर्नुहोस्',
+                  ),
+                  value: context.t(
+                    'A quick look at what Kharcha can do',
+                    'खर्चाले के के गर्न सक्छ, छोटकरीमा',
+                  ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (tour) => TutorialScreen(
+                        // Back here when it ends or is skipped.
+                        onFinished: () => Navigator.of(tour).pop(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
               Text(
                 context.t('We are here to help', 'हामी मद्दतका लागि छौँ'),
                 style: theme.textTheme.titleMedium?.copyWith(
@@ -309,6 +335,7 @@ class HelpSupportScreen extends StatelessWidget {
 
 class _ContactTile extends StatelessWidget {
   const _ContactTile({
+    super.key,
     required this.icon,
     required this.color,
     required this.label,
@@ -568,27 +595,32 @@ class _Faq extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final glass = context.glass;
-    return Theme(
-      data: theme.copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        expandedCrossAxisAlignment: CrossAxisAlignment.start,
-        title: Text(
-          question,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        children: <Widget>[
-          Text(
-            answer,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: glass.textSecondary,
-              height: 1.5,
+    // Its own sheet of material, so the tap ripple is drawn on top of the
+    // glass card it sits in rather than hidden under it.
+    return Material(
+      type: MaterialType.transparency,
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          title: Text(
+            question,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
+          children: <Widget>[
+            Text(
+              answer,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: glass.textSecondary,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

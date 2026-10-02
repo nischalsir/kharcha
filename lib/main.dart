@@ -45,6 +45,7 @@ import 'screens/friends/friends_screen.dart';
 import 'screens/goals/goals_screen.dart';
 import 'screens/household/household_screen.dart';
 import 'screens/loans/loans_screen.dart';
+import 'screens/net_worth/net_worth_screen.dart';
 import 'screens/pasal/add_pasal_credit_screen.dart';
 import 'screens/pasal/add_pasal_screen.dart';
 import 'screens/pasal/pasal_credit_history_screen.dart';
@@ -55,6 +56,7 @@ import 'screens/payments/payments_screen.dart';
 import 'screens/payments/sms_import_screen.dart';
 import 'screens/payments/statement_import_screen.dart';
 import 'screens/reports/reports_screen.dart';
+import 'screens/search/search_screen.dart';
 import 'screens/settings/backup_restore_screen.dart';
 import 'screens/settings/help_support_screen.dart';
 import 'screens/settings/profile_edit_screen.dart';
@@ -67,6 +69,7 @@ import 'services/root_shell.dart';
 import 'services/biometric_service.dart';
 import 'services/cache_service.dart';
 import 'services/account_avatar_cache.dart';
+import 'services/app_lock.dart';
 import 'services/app_images.dart';
 import 'services/flamey_controller.dart';
 import 'services/google_account.dart';
@@ -81,6 +84,7 @@ import 'services/sync_service.dart';
 import 'services/update_service.dart';
 import 'widgets/common/app_bottom_nav.dart';
 import 'widgets/common/account_transition.dart';
+import 'widgets/common/app_lock_gate.dart';
 import 'widgets/common/glass_background.dart';
 import 'widgets/common/update_dialog.dart';
 
@@ -127,6 +131,13 @@ class KharchaApp extends StatelessWidget {
         Provider<CacheService>.value(value: env.cache),
         ChangeNotifierProvider<SyncService>.value(value: env.sync),
         Provider<BiometricService>(create: (_) => BiometricService()),
+        // Read at once, so an app that starts with the lock on starts locked.
+        ChangeNotifierProvider<AppLockController>(
+          lazy: false,
+          create: (context) =>
+              AppLockController(biometric: context.read<BiometricService>())
+                ..load(),
+        ),
         Provider<AccountAvatarCache>(create: (_) => AccountAvatarCache()),
         ChangeNotifierProvider<AuthProvider>(
           create: (context) =>
@@ -221,8 +232,12 @@ class KharchaApp extends StatelessWidget {
               type: MaterialType.transparency,
               // Above the navigator, so the signing in / out screen covers
               // every route and dialog, not just the page underneath.
-              child: AccountTransitionOverlay(
-                child: child ?? const SizedBox.shrink(),
+              // The app lock covers all of that in turn: whatever page or
+              // dialog was open when the phone was put down.
+              child: AppLockGate(
+                child: AccountTransitionOverlay(
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
             ),
             onGenerateRoute: _generateRoute,
@@ -293,6 +308,8 @@ class KharchaApp extends StatelessWidget {
     RoutePaths.about => const VersionScreen(),
     RoutePaths.backup => const BackupRestoreScreen(),
     RoutePaths.help => const HelpSupportScreen(),
+    RoutePaths.search => const SearchScreen(),
+    RoutePaths.netWorth => const NetWorthScreen(),
     RoutePaths.addExpense => const AddTransactionScreen(
       initialType: TransactionType.expense,
     ),

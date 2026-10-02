@@ -53,6 +53,14 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   final TextEditingController _search = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    // Arriving from a search made elsewhere, the box shows what the list
+    // is being narrowed to, so it can be changed or cleared here.
+    _search.text = context.read<TransactionProvider>().filter.query;
+  }
+
+  @override
   void dispose() {
     _search.dispose();
     super.dispose();

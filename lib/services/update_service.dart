@@ -157,8 +157,10 @@ class UpdateService {
       parseVersion(latest) != null && compareVersions(latest, current) > 0;
 
   /// Turns a release description into a few plain lines for the update
-  /// prompt: the bullets of its first section, without the markdown.
-  static String summarizeNotes(String body, {int maxLines = 5}) {
+  /// prompt: the first bullets of its first section, without the markdown.
+  /// Three at most: the prompt is there to say a version is ready, and the
+  /// whole list is one tap away on the release page.
+  static String summarizeNotes(String body, {int maxLines = 3}) {
     final lines = <String>[];
     var sections = 0;
     for (final raw in body.split('\n')) {

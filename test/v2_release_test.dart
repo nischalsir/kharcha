@@ -191,12 +191,16 @@ void main() {
   tearDown(dismissOverlayNotice);
 
   group('version 2.0.0', () {
-    test('the app, the About page and the release all say 2.0.0', () {
-      expect(AppInfo.version, '2.0.0');
-      expect(AppInfo.displayVersion, '2.0.0');
-      expect(int.parse(AppInfo.buildNumber), greaterThan(35));
+    test('a major release is named in full, in the app and on the release', () {
+      expect(AppInfo.short('2.0.0'), '2.0.0');
       // The release tag and the file names are made from the same words.
-      expect('v${AppInfo.short(AppInfo.version)}', 'v2.0.0');
+      expect('v${AppInfo.short('2.0.0')}', 'v2.0.0');
+      // The app is at least that version now.
+      expect(
+        UpdateService.compareVersions(AppInfo.version, '2.0.0'),
+        greaterThanOrEqualTo(0),
+      );
+      expect(int.parse(AppInfo.buildNumber), greaterThan(35));
     });
 
     test('2.0.0 is newer than every release before it', () {

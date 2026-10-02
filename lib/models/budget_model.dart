@@ -99,14 +99,34 @@ class Budget {
 }
 
 class BudgetProgress {
-  const BudgetProgress({required this.budget, required this.spent});
+  const BudgetProgress({
+    required this.budget,
+    required this.spent,
+    this.carried = 0,
+  });
 
   final Budget budget;
   final double spent;
 
-  double get remaining => roundMoney(budget.amount - spent);
+  /// What the month before left of the same budget, when "carry over" is
+  /// on: positive for money left unspent, negative for an overspend. Zero
+  /// otherwise.
+  final double carried;
 
-  double get fraction => budget.amount <= 0 ? 0 : spent / budget.amount;
+  /// What there is to spend this period: the budget with what was carried.
+  /// An overspend larger than the budget leaves nothing, not less than
+  /// nothing.
+  double get limit {
+    final value = roundMoney(budget.amount + carried);
+    return value < 0 ? 0 : value;
+  }
+
+  double get remaining => roundMoney(limit - spent);
+
+  double get fraction {
+    if (limit <= 0) return spent > 0 ? 1 : 0;
+    return spent / limit;
+  }
 
   int get percent => (fraction * 100).round();
 

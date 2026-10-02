@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/errors/app_failure.dart';
+import '../core/utils/json_parsers.dart';
 import '../models/budget_model.dart';
 import '../models/sync_models.dart';
 import '../models/transaction_model.dart';
@@ -96,20 +97,49 @@ class BudgetProvider extends ChangeNotifier with CacheAware {
     return total;
   }
 
+  static const String _rolloverKey = 'budget.rollover';
+
+  /// "Carry over": what last month left of a budget is added to this
+  /// month's, and what it overspent is taken off. Kept on this phone.
+  bool get rollover => _cache.readBoolSetting(_rolloverKey) ?? false;
+
+  Future<void> setRollover(bool value) async {
+    await _cache.writeBoolSetting(_rolloverKey, value);
+    notifyListeners();
+  }
+
+  /// What the month before [budget]'s left of the same budget (the whole
+  /// month's, or the same category's). One month back only: what was
+  /// carried into that month is not carried again.
+  double carriedFor(Budget budget) {
+    if (!rollover || budget.period != BudgetPeriod.monthly) return 0;
+    final before = _dates.shiftMonth(
+      BsDate(budget.bsYear, budget.bsMonth, 1),
+      -1,
+    );
+    for (final previous in _repository.forMonth(before.year, before.month)) {
+      if (previous.period != BudgetPeriod.monthly) continue;
+      if (previous.categoryId != budget.categoryId) continue;
+      return roundMoney(previous.amount - spentFor(previous));
+    }
+    return 0;
+  }
+
+  BudgetProgress _progressOf(Budget budget) => BudgetProgress(
+    budget: budget,
+    spent: spentFor(budget),
+    carried: carriedFor(budget),
+  );
+
   List<BudgetProgress> get progress {
-    return _monthBudgets
-        .map(
-          (budget) => BudgetProgress(budget: budget, spent: spentFor(budget)),
-        )
-        .toList()
+    return _monthBudgets.map(_progressOf).toList()
       ..sort((a, b) => b.fraction.compareTo(a.fraction));
   }
 
   BudgetProgress? get overallProgress {
     final overall = _monthBudgets.where((b) => b.categoryId == null);
     if (overall.isEmpty) return null;
-    final budget = overall.first;
-    return BudgetProgress(budget: budget, spent: spentFor(budget));
+    return _progressOf(overall.first);
   }
 
   Future<bool> _guarded(Future<void> Function() action) async {

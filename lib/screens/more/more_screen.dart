@@ -113,6 +113,17 @@ class MoreScreen extends StatelessWidget {
             label: context.t('Plan & track', 'योजना र हिसाब'),
             rows: <_Row>[
               _Row(
+                key: const ValueKey<String>('more-net-worth'),
+                icon: Icons.trending_up_rounded,
+                color: const Color(0xFF0A84FF),
+                title: context.t('Net worth', 'कुल सम्पत्ति'),
+                subtitle: context.t(
+                  'What you have, less what you owe',
+                  'तपाईंसँग भएको, तिर्नुपर्ने घटाएर',
+                ),
+                onTap: () => open(RoutePaths.netWorth),
+              ),
+              _Row(
                 key: const ValueKey<String>('more-budgets'),
                 icon: Icons.account_balance_wallet_rounded,
                 color: const Color(0xFF30D158),
@@ -229,6 +240,17 @@ class MoreScreen extends StatelessWidget {
           _Group(
             label: context.t('App', 'एप'),
             rows: <_Row>[
+              _Row(
+                key: const ValueKey<String>('more-search'),
+                icon: Icons.search_rounded,
+                color: const Color(0xFF64D2FF),
+                title: context.t('Search', 'खोज्नुहोस्'),
+                subtitle: context.t(
+                  'Transactions, friends, shops, loans, goals',
+                  'कारोबार, साथी, पसल, ऋण, लक्ष्य',
+                ),
+                onTap: () => open(RoutePaths.search),
+              ),
               _Row(
                 key: const ValueKey<String>('more-settings'),
                 icon: Icons.settings_rounded,

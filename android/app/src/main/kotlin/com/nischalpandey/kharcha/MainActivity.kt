@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.speech.RecognizerIntent
 import androidx.activity.result.contract.ActivityResultContracts
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -51,6 +52,30 @@ class MainActivity : FlutterFragmentActivity() {
                     pending.success(contact)
                 }
             }
+        }
+    }
+
+    /** The Dart call waiting for the speech recogniser to close. */
+    private var voiceResult: MethodChannel.Result? = null
+
+    // The phone's own recogniser, as its own small window: it does the
+    // recording, so this app never holds the microphone and needs no
+    // permission for it.
+    private val voiceRecognizer = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { outcome ->
+        val pending = voiceResult
+        voiceResult = null
+        if (pending != null) {
+            val heard = if (outcome.resultCode == RESULT_OK) {
+                outcome.data
+                    ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                    ?.firstOrNull()
+            } else {
+                null
+            }
+            // Null when the person backed out or nothing was heard.
+            pending.success(heard)
         }
     }
 
@@ -149,6 +174,43 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(
                         if (path == null) "missing" else AppUpdates.install(this, path),
                     )
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+
+        // A sentence heard by the phone's speech recogniser.
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            VOICE_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "listen" -> {
+                    if (voiceResult != null) {
+                        result.error("busy", "Already listening.", null)
+                    } else {
+                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            putExtra(
+                                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                            )
+                            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                            call.argument<String>("prompt")?.let {
+                                putExtra(RecognizerIntent.EXTRA_PROMPT, it)
+                            }
+                            call.argument<String>("language")?.let {
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE, it)
+                            }
+                        }
+                        voiceResult = result
+                        try {
+                            voiceRecognizer.launch(intent)
+                        } catch (error: ActivityNotFoundException) {
+                            voiceResult = null
+                            result.error("no_app", "No speech recogniser was found.", null)
+                        }
+                    }
                 }
 
                 else -> result.notImplemented()
@@ -331,5 +393,7 @@ class MainActivity : FlutterFragmentActivity() {
             "com.nischalpandey.kharcha/home_widget"
         const val SMS_CHANNEL =
             "com.nischalpandey.kharcha/sms"
+        const val VOICE_CHANNEL =
+            "com.nischalpandey.kharcha/voice"
     }
 }

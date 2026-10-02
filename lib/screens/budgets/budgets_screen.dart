@@ -114,6 +114,39 @@ class BudgetsScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
+                GlassCard(
+                  padding: EdgeInsets.zero,
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: SwitchListTile(
+                      key: const ValueKey<String>('budget-rollover'),
+                      value: provider.rollover,
+                      onChanged: provider.setRollover,
+                      dense: true,
+                      title: Text(
+                        context.t(
+                          'Carry over from last month',
+                          'अघिल्लो महिनाबाट सार्नुहोस्',
+                        ),
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      subtitle: Text(
+                        context.t(
+                          'What was left is added to this month; an overspend '
+                              'is taken off.',
+                          'बाँकी रहेको यो महिनामा थपिन्छ; बढी खर्च घटाइन्छ।',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: context.glass.textSecondary,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 if (!hasAny)
                   // No fixed height: the text must be free to wrap taller in
@@ -321,7 +354,7 @@ class _BudgetProgress extends StatelessWidget {
             children: <Widget>[
               Text(
                 '${CurrencyFormatter.format(progress.spent)} / '
-                '${CurrencyFormatter.format(progress.budget.amount)}',
+                '${CurrencyFormatter.format(progress.limit)}',
                 style: theme.textTheme.bodyMedium,
               ),
               Text(
@@ -338,6 +371,29 @@ class _BudgetProgress extends StatelessWidget {
             ],
           ),
         ),
+        if (progress.carried != 0) ...<Widget>[
+          const SizedBox(height: 6),
+          Text(
+            progress.carried > 0
+                ? context.t(
+                    'Includes ${CurrencyFormatter.format(progress.carried)} '
+                        'left over from last month.',
+                    'अघिल्लो महिनाको बाँकी '
+                        '${CurrencyFormatter.format(progress.carried)} समावेश छ।',
+                  )
+                : context.t(
+                    '${CurrencyFormatter.format(progress.carried.abs())} '
+                        'taken off for last month’s overspend.',
+                    'अघिल्लो महिनाको बढी खर्चका लागि '
+                        '${CurrencyFormatter.format(progress.carried.abs())} '
+                        'घटाइएको छ।',
+                  ),
+            key: const ValueKey<String>('budget-carried'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: progress.carried > 0 ? glass.success : glass.warning,
+            ),
+          ),
+        ],
         if (perDay != null) ...<Widget>[
           const SizedBox(height: 6),
           Text(

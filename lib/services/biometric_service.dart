@@ -157,6 +157,38 @@ class BiometricService {
     }
   }
 
+  /// Whether the phone has any screen lock (fingerprint, face, PIN, pattern)
+  /// that [authenticateDevice] could ask for.
+  Future<bool> canUseDeviceLock() async {
+    try {
+      return await _localAuth.isDeviceSupported();
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// Asks for the phone's own lock: a fingerprint or face where there is
+  /// one, the screen-lock PIN or pattern otherwise. For the app lock, where
+  /// what matters is that the phone's owner is holding it.
+  Future<bool> authenticateDevice({required String reason}) async {
+    try {
+      return await _localAuth.authenticate(
+        localizedReason: reason,
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
+          useErrorDialogs: true,
+        ),
+      );
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Biometric vault
   // ---------------------------------------------------------------------------
