@@ -10,7 +10,9 @@ import '../../services/sms_service.dart';
 import '../../services/statement_importer.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
+import '../../widgets/common/glass_button.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/primary_button.dart';
 import 'statement_import_screen.dart';
 import '../../widgets/common/glass_back_button.dart';
@@ -144,21 +146,16 @@ class _SmsImportScreenState extends State<SmsImportScreen> {
   /// What the last scan came to, said under the button.
   String? _message;
 
+  /// True once Android has refused the permission, which is when the way
+  /// round it is shown.
+  bool _blocked = false;
+
   Future<void> _scan() async {
     setState(() {
       _busy = true;
       _message = null;
+      _blocked = false;
     });
-    final refused = context.t(
-      'Kharcha is not allowed to read messages. If Android did not ask, '
-          'open the phone’s Settings → Apps → Kharcha → Permissions → SMS '
-          'and allow it. Some phones first need "Allow restricted settings" '
-          'from the three-dot menu on that page.',
-      'खर्चालाई सन्देश पढ्ने अनुमति छैन। Android ले नसोधेमा फोनको Settings → '
-          'Apps → Kharcha → Permissions → SMS मा गएर अनुमति दिनुहोस्। केही '
-          'फोनमा त्यस पृष्ठको तीन-थोप्ले मेनुबाट पहिले "Allow restricted settings" '
-          'थिच्नुपर्छ।',
-    );
     final none = context.t(
       'No payment alerts were found in the last $_days days.',
       'पछिल्ला ${L10n.neNumber(_days)} दिनमा भुक्तानीको सन्देश भेटिएन।',
@@ -167,7 +164,7 @@ class _SmsImportScreenState extends State<SmsImportScreen> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _message = refused;
+          _blocked = true;
         });
       }
       return;
@@ -185,6 +182,31 @@ class _SmsImportScreenState extends State<SmsImportScreen> {
       _message = result.entries.isEmpty ? none : null;
     });
     if (result.entries.isEmpty) return;
+    await openSmsReview(context, result);
+  }
+
+  /// Reads messages the user pasted in, for a phone that will not let the
+  /// app read them. They go through the same review as a scan.
+  Future<void> _paste() async {
+    final text = await showGlassSheet<String>(
+      context: context,
+      title: context.t('Paste messages', 'सन्देश टाँस्नुहोस्'),
+      builder: (_) => const _PasteForm(),
+    );
+    if (text == null || !mounted) return;
+    final result = SmsParser.parseAll(SmsParser.fromPasted(text));
+    if (result.entries.isEmpty) {
+      setState(
+        () => _message = context.t(
+          'No payment was found in what you pasted. Paste the whole message, '
+              'as the bank sent it.',
+          'टाँसेको सन्देशमा कुनै भुक्तानी भेटिएन। बैंकले पठाएकै पूरा सन्देश '
+              'टाँस्नुहोस्।',
+        ),
+      );
+      return;
+    }
+    setState(() => _message = null);
     await openSmsReview(context, result);
   }
 
@@ -282,6 +304,22 @@ class _SmsImportScreenState extends State<SmsImportScreen> {
                 onPressed: _scan,
                 isLoading: _busy,
               ),
+              const SizedBox(height: 10),
+              Center(
+                child: GlassButton(
+                  key: const ValueKey<String>('sms-paste'),
+                  label: context.t(
+                    'Paste messages instead',
+                    'बरु सन्देश टाँस्नुहोस्',
+                  ),
+                  icon: Icons.content_paste_rounded,
+                  onPressed: _paste,
+                ),
+              ),
+              if (_blocked) ...<Widget>[
+                const SizedBox(height: 16),
+                _BlockedCard(onOpenSettings: _sms.openAppSettings),
+              ],
               if (_message != null) ...<Widget>[
                 const SizedBox(height: 12),
                 Text(
@@ -328,6 +366,191 @@ class _SmsImportScreenState extends State<SmsImportScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Shown when Android refuses the permission. On Android 13 and later an
+/// app installed from a file, not from a store, is not even allowed to ask
+/// for SMS until its owner lifts the restriction by hand; this says how.
+class _BlockedCard extends StatelessWidget {
+  const _BlockedCard({required this.onOpenSettings});
+
+  final Future<bool> Function() onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+    final steps = <String>[
+      context.t(
+        'Tap "Open app settings" below.',
+        'तलको "Open app settings" थिच्नुहोस्।',
+      ),
+      context.t(
+        'Tap the three dots at the top right and choose "Allow restricted '
+            'settings", then confirm with your PIN or fingerprint.',
+        'माथि दायाँको तीन थोप्ला थिचेर "Allow restricted settings" '
+            'छान्नुहोस्, अनि PIN वा फिंगरप्रिन्टले पुष्टि गर्नुहोस्।',
+      ),
+      context.t(
+        'On the same page open Permissions, then SMS, and choose Allow.',
+        'त्यही पृष्ठमा Permissions, अनि SMS खोलेर Allow छान्नुहोस्।',
+      ),
+      context.t(
+        'Come back here and tap Scan messages again.',
+        'यहाँ फर्केर फेरि "सन्देश खोज्नुहोस्" थिच्नुहोस्।',
+      ),
+    ];
+    return GlassCard(
+      key: const ValueKey<String>('sms-blocked'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.shield_outlined, color: glass.warning, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.t(
+                    'Android blocked the SMS permission',
+                    'Android ले SMS अनुमति रोक्यो',
+                  ),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            context.t(
+              'Kharcha was installed from a file, not from Google Play, so '
+                  'Android does not let it ask for this until you allow it '
+                  'yourself. It takes a minute, once:',
+              'खर्चा Google Play बाट नभई फाइलबाट इन्स्टल भएकाले तपाईंले आफैँ '
+                  'अनुमति नदिएसम्म Android ले यो माग्न दिँदैन। एक पटक, एक '
+                  'मिनेट लाग्छ:',
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: glass.textSecondary,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (var i = 0; i < steps.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  SizedBox(
+                    width: 22,
+                    child: Text(
+                      '${i + 1}.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      steps[i],
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 10),
+          PrimaryButton(
+            key: const ValueKey<String>('sms-open-settings'),
+            label: context.t('Open app settings', 'एप सेटिङ खोल्नुहोस्'),
+            icon: Icons.settings_rounded,
+            onPressed: onOpenSettings,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.t(
+              'If "Allow restricted settings" is not in the menu, or you would '
+                  'rather not, use "Paste messages instead": copy a bank '
+                  'message and paste it here. That needs no permission.',
+              '"Allow restricted settings" मेनुमा नभए वा नचाहेमा "बरु सन्देश '
+                  'टाँस्नुहोस्" प्रयोग गर्नुहोस्: बैंकको सन्देश कपी गरेर यहाँ '
+                  'टाँस्नुहोस्। त्यसलाई कुनै अनुमति चाहिँदैन।',
+            ),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: glass.textTertiary,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Where bank messages are pasted in by hand.
+class _PasteForm extends StatefulWidget {
+  const _PasteForm();
+
+  @override
+  State<_PasteForm> createState() => _PasteFormState();
+}
+
+class _PasteFormState extends State<_PasteForm> {
+  final TextEditingController _text = TextEditingController();
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(
+          context.t(
+            'Copy a payment message from your bank, eSewa or Khalti and '
+                'paste it here. For more than one, leave an empty line '
+                'between them.',
+            'बैंक, eSewa वा Khalti को भुक्तानी सन्देश कपी गरेर यहाँ '
+                'टाँस्नुहोस्। एकभन्दा बढी भए बीचमा एउटा खाली लाइन छोड्नुहोस्।',
+          ),
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: glass.textSecondary),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          key: const ValueKey<String>('sms-paste-field'),
+          controller: _text,
+          autofocus: true,
+          minLines: 5,
+          maxLines: 10,
+          decoration: InputDecoration(
+            hintText: context.t(
+              'Dear Customer, Your #1234 has been debited by NPR 500.00 ...',
+              'Dear Customer, Your #1234 has been debited by NPR 500.00 ...',
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        PrimaryButton(
+          key: const ValueKey<String>('sms-paste-read'),
+          label: context.t('Read', 'पढ्नुहोस्'),
+          onPressed: () {
+            final text = _text.text.trim();
+            if (text.isEmpty) return;
+            Navigator.pop(context, text);
+          },
+        ),
+      ],
     );
   }
 }

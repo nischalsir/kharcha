@@ -232,6 +232,18 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                 }
 
+                // Where "Allow restricted settings" and the SMS permission
+                // are, for a phone that refused to ask.
+                "openAppSettings" -> {
+                    startActivity(
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", packageName, null),
+                        ),
+                    )
+                    result.success(true)
+                }
+
                 "read" -> {
                     val since = (call.argument<Number>("since") ?: 0).toLong()
                     val limit = (call.argument<Number>("limit") ?: 500).toInt()

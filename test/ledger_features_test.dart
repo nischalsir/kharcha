@@ -233,6 +233,51 @@ void main() {
       expect(first.entries.first.importId, isNot(first.entries.last.importId));
     });
 
+    test('the day a message names is read, and odd ones are left alone', () {
+      final now = DateTime(2026, 10, 2);
+      expect(
+        SmsParser.dateIn('credited by NPR 20,000.00 on 25/09/26.', now: now),
+        DateTime(2026, 9, 25),
+      );
+      expect(
+        SmsParser.dateIn('debited on 2026-09-30 for QR', now: now),
+        DateTime(2026, 9, 30),
+      );
+      // A Bikram Sambat date, a day that does not exist, one in the future,
+      // and an amount that only looks like a date.
+      expect(SmsParser.dateIn('on 2083/06/09', now: now), isNull);
+      expect(SmsParser.dateIn('on 31/06/26', now: now), isNull);
+      expect(SmsParser.dateIn('on 25/12/26', now: now), isNull);
+      expect(SmsParser.dateIn('NPR 20,000.00 credited', now: now), isNull);
+    });
+
+    test('messages pasted in by hand are read one per paragraph', () {
+      final now = DateTime(2026, 10, 2, 9);
+      final messages = SmsParser.fromPasted(
+        'Dear Customer, Your #20042209 has been credited by NPR 20,000.00 '
+        'on 25/09/26. Remarks:FT/09620042209/Ghar bada\n-Laxmi Sunrise\n'
+        '\n  \n'
+        'Dear Customer, Your #20042209 has been debited by NPR 10,538.00 '
+        'on 25/09/26. Remarks:CIPS//ACCOUNTFT:Nischal Pandey/Done\r\n'
+        '-Laxmi Sunrise\n\n'
+        'Your OTP is 123456\n\n\n',
+        now: now,
+      );
+      expect(messages, hasLength(3));
+      // Dated by the day the message names, or today when it names none.
+      expect(messages[0].date, DateTime(2026, 9, 25));
+      expect(messages[2].date, now);
+
+      final result = SmsParser.parseAll(messages);
+      expect(result.entries, hasLength(2));
+      expect(result.entries.map((e) => '${e.type.name} ${e.amount}'), <String>[
+        'income 20000.0',
+        'expense 10538.0',
+      ]);
+      expect(result.entries.first.title, 'FT/09620042209/Ghar bada');
+      expect(SmsParser.fromPasted('   \n\n '), isEmpty);
+    });
+
     test('messages arrive from the phone as they are', () {
       expect(SmsMessage.fromMap(null), isNull);
       expect(SmsMessage.fromMap(<String, Object?>{'body': 'x'}), isNull);
@@ -877,11 +922,57 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 50)),
       );
       await tester.pumpAndSettle();
+      // What happened, the steps to allow it, and the way there.
+      expect(find.text('Android blocked the SMS permission'), findsOneWidget);
+      expect(find.textContaining('Allow restricted settings'), findsWidgets);
       expect(
-        find.textContaining('not allowed to read messages'),
+        find.byKey(const ValueKey<String>('sms-open-settings')),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('pasting a message works without any permission', (
+      tester,
+    ) async {
+      final e = await env(tester);
+      const channel = MethodChannel('test/sms_none');
+      final calls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call.method);
+            return false;
+          });
+      final transactions = TransactionProvider(
+        cache: e.cache,
+        repository: e.transactions,
+      );
+      await show(
+        tester,
+        e,
+        SmsImportScreen(service: SmsService(channel: channel)),
+        <InheritedProvider<dynamic>>[
+          ChangeNotifierProvider<TransactionProvider>.value(
+            value: transactions,
+          ),
+        ],
+      );
+      await tester.tap(find.byKey(const ValueKey<String>('sms-paste')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('sms-paste-field')),
+        'Dear Customer, Your #20042209 has been debited by NPR 10,538.00 '
+        'on 25/09/26. Remarks:CIPS//Done\n-Laxmi Sunrise',
+      );
+      await tester.tap(find.byKey(const ValueKey<String>('sms-paste-read')));
+      await tester.pumpAndSettle();
+
+      // Straight to the review, and the phone was never asked for anything.
+      expect(find.text('CIPS//Done'), findsOneWidget);
+      expect(find.text('Import 1'), findsOneWidget);
+      expect(calls, isEmpty);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 3));
     });
   });
 }

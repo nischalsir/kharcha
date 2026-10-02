@@ -64,6 +64,10 @@ class SmsService {
     }
   }
 
+  /// Opens Kharcha's page in the phone's settings, where the permission (and
+  /// on newer phones "Allow restricted settings") is given by hand.
+  Future<bool> openAppSettings() => _flag('openAppSettings');
+
   /// Messages received after [since], newest first.
   Future<List<SmsMessage>> read({
     required DateTime since,
@@ -240,6 +244,68 @@ class SmsParser {
       text.length <= StatementEntry.maxTitleLength
       ? text
       : '${text.substring(0, StatementEntry.maxTitleLength - 1).trimRight()}…';
+
+  static final RegExp _dayFirst = RegExp(
+    r'\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2}|\d{4})\b',
+  );
+  static final RegExp _yearFirst = RegExp(
+    r'\b(\d{4})[/\-.](\d{2})[/\-.](\d{2})\b',
+  );
+
+  /// The day a message says its payment happened on (`25/09/26`,
+  /// `2026-09-25`), or null when it names none that can be trusted. A year
+  /// that is not a recent Gregorian one (a Bikram Sambat date, say) is left
+  /// alone rather than guessed at.
+  static DateTime? dateIn(String body, {DateTime? now}) {
+    final today = now ?? DateTime.now();
+    DateTime? valid(int year, int month, int day) {
+      if (year < 100) year += 2000;
+      if (year < today.year - 5 || year > today.year) return null;
+      if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+      final date = DateTime(year, month, day);
+      // DateTime rolls 31 June over into July; that was not a real date.
+      if (date.month != month || date.isAfter(today)) return null;
+      return date;
+    }
+
+    final iso = _yearFirst.firstMatch(body);
+    if (iso != null) {
+      return valid(
+        int.parse(iso.group(1)!),
+        int.parse(iso.group(2)!),
+        int.parse(iso.group(3)!),
+      );
+    }
+    final match = _dayFirst.firstMatch(body);
+    if (match == null) return null;
+    return valid(
+      int.parse(match.group(3)!),
+      int.parse(match.group(2)!),
+      int.parse(match.group(1)!),
+    );
+  }
+
+  /// Messages typed or pasted in by hand, one per paragraph, for a phone
+  /// that will not let the app read them itself. Each is dated by the day it
+  /// names, or today when it names none.
+  static List<SmsMessage> fromPasted(String text, {DateTime? now}) {
+    final today = now ?? DateTime.now();
+    final parts = text
+        .replaceAll('\r\n', '\n')
+        .split(RegExp(r'\n\s*\n'))
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+    return <SmsMessage>[
+      for (var i = 0; i < parts.length; i++)
+        SmsMessage(
+          id: i,
+          sender: '',
+          body: parts[i],
+          date: dateIn(parts[i], now: today) ?? today,
+        ),
+    ];
+  }
 
   /// Every payment alert in [messages], as a statement ready for review,
   /// oldest first like a statement.
