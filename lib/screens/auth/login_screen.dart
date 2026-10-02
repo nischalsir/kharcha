@@ -78,8 +78,40 @@ class _LoginScreenState extends State<LoginScreen> {
   /// only disables it.
   bool get _canUseBiometrics => _capability.available && _biometricEnabled;
 
+  /// What is wrong with what was typed, or null when it can be sent.
+  String? _problem() {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      return context.t('Enter your email', 'आफ्नो इमेल लेख्नुहोस्');
+    }
+    if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,}$').hasMatch(email)) {
+      return context.t(
+        'That email does not look right. Check it and try again.',
+        'त्यो इमेल ठीक देखिएन। जाँचेर फेरि प्रयास गर्नुहोस्।',
+      );
+    }
+    final password = _passwordController.text;
+    if (password.isEmpty) {
+      return context.t('Enter your password', 'आफ्नो पासवर्ड लेख्नुहोस्');
+    }
+    if (password.length < 6) {
+      return context.t(
+        'Passwords have at least 6 characters',
+        'पासवर्ड कम्तीमा ६ अक्षरको हुन्छ',
+      );
+    }
+    return null;
+  }
+
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+    // The fields are marked, and what is wrong is said in a notice from the
+    // bottom of the screen, the same place every other sign-in problem goes.
+    final valid = _formKey.currentState!.validate();
+    final problem = _problem();
+    if (!valid || problem != null) {
+      if (problem != null) showAuthNotice(context, problem);
+      return;
+    }
     FocusScope.of(context).unfocus();
     setState(() => _isLoading = true);
 
@@ -299,14 +331,9 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     auth.clearError();
     try {
-      await auth.signInAnonymously();
+      // Nothing is asked of the server: a guest's data stays on this phone.
+      await auth.continueAsGuest();
       if (mounted) _returnToShell();
-    } catch (error) {
-      // The provider has already worked out why (guest mode switched off,
-      // no connection, ...); only fall back to the raw error when it has not.
-      if (mounted && auth.failure == null) {
-        auth.setError(FailureKind.syncFailed, AppFailure.from(error).message);
-      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -371,6 +398,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
+                  _FieldLabel(context.t('Email', 'इमेल')),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -378,7 +406,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     autofillHints: const <String>[AutofillHints.email],
                     decoration: buildInputDecoration(
                       context,
-                      label: context.t('Email', 'इमेल'),
                       hint: 'you@example.com',
                       prefixIcon: Icons.email_outlined,
                     ),
@@ -397,7 +424,30 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
+                  // "Password" and the way out of having forgotten it, on
+                  // one line, right above the field they are about.
+                  _FieldLabel(
+                    context.t('Password', 'पासवर्ड'),
+                    trailing: TextButton(
+                      key: const ValueKey<String>('login-forgot'),
+                      onPressed: _isLoading ? null : _requestPasswordReset,
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
+                        // Tall enough to tap, without pushing the row apart.
+                        minimumSize: const Size(0, 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        context.t('Forgot password?', 'पासवर्ड बिर्सनुभयो?'),
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
@@ -405,7 +455,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     autofillHints: const <String>[AutofillHints.password],
                     decoration: buildInputDecoration(
                       context,
-                      label: context.t('Password', 'पासवर्ड'),
                       hint: context.t(
                         'Enter your password',
                         'तपाईंको पासवर्ड लेख्नुहोस्',
@@ -493,8 +542,11 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: _isLoading ? null : _continueAsGuest,
             ),
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            // Wraps onto a second line on a narrow screen or with large text,
+            // where a Row would run off the edge.
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: <Widget>[
                 Text(
                   context.t('New to Kharcha?', 'खर्चामा नयाँ हुनुहुन्छ?'),
@@ -514,17 +566,51 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ],
             ),
-            TextButton(
-              onPressed: _isLoading ? null : _requestPasswordReset,
-              child: Text(
-                context.t('Forgot password?', 'पासवर्ड बिर्सनुभयो?'),
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: glass.textSecondary,
-                ),
-              ),
-            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The name of a field, written above it, with room at the end of the line
+/// for something that belongs to that field.
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text, {this.trailing});
+
+  final String text;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(4, 0, 0, trailing == null ? 8 : 0),
+      child: Row(
+        children: <Widget>[
+          Text(
+            text,
+            maxLines: 1,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // At the far end of the line. On a very narrow phone, or with very
+          // large text, it shrinks to fit rather than running off the edge.
+          Expanded(
+            child: Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: trailing == null
+                  ? null
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: trailing,
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }

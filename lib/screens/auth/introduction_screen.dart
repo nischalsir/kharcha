@@ -8,6 +8,7 @@ import '../../core/l10n/app_l10n.dart';
 import '../../core/router/route_paths.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../services/app_images.dart';
+import '../../widgets/common/pressable_scale.dart';
 
 /// One slide of the introduction: a picture for the disc, and the feature
 /// it stands for in a headline and a line.
@@ -132,9 +133,6 @@ class IntroductionScreen extends StatefulWidget {
   /// How long each picture stays before the next one slides in.
   static const Duration pictureInterval = Duration(seconds: 4);
 
-  static const Color _accent = Color(0xFFF07F13);
-  static const Color _accentDeep = Color(0xFFD9650A);
-
   @override
   State<IntroductionScreen> createState() => _IntroductionScreenState();
 }
@@ -145,8 +143,6 @@ class _IntroductionScreenState extends State<IntroductionScreen> {
   /// Which picture is on the disc, for the dots under the words.
   final ValueNotifier<int> _shown = ValueNotifier<int>(0);
   Timer? _turn;
-
-  static const Color _accent = IntroductionScreen._accent;
 
   @override
   void initState() {
@@ -307,7 +303,9 @@ class _IntroductionScreenState extends State<IntroductionScreen> {
       const SizedBox(height: 22),
       ValueListenableBuilder<int>(
         valueListenable: _shown,
-        builder: (context, shown, _) => _Ornament(color: _accent, shown: shown),
+        // In the app's own accent, like every other marker in it.
+        builder: (context, shown, _) =>
+            _Ornament(color: theme.colorScheme.primary, shown: shown),
       ),
       const SizedBox(height: 22),
       _GetStartedButton(
@@ -315,30 +313,12 @@ class _IntroductionScreenState extends State<IntroductionScreen> {
         onPressed: () => _leave(context, RoutePaths.signup),
       ),
       const SizedBox(height: 12),
-      // The second way on, in glass: the same width and shape as the first,
+      // The second way on, in glass: the same size and shape as the first,
       // without competing with it.
-      SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: OutlinedButton(
-          key: const ValueKey<String>('intro-login'),
-          onPressed: () => _leave(context, RoutePaths.login),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            backgroundColor: Colors.white.withValues(alpha: 0.08),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.28)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-            ),
-          ),
-          child: Text(
-            context.t('Login', 'लगइन'),
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+      _IntroButton(
+        key: const ValueKey<String>('intro-login'),
+        label: context.t('Login', 'लगइन'),
+        onPressed: () => _leave(context, RoutePaths.login),
       ),
     ];
   }
@@ -548,7 +528,11 @@ class _Ornament extends StatelessWidget {
   }
 }
 
-/// The wide orange button.
+/// The way in: the app's primary button, as it is on the sign-in pages, with
+/// the glass it sits among here. The accent it is filled with is the theme's
+/// own, so it is the same colour as the buttons on every page after it; a
+/// highlight along the top edge and a soft glow underneath lift it off the
+/// dark page, and it gives a little under the finger.
 class _GetStartedButton extends StatelessWidget {
   const _GetStartedButton({required this.label, required this.onPressed});
 
@@ -557,43 +541,113 @@ class _GetStartedButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(28);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: <Color>[
-            IntroductionScreen._accent,
-            IntroductionScreen._accentDeep,
-          ],
-        ),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: IntroductionScreen._accentDeep.withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final onPrimary = theme.colorScheme.onPrimary;
+    final radius = BorderRadius.circular(_IntroButton.radius);
+    return Semantics(
+      button: true,
+      child: PressableScale(
+        key: const ValueKey<String>('intro-get-started'),
+        pressedScale: 0.97,
+        haptic: true,
+        onTap: onPressed,
+        child: Container(
+          width: double.infinity,
+          height: _IntroButton.height,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[
+                Color.lerp(primary, Colors.white, 0.14)!,
+                primary,
+                Color.lerp(primary, Colors.black, 0.12)!,
+              ],
+            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: primary.withValues(alpha: 0.42),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          key: const ValueKey<String>('intro-get-started'),
-          borderRadius: radius,
-          onTap: onPressed,
-          child: SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: Center(
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+          // Light catching the top edge, as on the glass cards.
+          foregroundDecoration: BoxDecoration(
+            borderRadius: radius,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.center,
+              colors: <Color>[
+                Colors.white.withValues(alpha: 0.2),
+                Colors.white.withValues(alpha: 0),
+              ],
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: onPrimary,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_forward_rounded, size: 20, color: onPrimary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The quieter button under it: clear glass with a bright rim.
+class _IntroButton extends StatelessWidget {
+  const _IntroButton({super.key, required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  static const double height = 56;
+  static const double radius = 28;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      child: PressableScale(
+        pressedScale: 0.97,
+        onTap: onPressed,
+        child: Container(
+          width: double.infinity,
+          height: height,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            color: Colors.white.withValues(alpha: 0.08),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.26)),
+          ),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
             ),
           ),
         ),

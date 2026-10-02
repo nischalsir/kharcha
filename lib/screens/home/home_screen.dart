@@ -8,6 +8,7 @@ import '../../core/utils/currency_formatter.dart';
 import '../../providers/ai_insight_provider.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/common/sync_status.dart';
 import '../auth/guest_upgrade_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../../providers/dashboard_provider.dart';
@@ -194,6 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
+                            const SyncStatusButton(),
                             const NotificationBell(),
                             const SizedBox(width: 4),
                             _HeaderAvatar(url: _avatarUrl, name: userName),

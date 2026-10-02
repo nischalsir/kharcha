@@ -21,6 +21,7 @@ import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/page_refresh.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/account_required.dart';
 import '../../widgets/common/glass_back_button.dart';
 
 /// A ledger shared with family or flatmates: everyone in the household sees
@@ -30,6 +31,23 @@ class HouseholdScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A household is shared between accounts on the server; a guest has no
+    // account to share with.
+    if (context.select<AuthProvider, bool>((auth) => auth.isGuest)) {
+      return AccountRequiredView(
+        icon: Icons.groups_rounded,
+        title: context.t(
+          'Household needs an account',
+          'घरपरिवारलाई खाता चाहिन्छ',
+        ),
+        message: context.t(
+          'A household ledger is shared with your family through your '
+              'account. Create one, or sign in, to start or join a household.',
+          'घरपरिवारको खाता तपाईंको खातामार्फत परिवारसँग साझा हुन्छ। घरपरिवार '
+              'सुरु गर्न वा जोडिन खाता बनाउनुहोस् वा साइन इन गर्नुहोस्।',
+        ),
+      );
+    }
     final provider = context.watch<HouseholdProvider>();
     final theme = Theme.of(context);
     final household = provider.household;

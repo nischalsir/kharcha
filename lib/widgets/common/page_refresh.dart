@@ -71,6 +71,8 @@ class PageRefresh extends StatefulWidget {
   /// Fetches what changed on the server since the last sync. Only the rows
   /// that changed are transferred; nothing is reloaded from scratch.
   static Future<RefreshOutcome> fromServer(SyncService sync) async {
+    // A guest's data is all on this device already.
+    if (sync.isLocalOnly) return RefreshOutcome.refreshed;
     await sync.refresh();
     return switch (sync.status) {
       SyncStatus.synced => RefreshOutcome.refreshed,

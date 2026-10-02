@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/env.dart';
@@ -86,106 +86,71 @@ class AuthProvider extends ChangeNotifier {
   /// the auth wrapper would tear down the form the user is filling in.
   bool get isInitializing => _isInitializing;
 
-  /// Signed in means holding a session. A user without one (an account that
-  /// still has to confirm its email) must not be let into the app.
-  bool get isAuthenticated => _user != null && _session != null;
+  /// Holding a session: a real account, signed in. A user without one (an
+  /// account that still has to confirm its email) does not count.
+  bool get hasAccount => _user != null && _session != null;
+
+  /// Allowed into the app: signed in to an account, or exploring as a guest.
+  bool get isAuthenticated => hasAccount || _localGuest;
   AppFailure? get failure => _failure;
   String? get error => _failure?.message;
   FailureKind? get errorKind => _failure?.kind;
   bool get isOffline => _failure?.isOffline ?? false;
-  String? get userId => _user?.id;
+
+  /// The account's id. In guest mode there is no account, and this is
+  /// [guestUserId]: a name for the guest's own scope on this phone, never an
+  /// id anything is sent to the server under.
+  String? get userId => _user?.id ?? (_localGuest ? guestUserId : null);
   String? get userEmail => _user?.email;
 
-  /// Signed in through "Explore as guest": the data lives under an anonymous
-  /// account that is lost if the app is removed, until it is upgraded.
-  bool get isGuest => _user?.isAnonymous ?? false;
+  /// "Explore as guest": using the app with no account. Nothing is a session
+  /// here and nothing is sent anywhere; what is entered stays on this phone
+  /// until an account is created or signed in to.
+  bool _localGuest = false;
 
-  /// Step 1 of keeping a guest's data: attach an email to the guest account
-  /// itself, so the user id - and every record - stays the same.
-  ///
-  /// Returns [GuestUpgrade.codeSent] when Supabase has emailed a 6-digit code,
-  /// or [GuestUpgrade.emailTaken] when the email already has an account, in
-  /// which case [mergeGuestIntoAccount] is the way forward.
-  Future<GuestUpgrade> startGuestUpgrade({
-    required String email,
-    String? fullName,
-  }) async {
-    _clearError();
-    final client = _requireClient();
+  static const String guestUserId = 'guest';
+  static const String _guestPrefKey = 'auth.local_guest';
+
+  /// In guest mode, with no account behind it.
+  bool get isLocalGuest => _localGuest && !hasAccount;
+
+  bool get isGuest => isLocalGuest || (_user?.isAnonymous ?? false);
+
+  /// What was asked for when signing in from guest mode: true to bring what
+  /// the guest entered into the account, false to leave it out. Null when
+  /// nobody has said, in which case the question is asked.
+  bool? _keepGuestData;
+
+  void keepGuestDataOnSignIn(bool? keep) => _keepGuestData = keep;
+
+  /// Reads the answer once; it applies to one sign-in only.
+  bool? takeKeepGuestData() {
+    final keep = _keepGuestData;
+    _keepGuestData = null;
+    return keep;
+  }
+
+  Future<void> _setLocalGuest(bool value) async {
+    _localGuest = value;
     try {
-      await client.auth.updateUser(
-        UserAttributes(
-          email: email,
-          data: fullName == null
-              ? null
-              : <String, dynamic>{'full_name': fullName, _ownNameKey: fullName},
-        ),
-      );
-      return GuestUpgrade.codeSent;
-    } on AuthException catch (error) {
-      final code = error.code ?? '';
-      final message = error.message.toLowerCase();
-      if (code == 'email_exists' ||
-          message.contains('already') ||
-          message.contains('registered')) {
-        return GuestUpgrade.emailTaken;
+      final prefs = await SharedPreferences.getInstance();
+      if (value) {
+        await prefs.setBool(_guestPrefKey, true);
+      } else {
+        await prefs.remove(_guestPrefKey);
       }
-      _failure = _mapAuthError(error);
-      notifyListeners();
-      rethrow;
+    } catch (_) {
+      // Storage unavailable: guest mode lasts for this run only.
     }
   }
 
-  /// Step 2: confirm the emailed code, then set the password. The password can
-  /// only be added once the email is verified.
-  Future<void> finishGuestUpgrade({
-    required String email,
-    required String code,
-    required String password,
-  }) async {
-    _setLoading(true);
+  /// Enters the app as a guest. Works with no connection and asks nothing of
+  /// the server.
+  Future<void> continueAsGuest() async {
     _clearError();
-    try {
-      final client = _requireClient();
-      await client.auth.verifyOTP(
-        type: OtpType.emailChange,
-        email: email,
-        token: code.trim(),
-      );
-      await client.auth.updateUser(UserAttributes(password: password));
-      _user = client.auth.currentUser;
-      _session = client.auth.currentSession;
-      notifyListeners();
-    } catch (error) {
-      _failure = _mapAuthError(error);
-      notifyListeners();
-      rethrow;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  /// The guest's email already belongs to an account: prove ownership of the
-  /// guest data (while still the guest), sign in, then have the server move
-  /// it. Records keep their ids, and duplicate categories, budgets and
-  /// payment methods are folded into the account's own. See
-  /// supabase/migrations/*_guest_claims.sql. Returns the number moved.
-  ///
-  /// Callers must flush pending writes first: anything still queued locally
-  /// belongs to the guest and would otherwise be dropped.
-  Future<int> mergeGuestIntoAccount({
-    required String email,
-    required String password,
-  }) async {
-    final client = _requireClient();
-    final token = await client.rpc<dynamic>('create_guest_claim') as String;
-    await signIn(email: email, password: password);
-    final result = await client.rpc<dynamic>(
-      'claim_guest_data',
-      params: <String, dynamic>{'p_token': token},
-    );
-    final moved = result is Map ? result['moved'] : null;
-    return moved is num ? moved.toInt() : 0;
+    _keepGuestData = null;
+    await _setLocalGuest(true);
+    notifyListeners();
   }
 
   /// Verified authenticator-app factors (empty when two-factor auth is off).
@@ -385,6 +350,13 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _localGuest = prefs.getBool(_guestPrefKey) ?? false;
+    } catch (_) {
+      _localGuest = false;
+    }
+
     if (!Env.hasSupabase) {
       _isLoading = false;
       _isInitializing = false;
@@ -402,11 +374,16 @@ class AuthProvider extends ChangeNotifier {
       final client = Supabase.instance.client;
       _session = client.auth.currentSession;
       _user = _session?.user;
+      // An account's session always wins over a leftover guest flag.
+      if (_session != null && _localGuest) await _setLocalGuest(false);
       _refreshMfaState();
 
       client.auth.onAuthStateChange.listen((data) {
         _session = data.session;
         _user = data.session?.user;
+        if (data.session != null && _localGuest) {
+          unawaited(_setLocalGuest(false));
+        }
         // A session that ended any other way than signOut (expired, revoked)
         // takes its trust with it.
         if (data.session == null) _forgetTrust();
@@ -628,8 +605,12 @@ class AuthProvider extends ChangeNotifier {
   static bool isWrongCredentials(Object error) =>
       error is AuthException && _isWrongPassword(error);
 
-  /// Maps Supabase auth errors to user-friendly messages.
-  AppFailure _mapAuthError(Object error) => describeAuthError(error);
+  /// Maps Supabase auth errors to user-friendly messages. The technical
+  /// detail goes to the debug log only.
+  AppFailure _mapAuthError(Object error) {
+    if (kDebugMode) debugPrint('Auth: $error');
+    return describeAuthError(error);
+  }
 
   /// What an authentication error means for the user.
   @visibleForTesting
@@ -668,13 +649,14 @@ class AuthProvider extends ChangeNotifier {
           'Wrong email or password. Please try again.',
         );
       }
-      // Guest mode needs "anonymous sign-ins" switched on for the project.
-      if (error.code == 'anonymous_provider_disabled' ||
-          message.contains('anonymous sign-ins are disabled')) {
+      // The server only accepts Google accounts signed in through the
+      // Google client it was set up with. A different one here means the
+      // server's Google settings name another app's client.
+      if (message.contains('unacceptable audience')) {
         return const AppFailure(
           FailureKind.syncFailed,
-          'Guest mode is not switched on for Kharcha yet. Create an account '
-          'or sign in instead.',
+          'Google sign-in is not fully set up for Kharcha yet, so this '
+          'Google account could not be used. Sign in with your email for now.',
         );
       }
       // "Sign in with Google" needs the Google provider switched on.
@@ -725,31 +707,17 @@ class AuthProvider extends ChangeNotifier {
           'No internet connection. Please check your network.',
         );
       }
+      // Anything else the server refused. A retryable fetch error is a
+      // connection problem and is described as one below.
+      if (error is! AuthRetryableFetchException) {
+        return AppFailure(
+          FailureKind.syncFailed,
+          'Could not sign in. Please try again.',
+          cause: error,
+        );
+      }
     }
     return AppFailure.from(error);
-  }
-
-  Future<void> signInAnonymously() async {
-    _setLoading(true);
-    _clearError();
-
-    try {
-      final client = _requireClient();
-      final response = await client.auth.signInAnonymously();
-
-      _signingIn = true;
-      _signingInEmail = null;
-      _session = response.session;
-      _user = response.user;
-      notifyListeners();
-    } catch (error) {
-      _failure = _mapAuthError(error);
-      notifyListeners();
-      rethrow;
-    } finally {
-      _signingIn = false;
-      _setLoading(false);
-    }
   }
 
   /// Runs *before* the Supabase session is torn down, while the access token is
@@ -776,6 +744,14 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    // Leaving guest mode: there is no session to end and nothing on the
+    // server to tidy up. What the guest entered stays on this phone.
+    if (isLocalGuest) {
+      await _setLocalGuest(false);
+      _forgetTrust();
+      notifyListeners();
+      return;
+    }
     // A second tap while the first is still tidying up does nothing.
     if (_signingOut) return;
     _signingOut = true;
@@ -1336,6 +1312,3 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
-
-/// Outcome of [AuthProvider.startGuestUpgrade].
-enum GuestUpgrade { codeSent, emailTaken }

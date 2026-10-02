@@ -22,6 +22,22 @@ class WhatsNew {
   /// English and Nepali, newest first.
   static const List<(String, String)> items = <(String, String)>[
     (
+      'Explore as guest: use the app with no account, all on this phone',
+      'पाहुनाको रूपमा हेर्नुहोस्: खाता बिना, सबै यही फोनमा',
+    ),
+    (
+      'Your data now syncs every few minutes, on every page',
+      'तपाईंको डाटा अब हरेक केही मिनेटमा, हरेक पृष्ठमा सिङ्क हुन्छ',
+    ),
+    (
+      'A small sync mark on Home says when changes are waiting or offline',
+      'होमको सानो चिन्हले परिवर्तन बाँकी वा अफलाइन भएको बताउँछ',
+    ),
+    (
+      '"Forgot password?" is now right beside the password field',
+      '"पासवर्ड बिर्सनुभयो?" अब पासवर्ड फिल्डकै छेउमा छ',
+    ),
+    (
       'Continue with Google: sign in or sign up without a password',
       'Google बाट जारी राख्नुहोस्: पासवर्ड बिना साइन इन वा साइन अप',
     ),

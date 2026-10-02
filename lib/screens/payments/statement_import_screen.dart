@@ -9,11 +9,13 @@ import '../../core/l10n/app_l10n.dart';
 import '../../core/router/route_paths.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/statement_entry.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../services/flamey_controller.dart';
 import '../../services/incoming_file_service.dart';
 import '../../services/statement_import_service.dart';
 import '../../services/statement_importer.dart';
+import '../../widgets/common/account_required.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
@@ -288,6 +290,28 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
         result?.entries.where((e) => !e.alreadyImported).length ?? 0;
     final nothingNew =
         result != null && result.entries.isNotEmpty && newCount == 0;
+
+    // A statement file is read on the server, as the signed-in account. A
+    // guest is told so rather than left with an upload that cannot work.
+    // Text messages are read on the phone and need no account.
+    final guest = context.watch<AuthProvider?>()?.isGuest ?? false;
+    if (guest && widget.initialResult == null && widget.service == null) {
+      return AccountRequiredView(
+        icon: Icons.upload_file_rounded,
+        title: context.t(
+          'Importing a statement needs an account',
+          'स्टेटमेन्ट आयात गर्न खाता चाहिन्छ',
+        ),
+        message: context.t(
+          'Bank and wallet statements are read securely on our server. '
+              'Create an account, or sign in, to import one. Importing from '
+              'text messages works without an account.',
+          'बैंक र वालेटका स्टेटमेन्ट हाम्रो सर्भरमा सुरक्षित रूपमा पढिन्छन्। '
+              'आयात गर्न खाता बनाउनुहोस् वा साइन इन गर्नुहोस्। SMS बाट आयात '
+              'गर्न खाता चाहिँदैन।',
+        ),
+      );
+    }
 
     return GlassBackground(
       child: Scaffold(

@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/app_settings_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/app_images.dart';
+import '../../widgets/common/account_required.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
@@ -95,6 +96,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final allowed = await requireAccount(
+      context,
+      feature: 'Your profile',
+      featureNe: 'तपाईंको प्रोफाइल',
+    );
+    if (!allowed || !mounted) return;
 
     setState(() => _isLoading = true);
 
@@ -308,6 +315,12 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
 
   Future<void> _onTap() async {
     final auth = context.read<AuthProvider>();
+    final allowed = await requireAccount(
+      context,
+      feature: 'A profile picture',
+      featureNe: 'प्रोफाइल तस्बिर',
+    );
+    if (!allowed || !mounted) return;
     if (!Env.hasSupabase) {
       showMessage(context, 'Backend is not configured.');
       return;

@@ -123,6 +123,12 @@ class CacheService {
     }
   }
 
+  /// Forgets the upload queued for a row and leaves the row where it is.
+  Future<void> dropPending(SyncEntity entity, String id) async {
+    if (_pending.remove('${entity.table}:$id') == null) return;
+    await _persistPending();
+  }
+
   /// Makes a table hold exactly [rows], as the server sees it now. Rows with
   /// an upload still queued are kept as they are locally.
   Future<void> replaceRows(
@@ -338,6 +344,9 @@ class CacheService {
   Future<void> writeSetting(String key, String value) async {
     await _prefs.setString('$_settingPrefix$key', value);
   }
+
+  Future<void> removeSetting(String key) =>
+      _prefs.remove('$_settingPrefix$key');
 
   bool? readBoolSetting(String key) => _prefs.getBool('$_settingPrefix$key');
 

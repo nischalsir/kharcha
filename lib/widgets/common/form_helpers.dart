@@ -6,7 +6,7 @@ import 'glass_card.dart';
 
 InputDecoration buildInputDecoration(
   BuildContext context, {
-  required String label,
+  String? label,
   String? hint,
   required IconData prefixIcon,
   Widget? suffixIcon,

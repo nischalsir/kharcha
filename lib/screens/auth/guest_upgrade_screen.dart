@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/l10n/app_l10n.dart';
+import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/sync_service.dart';
+import '../../services/google_account.dart';
 import '../../widgets/common/auth_widgets.dart';
 import '../../widgets/common/email_code_dialog.dart';
 import '../../widgets/common/form_helpers.dart';
@@ -11,12 +12,12 @@ import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/glass_back_button.dart';
 
-/// Turns a guest into a real account without losing anything they entered.
+/// Turns a guest into an account without losing what they entered.
 ///
-/// A new email converts the guest account in place (same user id, so every
-/// record simply stays), after confirming a 6-digit code. An email that
-/// already has an account instead signs in to it and moves the guest's
-/// records across on the server.
+/// A guest has no account anywhere: everything they added is on this phone.
+/// Here they create an account, or sign in to one they already have, and what
+/// they entered goes into it. Coming through this page is the guest saying
+/// "keep my data", so the account is not asked about it again.
 class GuestUpgradeScreen extends StatefulWidget {
   const GuestUpgradeScreen({super.key});
 
@@ -29,150 +30,91 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
   final TextEditingController _name = TextEditingController();
   final TextEditingController _email = TextEditingController();
   final TextEditingController _password = TextEditingController();
-  final TextEditingController _code = TextEditingController();
 
   bool _busy = false;
-  bool _codeSent = false;
   bool _obscure = true;
+
+  /// Signing in to an account that already exists, rather than creating one.
+  bool _existing = false;
+  bool _googleReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    GoogleAccount.isConfigured().then((ready) {
+      if (mounted && ready) setState(() => _googleReady = true);
+    });
+  }
 
   @override
   void dispose() {
     _name.dispose();
     _email.dispose();
     _password.dispose();
-    _code.dispose();
     super.dispose();
   }
 
-  Future<void> _continue() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+  /// Runs one way of getting an account. The guest's data is promised to it
+  /// beforehand, and the promise is withdrawn if no account came of it.
+  Future<void> _run(Future<bool> Function(AuthProvider auth) attempt) async {
     FocusScope.of(context).unfocus();
     final auth = context.read<AuthProvider>();
+    final navigator = Navigator.of(context);
+    auth
+      ..clearError()
+      ..keepGuestDataOnSignIn(true);
     setState(() => _busy = true);
+    var done = false;
     try {
-      final name = _name.text.trim();
-      final outcome = await auth.startGuestUpgrade(
-        email: _email.text.trim(),
-        fullName: name.isEmpty ? null : name,
-      );
-      if (!mounted) return;
-      if (outcome == GuestUpgrade.codeSent) {
-        setState(() => _codeSent = true);
-      } else {
-        await _offerMerge();
+      done = await attempt(auth);
+      // Back to the first page, where the account is loaded with what the
+      // guest entered now part of it.
+      if (done && navigator.mounted) {
+        navigator.popUntil((route) => route.isFirst);
       }
     } catch (_) {
-      // Surfaced through AuthFailureNotice.
+      // Shown from the bottom of the screen by AuthFailureNotice.
     } finally {
+      if (!done) auth.keepGuestDataOnSignIn(null);
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _verify() async {
-    if (_code.text.trim().length < 6) {
-      showMessage(
-        context,
-        context.t('Enter the 6-digit code', '६ अंकको कोड लेख्नुहोस्'),
-      );
-      return;
-    }
-    final auth = context.read<AuthProvider>();
-    setState(() => _busy = true);
-    try {
-      await auth.finishGuestUpgrade(
-        email: _email.text.trim(),
-        code: _code.text,
-        password: _password.text,
-      );
-      if (!mounted) return;
-      showMessage(
-        context,
-        context.t(
-          'Your account is ready. All your data is saved.',
-          'तपाईंको खाता तयार छ। सबै डाटा सुरक्षित छ।',
-        ),
-      );
-      Navigator.of(context).pop();
-    } catch (_) {
-      // Surfaced through AuthFailureNotice.
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _offerMerge() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(
-          dialogContext.t(
-            'You already have an account',
-            'तपाईंको खाता पहिल्यै छ',
-          ),
-        ),
-        content: Text(
-          dialogContext.t(
-            'Sign in to it with this password and move everything you added '
-                'as a guest into it? Duplicate categories are merged.',
-            'यही पासवर्डले साइन इन गरी पाहुनाको रूपमा थपेका सबै कुरा त्यो '
-                'खातामा सार्ने? दोहोरिएका श्रेणीहरू मिलाइन्छन्।',
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(dialogContext.t('Cancel', 'रद्द गर्नुहोस्')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(
-              dialogContext.t('Sign in and move', 'साइन इन गरी सार्नुहोस्'),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    final auth = context.read<AuthProvider>();
-    final sync = context.read<SyncService>();
-    setState(() => _busy = true);
-    try {
-      // Anything still queued belongs to the guest; it must reach the server
-      // before the claim, or it is left behind with the guest account.
-      await sync.flushBeforeSignOut();
-      final moved = await auth.mergeGuestIntoAccount(
-        email: _email.text.trim(),
-        password: _password.text,
-      );
-      // Signing in switched the cache to the account; pull what just moved.
-      await sync.refresh();
-      if (!mounted) return;
-      showMessage(
-        context,
-        context.t(
-          'Signed in. Moved $moved records from guest mode.',
-          'साइन इन भयो। पाहुना मोडबाट $moved वटा रेकर्ड सारियो।',
-        ),
-      );
-      Navigator.of(context).pop();
-    } catch (_) {
-      if (mounted) {
-        showMessage(
-          context,
-          context.t(
-            'Could not sign in. Check the password for that account.',
-            'साइन इन हुन सकेन। त्यो खाताको पासवर्ड जाँच गर्नुहोस्।',
-          ),
-        );
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final email = _email.text.trim();
+    final password = _password.text;
+    final name = _name.text.trim();
+    await _run((auth) async {
+      if (_existing) {
+        try {
+          await auth.signIn(email: email, password: password);
+          return true;
+        } catch (error) {
+          if (!AuthProvider.isEmailNotConfirmed(error) || !mounted) rethrow;
+          auth.clearError();
+          return EmailCodeDialog.show(context, email: email, sendNow: true);
+        }
       }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+      await auth.signUp(email: email, password: password, fullName: name);
+      if (auth.hasAccount) return true;
+      // The email has to be confirmed with the code just sent to it;
+      // entering it signs the new account in.
+      if (!mounted) return false;
+      return EmailCodeDialog.show(context, email: email);
+    });
   }
+
+  Future<void> _google() => _run((auth) async {
+    await auth.signInWithGoogle();
+    return true;
+  });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final glass = context.glass;
+
     return AuthScaffold(
       child: Form(
         key: _formKey,
@@ -184,12 +126,19 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
                 'Save your data',
                 'आफ्नो डाटा सुरक्षित गर्नुहोस्',
               ),
-              subtitle: context.t(
-                'Create an account to keep everything you added as a guest '
-                    'and sync it across devices.',
-                'पाहुनाको रूपमा थपेका सबै कुरा राख्न र अरू उपकरणमा सिङ्क '
-                    'गर्न खाता बनाउनुहोस्।',
-              ),
+              subtitle: _existing
+                  ? context.t(
+                      'Sign in, and everything you added as a guest goes '
+                          'into your account.',
+                      'साइन इन गर्नुहोस्, पाहुनाको रूपमा थपेका सबै कुरा '
+                          'तपाईंको खातामा जान्छ।',
+                    )
+                  : context.t(
+                      'Create an account to keep everything you added as a '
+                          'guest and sync it across devices.',
+                      'पाहुनाको रूपमा थपेका सबै कुरा राख्न र अरू उपकरणमा '
+                          'सिङ्क गर्न खाता बनाउनुहोस्।',
+                    ),
               leading: Align(
                 alignment: Alignment.centerLeft,
                 child: GlassBackButton(
@@ -204,121 +153,135 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: _codeSent
-                    ? _codeStep(context)
-                    : _detailsStep(context),
+                children: <Widget>[
+                  if (!_existing) ...<Widget>[
+                    TextFormField(
+                      controller: _name,
+                      textInputAction: TextInputAction.next,
+                      textCapitalization: TextCapitalization.words,
+                      autofillHints: const <String>[AutofillHints.name],
+                      decoration: buildInputDecoration(
+                        context,
+                        label: context.t('Full name', 'पूरा नाम'),
+                        prefixIcon: Icons.person_outline_rounded,
+                      ),
+                      validator: (value) => (value ?? '').trim().isEmpty
+                          ? context.t(
+                              'Full name is required',
+                              'पूरा नाम आवश्यक छ',
+                            )
+                          : null,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  TextFormField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const <String>[AutofillHints.email],
+                    decoration: buildInputDecoration(
+                      context,
+                      label: context.t('Email', 'इमेल'),
+                      prefixIcon: Icons.mail_outline_rounded,
+                    ),
+                    validator: (value) {
+                      final email = (value ?? '').trim();
+                      if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,}$')
+                          .hasMatch(email)) {
+                        return context.t(
+                          'Enter a valid email',
+                          'मान्य इमेल लेख्नुहोस्',
+                        );
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _password,
+                    obscureText: _obscure,
+                    textInputAction: TextInputAction.done,
+                    autofillHints: <String>[
+                      _existing
+                          ? AutofillHints.password
+                          : AutofillHints.newPassword,
+                    ],
+                    onFieldSubmitted: (_) => _busy ? null : _submit(),
+                    decoration: buildInputDecoration(
+                      context,
+                      label: context.t('Password', 'पासवर्ड'),
+                      prefixIcon: Icons.lock_outline_rounded,
+                      suffixIcon: IconButton(
+                        onPressed: () => setState(() => _obscure = !_obscure),
+                        icon: Icon(
+                          _obscure
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
+                      ),
+                    ),
+                    validator: (value) => (value ?? '').length < 6
+                        ? context.t('At least 6 characters', 'कम्तीमा ६ अक्षर')
+                        : null,
+                  ),
+                  const SizedBox(height: 20),
+                  PrimaryButton(
+                    key: const ValueKey<String>('guest-upgrade-submit'),
+                    label: _existing
+                        ? context.t(
+                            'Sign in and keep my data',
+                            'साइन इन गरी डाटा राख्नुहोस्',
+                          )
+                        : context.t('Create account', 'खाता बनाउनुहोस्'),
+                    icon: Icons.arrow_forward_rounded,
+                    onPressed: _submit,
+                    isLoading: _busy,
+                  ),
+                ],
+              ),
+            ),
+            if (_googleReady) ...<Widget>[
+              const SizedBox(height: 16),
+              GoogleSignInButton(onPressed: _busy ? null : _google),
+            ],
+            const SizedBox(height: 12),
+            TextButton(
+              key: const ValueKey<String>('guest-upgrade-switch'),
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _existing = !_existing),
+              child: Text(
+                _existing
+                    ? context.t(
+                        'New here? Create an account',
+                        'नयाँ हुनुहुन्छ? खाता बनाउनुहोस्',
+                      )
+                    : context.t(
+                        'I already have an account',
+                        'मेरो खाता पहिल्यै छ',
+                      ),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                context.t(
+                  'Until then, what you add stays only on this phone.',
+                  'त्यतिन्जेल तपाईंले थपेका कुरा यही फोनमा मात्र रहन्छ।',
+                ),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: glass.textSecondary,
+                ),
               ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  List<Widget> _detailsStep(BuildContext context) {
-    return <Widget>[
-      TextFormField(
-        controller: _name,
-        textInputAction: TextInputAction.next,
-        autofillHints: const <String>[AutofillHints.name],
-        decoration: buildInputDecoration(
-          context,
-          label: context.t('Full name', 'पूरा नाम'),
-          hint: context.t('Optional', 'ऐच्छिक'),
-          prefixIcon: Icons.person_outline_rounded,
-        ),
-      ),
-      const SizedBox(height: 14),
-      TextFormField(
-        controller: _email,
-        keyboardType: TextInputType.emailAddress,
-        textInputAction: TextInputAction.next,
-        autofillHints: const <String>[AutofillHints.email],
-        decoration: buildInputDecoration(
-          context,
-          label: context.t('Email', 'इमेल'),
-          prefixIcon: Icons.mail_outline_rounded,
-        ),
-        validator: (value) {
-          final email = (value ?? '').trim();
-          if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,}$').hasMatch(email)) {
-            return context.t('Enter a valid email', 'मान्य इमेल लेख्नुहोस्');
-          }
-          return null;
-        },
-      ),
-      const SizedBox(height: 14),
-      TextFormField(
-        controller: _password,
-        obscureText: _obscure,
-        textInputAction: TextInputAction.done,
-        autofillHints: const <String>[AutofillHints.newPassword],
-        onFieldSubmitted: (_) => _busy ? null : _continue(),
-        decoration: buildInputDecoration(
-          context,
-          label: context.t('Password', 'पासवर्ड'),
-          prefixIcon: Icons.lock_outline_rounded,
-          suffixIcon: IconButton(
-            onPressed: () => setState(() => _obscure = !_obscure),
-            icon: Icon(
-              _obscure
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined,
-            ),
-          ),
-        ),
-        validator: (value) => (value ?? '').length < 6
-            ? context.t('At least 6 characters', 'कम्तीमा ६ अक्षर')
-            : null,
-      ),
-      const SizedBox(height: 20),
-      PrimaryButton(
-        label: context.t('Continue', 'अगाडि बढ्नुहोस्'),
-        icon: Icons.arrow_forward_rounded,
-        onPressed: _continue,
-        isLoading: _busy,
-      ),
-    ];
-  }
-
-  List<Widget> _codeStep(BuildContext context) {
-    final theme = Theme.of(context);
-    return <Widget>[
-      Text(
-        context.t(
-          'We sent a 6-digit code to ${_email.text.trim()}.',
-          '${_email.text.trim()} मा ६ अंकको कोड पठाइयो।',
-        ),
-        style: theme.textTheme.bodyMedium,
-      ),
-      const SizedBox(height: 8),
-      const SpamHint(),
-      const SizedBox(height: 14),
-      TextFormField(
-        controller: _code,
-        keyboardType: TextInputType.number,
-        maxLength: 6,
-        autofillHints: const <String>[AutofillHints.oneTimeCode],
-        onFieldSubmitted: (_) => _busy ? null : _verify(),
-        decoration: buildInputDecoration(
-          context,
-          label: context.t('Verification code', 'प्रमाणीकरण कोड'),
-          prefixIcon: Icons.pin_outlined,
-        ),
-      ),
-      const SizedBox(height: 12),
-      PrimaryButton(
-        label: context.t('Verify and save', 'प्रमाणित गरी सुरक्षित गर्नुहोस्'),
-        icon: Icons.verified_rounded,
-        onPressed: _verify,
-        isLoading: _busy,
-      ),
-      TextButton(
-        onPressed: _busy ? null : () => setState(() => _codeSent = false),
-        child: Text(
-          context.t('Use a different email', 'अर्को इमेल प्रयोग गर्नुहोस्'),
-        ),
-      ),
-    ];
   }
 }

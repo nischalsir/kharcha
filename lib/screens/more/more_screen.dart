@@ -36,14 +36,26 @@ class MoreScreen extends StatelessWidget {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(context.t('Log out?', 'लग आउट गर्नुहुन्छ?')),
+        title: Text(
+          auth.isGuest
+              ? context.t('Leave guest mode?', 'पाहुना मोड छोड्ने?')
+              : context.t('Log out?', 'लग आउट गर्नुहुन्छ?'),
+        ),
         content: Text(
-          context.t(
-            'You will need to sign in again. Fingerprint sign-in stays on, '
-                'so you can unlock with your fingerprint next time.',
-            'तपाईंले फेरि साइन इन गर्नुपर्नेछ। फिंगरप्रिन्ट साइन इन '
-                'सक्रिय रहनेछ, त्यसैले अर्को पटक फिंगरप्रिन्टबाटै खोल्न सक्नुहुन्छ।',
-          ),
+          auth.isGuest
+              ? context.t(
+                  'What you added stays on this phone. Come back as a guest '
+                      'to carry on, or create an account to keep it for good.',
+                  'तपाईंले थपेका कुरा यही फोनमा रहन्छन्। पाहुनाकै रूपमा फर्केर '
+                      'जारी राख्नुहोस्, वा सधैंका लागि राख्न खाता बनाउनुहोस्।',
+                )
+              : context.t(
+                  'You will need to sign in again. Fingerprint sign-in stays '
+                      'on, so you can unlock with your fingerprint next time.',
+                  'तपाईंले फेरि साइन इन गर्नुपर्नेछ। फिंगरप्रिन्ट साइन इन '
+                      'सक्रिय रहनेछ, त्यसैले अर्को पटक फिंगरप्रिन्टबाटै खोल्न '
+                      'सक्नुहुन्छ।',
+                ),
         ),
         actions: <Widget>[
           TextButton(
@@ -52,7 +64,11 @@ class MoreScreen extends StatelessWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(context.t('Log out', 'लग आउट')),
+            child: Text(
+              auth.isGuest
+                  ? context.t('Leave', 'छोड्नुहोस्')
+                  : context.t('Log out', 'लग आउट'),
+            ),
           ),
         ],
       ),

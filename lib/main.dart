@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/config/env.dart';
+import 'core/l10n/app_l10n.dart';
 import 'core/router/route_paths.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/currency_formatter.dart';
@@ -383,6 +384,9 @@ class _AuthWrapperState extends State<_AuthWrapper>
     // once the element tree is being built.
     final auth = context.read<AuthProvider>();
     _auth = auth;
+    // The app is on screen: the account's data is kept in step with the
+    // server from here on, whichever page is open.
+    context.read<SyncService>().setForeground(true);
     _installPushWiring(auth);
     _installUpdateCheck(auth);
     _installIncomingFiles();
@@ -595,8 +599,13 @@ class _AuthWrapperState extends State<_AuthWrapper>
     }
 
     void syncRegistration() {
+      // Only an account is registered for notifications; a guest has none
+      // for the server to send to.
       unawaited(
-        push.sync(authenticated: auth.isAuthenticated, userId: auth.userId),
+        push.sync(
+          authenticated: auth.hasAccount,
+          userId: auth.hasAccount ? auth.userId : null,
+        ),
       );
       final userId = auth.userId;
       if (!auth.isAuthenticated || userId == null) {
@@ -690,7 +699,25 @@ class _AuthWrapperState extends State<_AuthWrapper>
     final settings = context.read<AppSettingsProvider>();
     final insight = context.read<AiInsightProvider>();
     try {
-      final adoption = await sync.adoptUser(userId);
+      if (auth.isLocalGuest) {
+        // Guest mode: the cache must hold no account's data, and nothing in
+        // it is ever uploaded.
+        if (await sync.adoptGuest()) {
+          await insight.resetForAccount();
+          PasalImageStore.clearCache();
+          await settings.ensureAccountDefaults(fetched: true);
+        }
+        return;
+      }
+      // What a guest entered on this phone belongs to no account. It goes
+      // into this one only if the person says so; a guest who entered
+      // nothing leaves nothing worth asking about.
+      final wish = auth.takeKeepGuestData();
+      var keepLocal = true;
+      if (sync.guestUsed) {
+        keepLocal = sync.hasGuestData && (wish ?? await _askAboutGuestData());
+      }
+      final adoption = await sync.adoptUser(userId, keepLocal: keepLocal);
       if (adoption == AccountAdoption.switched) {
         await insight.resetForAccount();
         PasalImageStore.clearCache();
@@ -727,6 +754,51 @@ class _AuthWrapperState extends State<_AuthWrapper>
         _syncHomeWidget();
       }
     }
+  }
+
+  /// Asks whether what was entered in guest mode should go into the account
+  /// that has just signed in. Nothing is mixed in without a yes.
+  Future<bool> _askAboutGuestData() async {
+    if (!mounted) return false;
+    final keep = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: Text(
+            dialogContext.t(
+              'Add your guest entries?',
+              'पाहुना मोडका प्रविष्टि थप्ने?',
+            ),
+          ),
+          content: Text(
+            dialogContext.t(
+              'This phone has things you added as a guest. Add them to this '
+                  'account, or leave them out? Left out, they are removed '
+                  'from this phone.',
+              'यो फोनमा तपाईंले पाहुनाको रूपमा थपेका कुरा छन्। तिनलाई यो '
+                  'खातामा थप्ने कि छोड्ने? छोडेमा ती यो फोनबाट हटाइन्छन्।',
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              key: const ValueKey<String>('guest-data-discard'),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(dialogContext.t('Leave them out', 'छोड्नुहोस्')),
+            ),
+            FilledButton(
+              key: const ValueKey<String>('guest-data-keep'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                dialogContext.t('Add to this account', 'यो खातामा थप्नुहोस्'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    return keep ?? false;
   }
 
   /// Opens a route named by a push, ignoring anything this app cannot resolve.
@@ -790,7 +862,11 @@ class _AuthWrapperState extends State<_AuthWrapper>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final flamey = context.read<FlameyController>();
+    final sync = context.read<SyncService>();
     if (state == AppLifecycleState.resumed) {
+      // Back in front: fetch what changed on the account's other devices
+      // while the app was away, and send anything still waiting here.
+      sync.setForeground(true);
       // Back in front: Flamey's idle loop may run again, and a new time
       // window may have begun while the app was away.
       flamey.setForeground(true);
@@ -819,8 +895,10 @@ class _AuthWrapperState extends State<_AuthWrapper>
         state != AppLifecycleState.hidden) {
       return;
     }
-    // Nobody can see Flamey now: no timer needs to run.
+    // Nobody can see Flamey now: no timer needs to run. Nor does the sync
+    // keep a schedule in the background; the next return catches up.
     flamey.setForeground(false);
+    sync.setForeground(false);
     _leftAt ??= DateTime.now();
     final BiometricService biometric = context.read<BiometricService>();
     final AuthProvider auth = context.read<AuthProvider>();
@@ -828,7 +906,9 @@ class _AuthWrapperState extends State<_AuthWrapper>
         .rememberMe()
         .then((remember) {
           if (remember) return;
-          if (!auth.isAuthenticated) return;
+          // A guest has no session to end, and leaving the app must not
+          // throw them out of guest mode.
+          if (!auth.hasAccount) return;
           auth.signOut().catchError((_) {
             // Nothing to sign out of.
           });

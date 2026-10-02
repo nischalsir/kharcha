@@ -143,17 +143,6 @@ void main() {
       auth.dispose();
     });
 
-    test('guest mode switched off is said plainly', () {
-      final failure = AuthProvider.describeAuthError(
-        const AuthApiException(
-          'Anonymous sign-ins are disabled',
-          statusCode: '422',
-          code: 'anonymous_provider_disabled',
-        ),
-      );
-      expect(failure.message, contains('Guest mode is not switched on'));
-    });
-
     test('a wrong password reads as one', () {
       expect(
         AuthProvider.describeAuthError(

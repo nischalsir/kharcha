@@ -26,7 +26,8 @@ class SyncService extends ChangeNotifier {
     required this._cache,
     required this._remote,
     Connectivity? connectivity,
-    this.syncInterval = const Duration(minutes: 15),
+    this.syncInterval = const Duration(minutes: 5),
+    this.resumeInterval = const Duration(minutes: 1),
   }) : _connectivity = connectivity ?? Connectivity();
 
   static const int _batchSize = 100;
@@ -36,7 +37,12 @@ class SyncService extends ChangeNotifier {
   final CacheService _cache;
   final SupabaseService _remote;
   final Connectivity _connectivity;
+
+  /// How often the account's changes are exchanged while the app is open.
   final Duration syncInterval;
+
+  /// Coming back to the app fetches again once this much time has passed.
+  final Duration resumeInterval;
 
   SyncStatus _status = SyncStatus.loadingFromCache;
   DateTime? _lastSyncAt;
@@ -46,6 +52,10 @@ class SyncService extends ChangeNotifier {
   bool _disposed = false;
   Future<void>? _running;
   Timer? _pushTimer;
+  Timer? _ticker;
+  Timer? _retryTimer;
+  int _retries = 0;
+  bool _foreground = false;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   SyncStatus get status => _status;
@@ -56,6 +66,10 @@ class SyncService extends ChangeNotifier {
   bool get isSyncing => _status == SyncStatus.syncing;
   bool get isOffline => _status == SyncStatus.offline;
 
+  /// Changes saved on this device that have not reached the server yet,
+  /// leaving out the ones the server refused.
+  int get waitingCount => math.max(0, _pendingCount - _failedCount);
+
   Future<void> initialize() async {
     _lastSyncAt = _cache.lastSyncAt;
     _refreshCounts();
@@ -65,7 +79,9 @@ class SyncService extends ChangeNotifier {
     _notify();
     _connectivitySub = _connectivity.onConnectivityChanged.listen((results) {
       if (_isOnline(results)) {
-        unawaited(syncIfNeeded());
+        // Back online: what was queued goes up, and "offline" must not stay
+        // on screen just because nothing happened to be due.
+        unawaited(syncIfNeeded(force: _status == SyncStatus.offline));
       } else {
         _setStatus(SyncStatus.offline);
       }
@@ -73,17 +89,55 @@ class SyncService extends ChangeNotifier {
     unawaited(syncIfNeeded());
   }
 
-  bool get _isSyncDue {
+  /// Tells the sync whether the app is on screen.
+  ///
+  /// While it is, the account's changes are exchanged with the server every
+  /// [syncInterval], whichever page is open, and coming back to the app
+  /// fetches at once if it has been away for [resumeInterval]. In the
+  /// background nothing is scheduled: the next return catches up.
+  void setForeground(bool foreground) {
+    if (_disposed || _foreground == foreground) return;
+    _foreground = foreground;
+    _ticker?.cancel();
+    _ticker = null;
+    if (!foreground) {
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      return;
+    }
+    _ticker = Timer.periodic(const Duration(minutes: 1), (_) {
+      unawaited(syncIfNeeded());
+    });
+    unawaited(syncIfNeeded(after: resumeInterval));
+  }
+
+  bool _isSyncDue(Duration interval) {
     if (!_remote.isConfigured || !_remote.hasSession) return false;
     final last = _cache.lastSyncAt;
     if (last == null) return true;
     if (_cache.hasRunnablePending) return true;
-    return DateTime.now().difference(last) >= syncInterval;
+    return DateTime.now().difference(last) >= interval;
   }
 
-  Future<void> syncIfNeeded({bool force = false}) {
-    if (!force && !_isSyncDue) return Future<void>.value();
+  /// Syncs when there is something to send or the last fetch is older than
+  /// [after] ([syncInterval] unless given). With [force], always.
+  Future<void> syncIfNeeded({bool force = false, Duration? after}) {
+    if (!force && !_isSyncDue(after ?? syncInterval)) {
+      return Future<void>.value();
+    }
     return _start(pull: true);
+  }
+
+  /// After a sync that did not get through, tries again on its own: soon at
+  /// first, then less often, and only while the app is open.
+  void _scheduleRetry() {
+    if (!_foreground || _disposed) return;
+    _retryTimer?.cancel();
+    final seconds = math.min(30 * (1 << _retries), 300);
+    _retries = math.min(_retries + 1, 4);
+    _retryTimer = Timer(Duration(seconds: seconds), () {
+      unawaited(syncIfNeeded(force: true));
+    });
   }
 
   Future<void> refresh() => syncIfNeeded(force: true);
@@ -101,6 +155,10 @@ class SyncService extends ChangeNotifier {
 
   /// Whether someone is signed in on a configured backend.
   bool get canReachServer => _remote.isConfigured && _remote.hasSession;
+
+  /// True when the app is being used without an account: everything stays
+  /// on this device and there is no one to sync as.
+  bool get isLocalOnly => _remote.isConfigured && !_remote.hasSession;
 
   /// The signed-in account's id.
   String? get userId => _remote.userId;
@@ -126,11 +184,68 @@ class SyncService extends ChangeNotifier {
   /// Calls are run one after another, so two auth events for the same sign-in
   /// cannot both decide to clear. Reports what happened so the caller can
   /// decide whether the account's data still has to be fetched.
-  Future<AccountAdoption> adoptUser(String? userId) {
+  ///
+  /// [keepLocal] says what happens to data no account owns yet (what was
+  /// entered in guest mode): kept and made this account's, or thrown away.
+  Future<AccountAdoption> adoptUser(String? userId, {bool keepLocal = true}) {
     if (userId == null || userId.isEmpty) {
       return Future<AccountAdoption>.value(AccountAdoption.unchanged);
     }
-    final next = _adoption.then((_) => _adopt(userId));
+    final next = _adoption.then((_) => _adopt(userId, keepLocal: keepLocal));
+    _adoption = next.then<void>((_) {}, onError: (_) {});
+    return next;
+  }
+
+  static const String _guestKey = 'guest.used';
+  static const String _settingsYieldedKey = 'settings.yielded';
+  static const String _epoch = '1970-01-01T00:00:00.000Z';
+
+  /// The tables every install starts with, whoever uses it.
+  static const Set<SyncEntity> _seeded = <SyncEntity>{
+    SyncEntity.categories,
+    SyncEntity.paymentMethods,
+    SyncEntity.appSettings,
+  };
+
+  /// Whether the device has been used in guest mode since an account last
+  /// owned its data.
+  bool get guestUsed =>
+      cacheOwner == null && _cache.readBoolSetting(_guestKey) == true;
+
+  /// Whether a guest actually entered something: transactions, friends,
+  /// shops, budgets and so on, beyond what every install starts with.
+  bool get hasGuestData {
+    if (!guestUsed) return false;
+    for (final entity in SyncEntity.personal) {
+      if (_seeded.contains(entity)) continue;
+      if (_cache.rows(entity).isNotEmpty) return true;
+    }
+    return false;
+  }
+
+  /// Hands the cache to no account at all, for guest mode.
+  ///
+  /// Data an account left on the device is removed first, exactly as it
+  /// would be for a different account signing in: a guest must never see it,
+  /// and nothing a guest enters may be uploaded under its name. Returns
+  /// whether anything had to be removed.
+  Future<bool> adoptGuest() {
+    final next = _adoption.then((_) async {
+      final owned = cacheOwner != null;
+      if (owned) {
+        _account++;
+        _pushTimer?.cancel();
+        _retryTimer?.cancel();
+        await _cache.clearDataCache(keepPending: false);
+        await _cache.removeSetting(_ownerKey);
+        _lastSyncAt = null;
+        _lastError = null;
+        _refreshCounts();
+      }
+      await _cache.writeBoolSetting(_guestKey, true);
+      _notify();
+      return owned;
+    });
     _adoption = next.then<void>((_) {}, onError: (_) {});
     return next;
   }
@@ -144,22 +259,63 @@ class SyncService extends ChangeNotifier {
   int _runningAccount = 0;
   bool _runningPulls = false;
 
-  Future<AccountAdoption> _adopt(String userId) async {
+  Future<AccountAdoption> _adopt(
+    String userId, {
+    required bool keepLocal,
+  }) async {
     final owner = cacheOwner;
     if (owner == userId) return AccountAdoption.unchanged;
-    if (owner != null) {
+    final discard = owner != null || !keepLocal;
+    if (discard) {
       _account++;
       _pushTimer?.cancel();
+      _retryTimer?.cancel();
       // Empties the cache in memory before its first await, so nothing can
       // read the previous account's rows from here on.
       await _cache.clearDataCache(keepPending: false);
       _lastSyncAt = null;
       _lastError = null;
       _refreshCounts();
+    } else {
+      await _yieldSettings();
     }
     await _cache.writeSetting(_ownerKey, userId);
+    await _cache.removeSetting(_guestKey);
     _notify();
-    return owner == null ? AccountAdoption.first : AccountAdoption.switched;
+    return discard ? AccountAdoption.switched : AccountAdoption.first;
+  }
+
+  /// Data kept from before the account signed in comes with a settings row
+  /// of its own: the defaults, or a guest's. An account that already has
+  /// settings on the server keeps those, so the local row gives way: its
+  /// upload is dropped and it is dated so anything from the server replaces
+  /// it. [_settleSettings] puts it back if the server had none.
+  Future<void> _yieldSettings() async {
+    const id = SyncEntity.settingsRecordId;
+    final row = _cache.rawRow(SyncEntity.appSettings, id);
+    if (row == null) return;
+    await _cache.dropPending(SyncEntity.appSettings, id);
+    await _cache.putRow(SyncEntity.appSettings, <String, dynamic>{
+      ...row,
+      'updated_at': _epoch,
+    });
+    await _cache.writeBoolSetting(_settingsYieldedKey, true);
+    _refreshCounts();
+  }
+
+  /// Runs after the account's data has been fetched. If the settings that
+  /// gave way were not replaced, the account has none: they are queued for
+  /// upload after all.
+  Future<void> _settleSettings() async {
+    if (_cache.readBoolSetting(_settingsYieldedKey) != true) return;
+    await _cache.removeSetting(_settingsYieldedKey);
+    const id = SyncEntity.settingsRecordId;
+    final row = _cache.rawRow(SyncEntity.appSettings, id);
+    if (row == null || row['updated_at'] != _epoch) return;
+    await recordWrite(SyncEntity.appSettings, <String, dynamic>{
+      ...row,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
   }
 
   /// Pushes queued writes while the current session is still valid. Run
@@ -171,6 +327,10 @@ class SyncService extends ChangeNotifier {
       // Offline or slow: the queue stays on disk, and [adoptUser] drops it
       // only if a *different* account signs in next.
     }
+    // Nothing is left scheduled for an account that is leaving.
+    _pushTimer?.cancel();
+    _retryTimer?.cancel();
+    _retries = 0;
   }
 
   Future<void> recordWrite(SyncEntity entity, Map<String, dynamic> row) async {
@@ -238,6 +398,11 @@ class SyncService extends ChangeNotifier {
     }
     // Signed out: there is no one to sync as, and that is not a failure.
     if (!_remote.hasSession) return;
+    // The cache has to be this account's before anything is exchanged. Until
+    // [adoptUser] has said so, what is queued may be the previous account's
+    // or a guest's, and uploading it now would file it under whoever has
+    // just signed in.
+    if (cacheOwner != _remote.userId) return;
     final account = _account;
     _setStatus(SyncStatus.syncing);
     try {
@@ -253,9 +418,12 @@ class SyncService extends ChangeNotifier {
         if (account != _account) return;
         await _cache.setLastSyncAt(DateTime.now());
         _lastSyncAt = _cache.lastSyncAt;
+        await _settleSettings();
       }
       if (account != _account) return;
       _lastError = null;
+      _retries = 0;
+      _retryTimer?.cancel();
       _refreshCounts();
       _setStatus(_failedCount > 0 ? SyncStatus.failed : SyncStatus.synced);
     } catch (error) {
@@ -264,6 +432,7 @@ class SyncService extends ChangeNotifier {
       _lastError = failure.message;
       _refreshCounts();
       _setStatus(failure.isOffline ? SyncStatus.offline : SyncStatus.failed);
+      _scheduleRetry();
     }
   }
 
@@ -369,6 +538,8 @@ class SyncService extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _pushTimer?.cancel();
+    _ticker?.cancel();
+    _retryTimer?.cancel();
     _connectivitySub?.cancel();
     super.dispose();
   }

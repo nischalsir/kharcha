@@ -13,6 +13,7 @@ import '../../services/cache_service.dart';
 import '../../services/google_drive_backup_service.dart';
 import '../../services/supabase_backup_service.dart';
 import '../../services/sync_service.dart';
+import '../../widgets/common/account_required.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
@@ -60,7 +61,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       sync: context.read<SyncService>(),
     );
     _cloud = SupabaseBackupService();
-    if (_cloud.isConfigured) _loadCloud();
+    if (_cloud.isConfigured && !context.read<AuthProvider>().isGuest) {
+      _loadCloud();
+    }
     _restoreDrive();
   }
 
@@ -77,8 +80,16 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     if (mounted) setState(() {});
   }
 
+  /// Cloud and Google Drive backups are kept for an account. A guest is
+  /// told so, and offered one, instead of an action that cannot work.
+  Future<bool> _hasAccount(String feature, String featureNe) =>
+      requireAccount(context, feature: feature, featureNe: featureNe);
+
   Future<void> _connectDrive() async {
     if (_busy) return;
+    if (!await _hasAccount('Google Drive backup', 'Google Drive ब्याकअप')) {
+      return;
+    }
     setState(() => _busy = true);
     try {
       await _drive.connect();
@@ -212,6 +223,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
   Future<void> _uploadCloud() async {
     if (_busy) return;
+    if (!await _hasAccount('Cloud backup', 'क्लाउड ब्याकअप')) return;
     setState(() => _busy = true);
     try {
       final file = await _cloud.upload(_backup.exportToJson());

@@ -14,7 +14,8 @@ import '../../providers/push_provider.dart';
 import '../../services/account_avatar_cache.dart';
 import '../../services/biometric_service.dart';
 import '../../services/push_notification_service.dart';
-import '../../services/supabase_service.dart';
+import '../../services/sync_service.dart';
+import '../../widgets/common/sync_status.dart';
 import '../../widgets/common/auth_widgets.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
@@ -39,8 +40,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final provider = context.watch<AppSettingsProvider>();
     final theme = Theme.of(context);
     final glass = context.glass;
-    final supabase = SupabaseService();
     final auth = context.watch<AuthProvider>();
+    final sync = context.watch<SyncService>();
+    final syncDisplay = SyncDisplay.of(sync, guest: auth.isGuest);
 
     return GlassBackground(
       child: Scaffold(
@@ -83,7 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     horizontal: 14,
                     vertical: 10,
                   ),
-                  onTap: () => _showSyncDialog(supabase),
+                  onTap: () => showSyncStatusSheet(context),
                   child: Row(
                     children: <Widget>[
                       const Icon(
@@ -94,28 +96,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          context.t('Database Sync', 'डाटाबेस सिंक'),
+                          context.t('Sync', 'सिङ्क'),
                           style: theme.textTheme.titleSmall,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        supabase.isConfigured
-                            ? context.t('Connected', 'जडान भयो')
-                            : context.t('Not configured', 'कन्फिगर गरिएको छैन'),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: glass.textSecondary,
+                      Flexible(
+                        child: Text(
+                          syncDisplay.short(context),
+                          key: const ValueKey<String>('settings-sync-state'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: glass.textSecondary,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 6),
                       Icon(
-                        supabase.isConfigured
-                            ? Icons.check_circle_rounded
-                            : Icons.warning_amber_rounded,
-                        color: supabase.isConfigured
-                            ? const Color(0xFF30D158)
-                            : const Color(0xFFFF9F0A),
+                        syncDisplay.icon,
+                        color: syncDisplay.color(context),
                         size: 18,
                       ),
                     ],
@@ -167,51 +168,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 8),
                 const _NotificationSettingsCard(),
                 const SizedBox(height: 24),
-                _SectionHeader(title: context.t('Security', 'सुरक्षा')),
-                const SizedBox(height: 8),
-                _SecurityCard(
-                  more: <Widget>[
-                    _SettingTile(
-                      icon: Icons.verified_user_rounded,
-                      color: const Color(0xFF30D158),
-                      title: context.t(
-                        'Two-factor sign-in',
-                        'दुई-चरण प्रमाणीकरण',
+                if (!auth.isGuest) ...<Widget>[
+                  _SectionHeader(title: context.t('Security', 'सुरक्षा')),
+                  const SizedBox(height: 8),
+                  _SecurityCard(
+                    more: <Widget>[
+                      _SettingTile(
+                        icon: Icons.verified_user_rounded,
+                        color: const Color(0xFF30D158),
+                        title: context.t(
+                          'Two-factor sign-in',
+                          'दुई-चरण प्रमाणीकरण',
+                        ),
+                        subtitle: auth.hasMfaEnabled
+                            ? context.t(
+                                'On: a code is asked at sign-in',
+                                'खुला: साइन इनमा कोड मागिन्छ',
+                              )
+                            : context.t(
+                                'Off: protect your account with an authenticator app',
+                                'बन्द: प्रमाणक एपले खाता सुरक्षित गर्नुहोस्',
+                              ),
+                        trailing: Switch(
+                          value: auth.hasMfaEnabled,
+                          onChanged: _togglingTwoFactor
+                              ? null
+                              : (value) => _toggleTwoFactor(auth, value),
+                        ),
+                        onTap: () =>
+                            _open(context, const TwoFactorAuthScreen()),
                       ),
-                      subtitle: auth.hasMfaEnabled
-                          ? context.t(
-                              'On: a code is asked at sign-in',
-                              'खुला: साइन इनमा कोड मागिन्छ',
-                            )
-                          : context.t(
-                              'Off: protect your account with an authenticator app',
-                              'बन्द: प्रमाणक एपले खाता सुरक्षित गर्नुहोस्',
-                            ),
-                      trailing: Switch(
-                        value: auth.hasMfaEnabled,
-                        onChanged: _togglingTwoFactor
-                            ? null
-                            : (value) => _toggleTwoFactor(auth, value),
+                      const Divider(height: 1),
+                      _SettingTile(
+                        icon: Icons.password_rounded,
+                        color: const Color(0xFF0A84FF),
+                        title: context.t(
+                          'Change password',
+                          'पासवर्ड परिवर्तन गर्नुहोस्',
+                        ),
+                        subtitle: context.t(
+                          'Update your account password',
+                          'तपाईंको खाता पासवर्ड अद्यावधिक गर्नुहोस्',
+                        ),
+                        onTap: () =>
+                            _open(context, const ChangePasswordScreen()),
                       ),
-                      onTap: () => _open(context, const TwoFactorAuthScreen()),
-                    ),
-                    const Divider(height: 1),
-                    _SettingTile(
-                      icon: Icons.password_rounded,
-                      color: const Color(0xFF0A84FF),
-                      title: context.t(
-                        'Change password',
-                        'पासवर्ड परिवर्तन गर्नुहोस्',
-                      ),
-                      subtitle: context.t(
-                        'Update your account password',
-                        'तपाईंको खाता पासवर्ड अद्यावधिक गर्नुहोस्',
-                      ),
-                      onTap: () => _open(context, const ChangePasswordScreen()),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                ],
                 // Backup, Help and About live on the More page.
                 _SectionHeader(title: context.t('Privacy', 'गोपनीयता')),
                 const SizedBox(height: 8),
@@ -416,90 +421,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _open(BuildContext context, Widget page) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
-  }
-
-  void _showSyncDialog(SupabaseService supabase) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.t('Privacy & Security', 'गोपनीयता र सुरक्षा')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Icon(Icons.security_rounded, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    context.t(
-                      'Your data is protected with secure, high-performance infrastructure designed to keep your information private.',
-                      'तपाईंको डाटा सुरक्षित र उच्च-प्रदर्शन पूर्वाधारमार्फत सुरक्षित राखिन्छ, जसले तपाईंको जानकारीलाई निजी राख्न मद्दत गर्छ।',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Icon(Icons.lock_outline_rounded, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    context.t(
-                      'We use secure connections and modern security practices to help protect your account and financial information.',
-                      'तपाईंको खाता र वित्तीय जानकारी सुरक्षित राख्न सुरक्षित जडान र आधुनिक सुरक्षा प्रणाली प्रयोग गरिन्छ।',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Icon(Icons.privacy_tip_outlined, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    context.t(
-                      'Your personal data is not sold to third parties.',
-                      'तपाईंको व्यक्तिगत डाटा तेस्रो पक्षलाई बेचिँदैन।',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Icon(Icons.cloud_done_outlined, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    context.t(
-                      'Your information is securely synced so you can access your data across your devices.',
-                      'तपाईंको जानकारी सुरक्षित रूपमा सिंक गरिन्छ ताकि तपाईं आफ्ना उपकरणहरूमा डाटा पहुँच गर्न सक्नुहोस्।',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.t('Close', 'बन्द गर्नुहोस्')),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _pickCurrency(AppSettingsProvider provider) async {

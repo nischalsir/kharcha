@@ -12,6 +12,7 @@ import 'package:kharcha_app/models/payment_method.dart';
 import 'package:kharcha_app/models/statement_entry.dart';
 import 'package:kharcha_app/models/sync_models.dart';
 import 'package:kharcha_app/models/transaction_model.dart';
+import 'package:kharcha_app/providers/auth_provider.dart';
 import 'package:kharcha_app/providers/household_provider.dart';
 import 'package:kharcha_app/providers/loan_provider.dart';
 import 'package:kharcha_app/providers/transaction_provider.dart';
@@ -806,6 +807,7 @@ void main() {
         e,
         const HouseholdScreen(),
         <InheritedProvider<dynamic>>[
+          ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
           ChangeNotifierProvider<HouseholdProvider>.value(value: provider),
         ],
       );

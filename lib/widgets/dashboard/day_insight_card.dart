@@ -13,6 +13,7 @@ import '../../providers/ai_insight_provider.dart';
 import '../../providers/festival_provider.dart';
 import '../../screens/ai/ai_chat_sheet.dart';
 import '../../services/nepali_date_service.dart';
+import '../common/account_required.dart';
 import '../common/festival_image.dart';
 import '../common/flame_mascot.dart';
 import '../common/glass_card.dart';
@@ -191,7 +192,13 @@ class DayInsightCard extends StatelessWidget {
     );
   }
 
-  void _openChat(BuildContext context, {String? initialPrompt}) {
+  Future<void> _openChat(BuildContext context, {String? initialPrompt}) async {
+    final allowed = await requireAccount(
+      context,
+      feature: 'Chatting with Flamey',
+      featureNe: 'Flamey सँग कुराकानी',
+    );
+    if (!allowed || !context.mounted) return;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
