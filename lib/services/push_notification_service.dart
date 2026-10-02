@@ -11,6 +11,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../core/errors/app_failure.dart';
 import '../models/push_category.dart';
 import '../models/push_message.dart';
+import 'notification_inbox.dart';
 
 /// Where a notification tap should navigate, resolved by the app rather than by
 /// the service: this service knows the payload, the app owns the router.
@@ -502,6 +503,9 @@ class PushNotificationService {
   /// The single rendering path, shared by the foreground stream and the
   /// background isolate so both produce identical notifications.
   static Future<void> render(PushMessage message, {required int id}) async {
+    // Kept for the Notifications page first, so it is there even when the
+    // phone refuses to show it (notifications switched off for the app).
+    await NotificationInbox.record(message);
     final local = FlutterLocalNotificationsPlugin();
     await local.initialize(
       settings: const InitializationSettings(

@@ -24,6 +24,7 @@ import 'providers/festival_provider.dart';
 import 'providers/friend_provider.dart';
 import 'providers/household_provider.dart';
 import 'providers/loan_provider.dart';
+import 'providers/notification_inbox_provider.dart';
 import 'providers/pasal_provider.dart';
 import 'providers/push_provider.dart';
 import 'providers/recurring_payment_provider.dart';
@@ -44,6 +45,7 @@ import 'screens/friends/friends_screen.dart';
 import 'screens/goals/goals_screen.dart';
 import 'screens/household/household_screen.dart';
 import 'screens/loans/loans_screen.dart';
+import 'screens/notifications/notifications_screen.dart';
 import 'screens/pasal/add_pasal_credit_screen.dart';
 import 'screens/pasal/add_pasal_screen.dart';
 import 'screens/pasal/pasal_credit_history_screen.dart';
@@ -195,6 +197,9 @@ class KharchaApp extends StatelessWidget {
         ChangeNotifierProvider<PushProvider>(
           create: (_) => PushProvider()..initialize(),
         ),
+        ChangeNotifierProvider<NotificationInboxProvider>(
+          create: (_) => NotificationInboxProvider(),
+        ),
         ChangeNotifierProvider<UpdateProvider>(
           create: (_) => UpdateProvider(onUpdateFound: _notifyUpdate),
         ),
@@ -280,6 +285,7 @@ class KharchaApp extends StatelessWidget {
     RoutePaths.loans => const LoansScreen(),
     RoutePaths.household => const HouseholdScreen(),
     RoutePaths.smsImport => const SmsImportScreen(),
+    RoutePaths.notifications => const NotificationsScreen(),
     RoutePaths.reports => const ReportsScreen(),
     RoutePaths.calculator => const CalculatorScreen(),
     RoutePaths.festivals => const FestivalsScreen(),
@@ -617,6 +623,7 @@ class _AuthWrapperState extends State<_AuthWrapper>
     // they could only ever be uploaded by whichever account signs in next.
     final biometric = context.read<BiometricService>();
     final avatars = context.read<AccountAvatarCache>();
+    final inbox = context.read<NotificationInboxProvider>();
     _signOutCleanup = () async {
       // The account signing out is the one to offer on the sign-in form next,
       // whoever else has used this phone. Read here, while it is still known.
@@ -645,6 +652,8 @@ class _AuthWrapperState extends State<_AuthWrapper>
           // Slow or offline: the chooser shows the account's initial.
         }
       }
+      // The notifications kept on this phone were this account's.
+      await inbox.clear();
       await sync.flushBeforeSignOut();
       await push.unregisterForSignOut();
       // The Google account connected for Drive backup belongs to the account
@@ -795,6 +804,9 @@ class _AuthWrapperState extends State<_AuthWrapper>
         flamey.send(FlameyEvent.returned);
       }
       context.read<AiInsightProvider>().onAppResumed();
+      // A push that came while the app was closed was kept by the
+      // background isolate; the bell has to learn of it.
+      unawaited(context.read<NotificationInboxProvider>().refresh());
       _openPendingFile();
       _openPendingShortcut();
       // A new day may have begun while the app was away: "today" is worked

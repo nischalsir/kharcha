@@ -9,6 +9,7 @@ import '../../providers/ai_insight_provider.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/guest_upgrade_screen.dart';
+import '../notifications/notifications_screen.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../services/app_images.dart';
 import '../../services/sync_service.dart';
@@ -190,7 +191,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: <Widget>[
-                        _HeaderAvatar(url: _avatarUrl, name: userName),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            const NotificationBell(),
+                            const SizedBox(width: 4),
+                            _HeaderAvatar(url: _avatarUrl, name: userName),
+                          ],
+                        ),
                         const SizedBox(height: 6),
                         Text(
                           dashboard.todayLabel(),
