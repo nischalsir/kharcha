@@ -9,6 +9,7 @@ import '../core/errors/app_failure.dart';
 import '../models/app_settings_model.dart';
 import '../services/biometric_service.dart';
 import '../services/cloudinary_service.dart';
+import '../services/google_account.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthProvider({this._vault});
@@ -117,7 +118,7 @@ class AuthProvider extends ChangeNotifier {
           email: email,
           data: fullName == null
               ? null
-              : <String, dynamic>{'full_name': fullName},
+              : <String, dynamic>{'full_name': fullName, _ownNameKey: fullName},
         ),
       );
       return GuestUpgrade.codeSent;
@@ -253,11 +254,74 @@ class AuthProvider extends ChangeNotifier {
     unawaited(vault.markTrusted(email).catchError((Object _) {}));
   }
 
+  /// Where the name and photo chosen in the app are also kept. Google writes
+  /// `full_name` and `avatar_url` again on every Google sign-in; these keys
+  /// are the app's own, so what the user set here survives that.
+  static const String _ownNameKey = 'kharcha_name';
+  static const String _ownAvatarKey = 'kharcha_avatar_url';
+
+  bool get _hasGoogleIdentity {
+    final providers = _user?.appMetadata['providers'];
+    return providers is List && providers.contains('google');
+  }
+
+  /// What has to change in the user's metadata so the name and photo chosen
+  /// in the app win over the ones Google supplies. Empty when nothing does.
+  @visibleForTesting
+  static Map<String, dynamic> ownProfileChanges(
+    Map<String, dynamic> meta, {
+    required bool hasGoogle,
+  }) {
+    final changes = <String, dynamic>{};
+    String? text(String key) {
+      final value = meta[key];
+      return value is String && value.trim().isNotEmpty ? value.trim() : null;
+    }
+
+    final ownName = text(_ownNameKey);
+    final name = text('full_name');
+    if (ownName != null) {
+      if (name != ownName) changes['full_name'] = ownName;
+    } else if (!hasGoogle && name != null) {
+      // Typed at sign-up or in Edit Profile, before Google was ever used.
+      changes[_ownNameKey] = name;
+    }
+
+    final ownAvatar = text(_ownAvatarKey);
+    final avatar = text(_avatarUrlKey);
+    if (ownAvatar != null) {
+      if (avatar != ownAvatar) changes[_avatarUrlKey] = ownAvatar;
+    } else if (avatar != null && avatar.contains('res.cloudinary.com')) {
+      // Only a photo uploaded from the app lives on Cloudinary.
+      changes[_ownAvatarKey] = avatar;
+    }
+    return changes;
+  }
+
+  Future<void> _keepOwnProfile() async {
+    final user = _user;
+    if (user == null || _session == null || isGuest) return;
+    final changes = ownProfileChanges(
+      user.userMetadata ?? const <String, dynamic>{},
+      hasGoogle: _hasGoogleIdentity,
+    );
+    if (changes.isEmpty) return;
+    try {
+      final client = _requireClient();
+      await client.auth.updateUser(UserAttributes(data: changes));
+      _user = client.auth.currentUser;
+      notifyListeners();
+    } catch (_) {
+      // Offline: tried again the next time the app opens.
+    }
+  }
+
   // Profile getters from Supabase user metadata
   String? get profileName {
     final meta = _user?.userMetadata;
     // Support the keys Supabase uses across email and OAuth sign-ups.
     for (final key in const <String>[
+      _ownNameKey,
       'full_name',
       'name',
       'display_name',
@@ -374,7 +438,9 @@ class AuthProvider extends ChangeNotifier {
       final response = await client.auth.signUp(
         email: email,
         password: password,
-        data: fullName != null ? {'full_name': fullName} : null,
+        data: fullName != null
+            ? {'full_name': fullName, _ownNameKey: fullName}
+            : null,
       );
 
       _session = response.session;
@@ -445,6 +511,52 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Signs in with a Google account chosen on the phone, creating the Kharcha
+  /// account the first time. Google has already proved the email, so there is
+  /// no password and no emailed code. An email that already has a Kharcha
+  /// account opens that same account, and one with two-factor on is still
+  /// asked for its authenticator code.
+  Future<void> signInWithGoogle() async {
+    _setLoading(true);
+    _clearError();
+    _forgetTrust();
+
+    try {
+      final client = _requireClient();
+      // Always ask which account: the one the phone remembers may be the
+      // last person's.
+      await GoogleAccount.signOut();
+      final account = await GoogleAccount.pick();
+      final idToken = account.authentication.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw const AppFailure(
+          FailureKind.syncFailed,
+          'Google did not confirm this account. Please try again.',
+        );
+      }
+      final response = await client.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+      );
+
+      _signingIn = true;
+      _signingInEmail = account.email;
+      _session = response.session;
+      _user = response.user;
+      await _keepOwnProfile();
+      _refreshMfaState();
+      notifyListeners();
+    } catch (error) {
+      _failure = _mapAuthError(error);
+      notifyListeners();
+      rethrow;
+    } finally {
+      _signingIn = false;
+      _signingInEmail = null;
+      _setLoading(false);
+    }
+  }
+
   /// Whether [error] is the server refusing a new password because it is the
   /// same as the current one.
   static bool isSamePasswordError(Object error) {
@@ -483,6 +595,17 @@ class AuthProvider extends ChangeNotifier {
           FailureKind.syncFailed,
           'Guest mode is not switched on for Kharcha yet. Create an account '
           'or sign in instead.',
+        );
+      }
+      // "Sign in with Google" needs the Google provider switched on.
+      if (error.code == 'provider_disabled' ||
+          (message.contains('provider') &&
+              message.contains('is not enabled')) ||
+          message.contains('unsupported provider')) {
+        return const AppFailure(
+          FailureKind.syncFailed,
+          'Google sign-in is not switched on for Kharcha yet. Sign in with '
+          'your email instead.',
         );
       }
       if (message.contains('signup_disabled')) {
@@ -744,7 +867,10 @@ class AuthProvider extends ChangeNotifier {
     try {
       final client = _requireClient();
       final data = <String, dynamic>{};
-      if (fullName != null) data['full_name'] = fullName;
+      if (fullName != null) {
+        data['full_name'] = fullName;
+        data[_ownNameKey] = fullName;
+      }
       if (avatarUrl != null) data['avatar_url'] = avatarUrl;
       if (gender != null) data['gender'] = gender.name;
       if (birthDate != null) {
@@ -793,8 +919,12 @@ class AuthProvider extends ChangeNotifier {
   static const String _avatarUrlKey = 'avatar_url';
 
   String? get _cloudAvatarUrl {
-    final value = _user?.userMetadata?[_avatarUrlKey];
-    return value is String && value.isNotEmpty ? value : null;
+    final meta = _user?.userMetadata;
+    for (final key in const <String>[_ownAvatarKey, _avatarUrlKey]) {
+      final value = meta?[key];
+      if (value is String && value.isNotEmpty) return value;
+    }
+    return null;
   }
 
   /// Uploads the current user's avatar to Cloudinary and returns its URL.
@@ -829,7 +959,9 @@ class AuthProvider extends ChangeNotifier {
 
       if (url != null) {
         await client.auth.updateUser(
-          UserAttributes(data: <String, dynamic>{_avatarUrlKey: url}),
+          UserAttributes(
+            data: <String, dynamic>{_avatarUrlKey: url, _ownAvatarKey: url},
+          ),
         );
         _user = client.auth.currentUser;
         // The old Supabase copy is now stale; drop it so it can never reappear.
@@ -856,7 +988,9 @@ class AuthProvider extends ChangeNotifier {
       // A stale Cloudinary URL would otherwise win over the new photo.
       if (_cloudAvatarUrl != null) {
         await client.auth.updateUser(
-          UserAttributes(data: <String, dynamic>{_avatarUrlKey: null}),
+          UserAttributes(
+            data: <String, dynamic>{_avatarUrlKey: null, _ownAvatarKey: null},
+          ),
         );
         _user = client.auth.currentUser;
       }
@@ -909,7 +1043,9 @@ class AuthProvider extends ChangeNotifier {
           debugPrint('Avatar: could not delete from Cloudinary ($error)');
         }
         await client.auth.updateUser(
-          UserAttributes(data: <String, dynamic>{_avatarUrlKey: null}),
+          UserAttributes(
+            data: <String, dynamic>{_avatarUrlKey: null, _ownAvatarKey: null},
+          ),
         );
         _user = client.auth.currentUser;
       }

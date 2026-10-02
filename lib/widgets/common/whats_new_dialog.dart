@@ -22,6 +22,22 @@ class WhatsNew {
   /// English and Nepali, newest first.
   static const List<(String, String)> items = <(String, String)>[
     (
+      'Flamey now roasts your spending habits, using your own numbers',
+      'Flamey ले अब तपाईंकै अङ्क लिएर खर्च गर्ने बानीको खिल्ली उडाउँछ',
+    ),
+    (
+      'Flamey has over twenty moods, from Fuming to Smitten',
+      'Flamey का बीसभन्दा बढी मुड छन्, रिसाएकोदेखि मायामा परेकोसम्म',
+    ),
+    (
+      'Every Flamey reaction has its own colour and its own way of moving',
+      'Flamey को हरेक भावको आफ्नै रङ र आफ्नै चाल छ',
+    ),
+    (
+      'Pull to refresh: Flamey pulls faces, then says the page refreshed',
+      'तानेर रिफ्रेस: Flamey ले अनुहार बदल्छ, अनि पृष्ठ रिफ्रेस भएको भन्छ',
+    ),
+    (
       'Google Drive backup: connect your Google account in Settings',
       'Google Drive ब्याकअप: सेटिङमा आफ्नो Google खाता जोड्नुहोस्',
     ),

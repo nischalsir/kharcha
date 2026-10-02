@@ -138,16 +138,9 @@ class DayInsightCard extends StatelessWidget {
                 ),
               ),
               if (ai.isLoading)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8, top: 2),
-                  child: SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.8,
-                      color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                    ),
-                  ),
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: BusyFlamey(),
                 ),
             ],
           ),

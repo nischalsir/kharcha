@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -65,6 +66,16 @@ class _FlameMascotState extends State<FlameMascot>
     duration: const Duration(milliseconds: 4200),
   );
 
+  /// One hop, played each time the reaction changes.
+  late final AnimationController _hop = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 460),
+  );
+
+  /// The reaction it had before the current one, so its colour can glide
+  /// from one to the other during the hop.
+  MoodFace? _from;
+
   /// True while the OS asks for reduced motion. When set, no ticker ever runs,
   /// so the mascot costs nothing per frame.
   bool _animate = true;
@@ -88,9 +99,86 @@ class _FlameMascotState extends State<FlameMascot>
   }
 
   @override
+  void didUpdateWidget(FlameMascot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.face != widget.face) {
+      _from = oldWidget.face;
+      if (_animate) _hop.forward(from: 0);
+    }
+  }
+
+  /// How a reaction carries itself while it is on show, on top of the
+  /// breathing every flame does. [turn] is the flicker as an angle, so
+  /// whole multiples of it loop without a seam. Offsets are in flame widths.
+  static ({double dx, double dy, double tilt, double sx, double sy}) _motion(
+    MoodFace face,
+    double turn,
+  ) {
+    final breath = math.sin(turn);
+    var dx = 0.0;
+    var dy = 0.0;
+    var tilt = math.cos(turn) * 0.04;
+    var sx = 1 - 0.03 * breath;
+    var sy = 1 + 0.04 * breath;
+    switch (face) {
+      // Too pleased to stand still.
+      case MoodFace.excited ||
+          MoodFace.party ||
+          MoodFace.yum ||
+          MoodFace.starstruck:
+        dy = -math.sin(2 * turn).abs() * 0.08;
+      case MoodFace.happy || MoodFace.loading:
+        dy = -math.sin(2 * turn).abs() * 0.03;
+      // Rocking with laughter at its own joke.
+      case MoodFace.roasting || MoodFace.teasing:
+        tilt = math.sin(3 * turn) * 0.11;
+        dy = -math.sin(3 * turn).abs() * 0.03;
+      case MoodFace.wink:
+        tilt = math.sin(2 * turn) * 0.07;
+      // A shiver.
+      case MoodFace.shocked || MoodFace.surprised:
+        dx = math.sin(9 * turn) * 0.02;
+        sy += 0.03;
+      // Shaking with it.
+      case MoodFace.grumpy:
+        dx = math.sin(11 * turn) * 0.018;
+      // The room is going round.
+      case MoodFace.dizzy || MoodFace.confused:
+        tilt = math.sin(turn) * 0.14;
+        dx = math.cos(turn) * 0.03;
+      // Slow, deep breaths, drooping to one side.
+      case MoodFace.sleepy || MoodFace.bored:
+        sx = 1 - 0.05 * breath;
+        sy = 1 + 0.06 * breath;
+        tilt = 0.06 + breath * 0.02;
+      // Slumped; the crying one sobs.
+      case MoodFace.sad || MoodFace.worried:
+        sy *= 0.96;
+      case MoodFace.crying:
+        sy *= 0.96;
+        dx = math.sin(7 * turn) * 0.012;
+      // A heartbeat.
+      case MoodFace.love:
+        final beat = math.max(0.0, math.sin(2 * turn));
+        sx *= 1 + 0.06 * beat * beat;
+        sy *= 1 + 0.06 * beat * beat;
+      // Head on one side while it works something out.
+      case MoodFace.thinking || MoodFace.curious:
+        tilt = -0.05 + breath * 0.02;
+      // An easy, unhurried sway.
+      case MoodFace.cool || MoodFace.proud:
+        tilt = breath * 0.05;
+      case MoodFace.calm:
+        break;
+    }
+    return (dx: dx, dy: dy, tilt: tilt, sx: sx, sy: sy);
+  }
+
+  @override
   void dispose() {
     _flicker.dispose();
     _blink.dispose();
+    _hop.dispose();
     super.dispose();
   }
 
@@ -118,15 +206,44 @@ class _FlameMascotState extends State<FlameMascot>
                 : Duration.zero,
             curve: Curves.easeOutCubic,
             builder: (context, gaze, _) => AnimatedBuilder(
-              animation: Listenable.merge(<Listenable>[_flicker, _blink]),
+              animation: Listenable.merge(<Listenable>[_flicker, _blink, _hop]),
               builder: (context, _) {
-                return CustomPaint(
+                final flame = CustomPaint(
+                  size: Size.square(widget.size),
                   painter: _FlamePainter(
                     face: widget.face,
+                    from: _from,
+                    mix: _animate && _hop.isAnimating ? _hop.value : 1.0,
                     energy: energy,
                     gaze: gaze,
                     flicker: _animate ? _flicker.value : 0.0,
                     eyeOpenness: _animate ? _eyeOpenness(_blink.value) : 1.0,
+                  ),
+                );
+                if (!_animate) return flame;
+                // It breathes: taller and thinner, then shorter and wider,
+                // leaning a little each way, with its base staying put, and
+                // each reaction moves in its own way on top of that. A new
+                // reaction lifts it off the ground for a moment.
+                final motion = _motion(
+                  widget.face,
+                  _flicker.value * 2 * math.pi,
+                );
+                final hop = math.sin(_hop.value * math.pi);
+                return Transform.translate(
+                  offset: Offset(
+                    motion.dx * widget.size,
+                    (motion.dy - hop * 0.14) * widget.size,
+                  ),
+                  child: Transform.rotate(
+                    angle: motion.tilt,
+                    alignment: Alignment.bottomCenter,
+                    child: Transform.scale(
+                      scaleX: motion.sx * (1 + 0.12 * hop),
+                      scaleY: motion.sy * (1 + 0.12 * hop),
+                      alignment: Alignment.bottomCenter,
+                      child: flame,
+                    ),
                   ),
                 );
               },
@@ -147,6 +264,76 @@ class _FlameMascotState extends State<FlameMascot>
   }
 }
 
+/// A small Flamey shown where a spinner would be: while something is being
+/// fetched it pulls a different face every beat.
+class BusyFlamey extends StatefulWidget {
+  const BusyFlamey({super.key, this.size = 22, this.hold});
+
+  final double size;
+
+  /// A face to stay on. While this is null it goes through [faces].
+  final MoodFace? hold;
+
+  /// The faces it goes through, in order.
+  static const List<MoodFace> faces = <MoodFace>[
+    MoodFace.thinking,
+    MoodFace.wink,
+    MoodFace.excited,
+    MoodFace.cool,
+    MoodFace.happy,
+    MoodFace.love,
+  ];
+
+  static const Duration beat = Duration(milliseconds: 650);
+
+  @override
+  State<BusyFlamey> createState() => _BusyFlameyState();
+}
+
+class _BusyFlameyState extends State<BusyFlamey> {
+  Timer? _timer;
+  int _index = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(BusyFlamey oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _sync();
+  }
+
+  /// Ticks only while there are faces to go through: not when held on one,
+  /// and not with reduced motion, where it stays on the first.
+  void _sync() {
+    if (widget.hold != null || MediaQuery.disableAnimationsOf(context)) {
+      _timer?.cancel();
+      _timer = null;
+    } else {
+      _timer ??= Timer.periodic(BusyFlamey.beat, (_) {
+        setState(() => _index = (_index + 1) % BusyFlamey.faces.length);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  // One mascot throughout, so each new face arrives with its hop.
+  @override
+  Widget build(BuildContext context) => FlameMascot(
+    face: widget.hold ?? BusyFlamey.faces[_index],
+    energy: 0.85,
+    size: widget.size,
+  );
+}
+
 class _FlamePainter extends CustomPainter {
   _FlamePainter({
     required this.face,
@@ -154,9 +341,16 @@ class _FlamePainter extends CustomPainter {
     required this.flicker,
     required this.eyeOpenness,
     this.gaze = 0,
+    this.from,
+    this.mix = 1,
   });
 
   final MoodFace face;
+
+  /// The reaction before this one, and how far (0..1) the colour has come
+  /// from it.
+  final MoodFace? from;
+  final double mix;
   final double energy;
   final double flicker;
   final double eyeOpenness;
@@ -190,12 +384,164 @@ class _FlamePainter extends CustomPainter {
         : Color.lerp(mid, high, (t - 0.5) / 0.5)!;
   }
 
-  List<Color> get _bodyColors => <Color>[
-    for (var i = 0; i < 3; i++)
-      _blend(_lowColors[i], _midColors[i], _highColors[i], energy),
-  ];
+  /// The colour a reaction burns with: tip, middle, base. A reaction not
+  /// listed burns the plain colour of its energy.
+  static const Map<MoodFace, List<Color>> _reactionColors =
+      <MoodFace, List<Color>>{
+        // Spicy.
+        MoodFace.roasting: <Color>[
+          Color(0xffffd23f),
+          Color(0xffff5a1f),
+          Color(0xffd7263d),
+        ],
+        MoodFace.teasing: <Color>[
+          Color(0xffffc857),
+          Color(0xffff7a3d),
+          Color(0xffe4572e),
+        ],
+        // Seeing red.
+        MoodFace.grumpy: <Color>[
+          Color(0xffff8a5b),
+          Color(0xffe63946),
+          Color(0xff9d0208),
+        ],
+        // Rosy.
+        MoodFace.love: <Color>[
+          Color(0xffffc2d9),
+          Color(0xffff6fa5),
+          Color(0xffe0457b),
+        ],
+        MoodFace.yum: <Color>[
+          Color(0xffffd6a5),
+          Color(0xffff8fab),
+          Color(0xffff5d8f),
+        ],
+        // Ice cool.
+        MoodFace.cool: <Color>[
+          Color(0xffa5f3fc),
+          Color(0xff38bdf8),
+          Color(0xff2563eb),
+        ],
+        // Feeling blue.
+        MoodFace.sad: <Color>[
+          Color(0xffb8d4ff),
+          Color(0xff6b9bf2),
+          Color(0xff3d5fc4),
+        ],
+        MoodFace.crying: <Color>[
+          Color(0xffa9c9ff),
+          Color(0xff5a84e6),
+          Color(0xff34479e),
+        ],
+        // Dusk.
+        MoodFace.sleepy: <Color>[
+          Color(0xffd9c8ff),
+          Color(0xff9d84e8),
+          Color(0xff5e4bb5),
+        ],
+        MoodFace.bored: <Color>[
+          Color(0xffd6d3e8),
+          Color(0xffa39bc9),
+          Color(0xff6e6699),
+        ],
+        // Fireworks.
+        MoodFace.party: <Color>[
+          Color(0xfffff07a),
+          Color(0xffff9f1c),
+          Color(0xffff4d8d),
+        ],
+        // Gold.
+        MoodFace.starstruck: <Color>[
+          Color(0xfffff6a3),
+          Color(0xffffd23f),
+          Color(0xffff9f1c),
+        ],
+        MoodFace.proud: <Color>[
+          Color(0xfffff3a0),
+          Color(0xffffc53d),
+          Color(0xfff28c00),
+        ],
+        // Gone pale.
+        MoodFace.shocked: <Color>[
+          Color(0xfffffbe0),
+          Color(0xffffe08a),
+          Color(0xffffa94d),
+        ],
+        MoodFace.surprised: <Color>[
+          Color(0xfffffbe0),
+          Color(0xffffe08a),
+          Color(0xffffa94d),
+        ],
+        MoodFace.dizzy: <Color>[
+          Color(0xffe8ffd6),
+          Color(0xffb5e48c),
+          Color(0xff76c893),
+        ],
+        // Deep in thought.
+        MoodFace.thinking: <Color>[
+          Color(0xffe0c3ff),
+          Color(0xffa78bfa),
+          Color(0xff6d5bd0),
+        ],
+        MoodFace.loading: <Color>[
+          Color(0xffe0c3ff),
+          Color(0xffa78bfa),
+          Color(0xff6d5bd0),
+        ],
+        MoodFace.confused: <Color>[
+          Color(0xffd7c9ff),
+          Color(0xff9a8cf0),
+          Color(0xff5b6bd6),
+        ],
+        // Uneasy.
+        MoodFace.worried: <Color>[
+          Color(0xffffe1a8),
+          Color(0xffffa552),
+          Color(0xffc8553d),
+        ],
+      };
 
-  Color get _core => _blend(_coreLow, _coreMid, _coreHigh, energy);
+  /// How much of a reaction's own colour shows over the energy colour.
+  static const double _reactionStrength = 0.72;
+
+  List<Color> _paletteOf(MoodFace of) {
+    final tint = _reactionColors[of];
+    return <Color>[
+      for (var i = 0; i < 3; i++)
+        Color.lerp(
+          _blend(_lowColors[i], _midColors[i], _highColors[i], energy),
+          tint?[i],
+          tint == null ? 0 : _reactionStrength,
+        )!,
+    ];
+  }
+
+  /// The body's colours now: the reaction's own, gliding in from the one
+  /// before it.
+  List<Color> get _bodyColors {
+    final now = _paletteOf(face);
+    final before = from;
+    if (before == null || mix >= 1) return now;
+    final was = _paletteOf(before);
+    return <Color>[
+      for (var i = 0; i < 3; i++) Color.lerp(was[i], now[i], mix)!,
+    ];
+  }
+
+  /// 0 for a plain flame, 1 for one fully in a reaction's colour.
+  double get _tinted {
+    final now = _reactionColors.containsKey(face) ? 1.0 : 0.0;
+    final before = from;
+    if (before == null || mix >= 1) return now;
+    final was = _reactionColors.containsKey(before) ? 1.0 : 0.0;
+    return was + (now - was) * mix;
+  }
+
+  Color _coreFor(List<Color> body) => Color.lerp(
+    _blend(_coreLow, _coreMid, _coreHigh, energy),
+    Color.lerp(body.first, const Color(0xffffffff), 0.55),
+    0.6 * _tinted,
+  )!;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -212,6 +558,19 @@ class _FlamePainter extends CustomPainter {
         w * (0.42 + 0.05 * wave),
         Paint()
           ..color = const Color(0xffffd54f).withValues(alpha: 0.35 * glow)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.12),
+      );
+    }
+
+    // A reaction lights the air around it in its own colour.
+    final bodyColors = _bodyColors;
+    final tinted = _tinted;
+    if (tinted > 0) {
+      canvas.drawCircle(
+        Offset(cx, h * 0.62),
+        w * (0.4 + 0.04 * wave),
+        Paint()
+          ..color = bodyColors[1].withValues(alpha: 0.26 * tinted)
           ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.12),
       );
     }
@@ -236,7 +595,7 @@ class _FlamePainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: _bodyColors,
+          colors: bodyColors,
           stops: const <double>[0, 0.5, 1],
         ).createShader(body.getBounds()),
     );
@@ -246,7 +605,7 @@ class _FlamePainter extends CustomPainter {
     // layered onion.)
     canvas.drawPath(
       _innerFlame(w, h, sway * 0.6),
-      Paint()..color = _core.withValues(alpha: 0.9),
+      Paint()..color = _coreFor(bodyColors).withValues(alpha: 0.9),
     );
 
     _paintFace(canvas, w, h, cx);
@@ -1198,6 +1557,8 @@ class _FlamePainter extends CustomPainter {
   @override
   bool shouldRepaint(_FlamePainter old) =>
       old.face != face ||
+      old.from != from ||
+      old.mix != mix ||
       old.energy != energy ||
       old.flicker != flicker ||
       old.gaze != gaze ||

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/errors/app_failure.dart';
+import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/biometric_service.dart';
@@ -413,12 +414,17 @@ class AuthGhostButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.leading,
     this.tint,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
+
+  /// Shown before the label in place of [icon], for a mark with colours of
+  /// its own.
+  final Widget? leading;
   final Color? tint;
 
   @override
@@ -443,7 +449,10 @@ class AuthGhostButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              if (icon != null) ...<Widget>[
+              if (leading != null) ...<Widget>[
+                leading!,
+                const SizedBox(width: 10),
+              ] else if (icon != null) ...<Widget>[
                 Icon(icon, size: 20, color: color),
                 const SizedBox(width: 10),
               ],
@@ -463,6 +472,76 @@ class AuthGhostButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// "Continue with Google", on the sign-in and sign-up pages.
+class GoogleSignInButton extends StatelessWidget {
+  const GoogleSignInButton({super.key, required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => AuthGhostButton(
+    key: const ValueKey<String>('google-sign-in'),
+    label: context.t('Continue with Google', 'Google बाट जारी राख्नुहोस्'),
+    leading: const GoogleLogo(),
+    tint: Theme.of(context).colorScheme.onSurface,
+    onPressed: onPressed,
+  );
+}
+
+/// Google's four-colour "G".
+class GoogleLogo extends StatelessWidget {
+  const GoogleLogo({super.key, this.size = 20});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) =>
+      CustomPaint(size: Size.square(size), painter: const _GoogleLogoPainter());
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  const _GoogleLogoPainter();
+
+  static const Color _blue = Color(0xFF4285F4);
+  static const Color _green = Color(0xFF34A853);
+  static const Color _yellow = Color(0xFFFBBC05);
+  static const Color _red = Color(0xFFEA4335);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = size.width * 0.2;
+    final ring = (Offset.zero & size).deflate(stroke / 2);
+    // Degrees clockwise from three o'clock, where the bar of the G sits.
+    void arc(Color color, double from, double to) => canvas.drawArc(
+      ring,
+      from * math.pi / 180,
+      (to - from) * math.pi / 180,
+      false,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke,
+    );
+    arc(_red, 200, 315);
+    arc(_yellow, 140, 200);
+    arc(_green, 45, 140);
+    arc(_blue, 0, 45);
+    final middle = size.height / 2;
+    canvas.drawRect(
+      Rect.fromLTRB(
+        size.width / 2,
+        middle - stroke / 2,
+        size.width,
+        middle + stroke / 2,
+      ),
+      Paint()..color = _blue,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_GoogleLogoPainter oldDelegate) => false;
 }
 
 /// Label + optional subtitle with a trailing switch, used for "remember me"

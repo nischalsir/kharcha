@@ -7,6 +7,7 @@ import 'package:kharcha_app/services/cache_service.dart';
 import 'package:kharcha_app/services/nepali_date_service.dart';
 import 'package:kharcha_app/services/supabase_service.dart';
 import 'package:kharcha_app/services/sync_service.dart';
+import 'package:kharcha_app/widgets/common/flame_mascot.dart';
 import 'package:kharcha_app/widgets/common/page_refresh.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -49,8 +50,6 @@ Future<void> _settle(WidgetTester tester) async {
 }
 
 void main() {
-  tearDown(RefreshNotice.dismiss);
-
   testWidgets('success is announced only once the refresh has finished', (
     tester,
   ) async {
@@ -58,8 +57,10 @@ void main() {
     await tester.pumpWidget(_page(name: 'Home', onRefresh: () => done.future));
 
     await _pull(tester);
-    // Still refreshing: the spinner is up and nothing claims success yet.
-    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+    // Still refreshing: Flamey, not a spinner, waits at the top, and nothing
+    // claims success yet.
+    expect(find.byType(RefreshProgressIndicator), findsNothing);
+    expect(find.byType(BusyFlamey), findsOneWidget);
     expect(find.text('Home page refreshed'), findsNothing);
 
     done.complete(RefreshOutcome.refreshed);
@@ -69,6 +70,53 @@ void main() {
 
     await _settle(tester);
     expect(find.text('Home page refreshed'), findsNothing);
+  });
+
+  testWidgets('Flamey widens into the notice and rests on one reaction', (
+    tester,
+  ) async {
+    final done = Completer<RefreshOutcome>();
+    await tester.pumpWidget(_page(name: 'Home', onRefresh: () => done.future));
+    // Nothing of it exists before the page is pulled.
+    expect(find.byType(FlameMascot), findsNothing);
+
+    await _pull(tester);
+    final pill = find.byKey(const ValueKey<String>('refresh-flamey'));
+    final disc = tester.getSize(pill).width;
+
+    done.complete(RefreshOutcome.refreshed);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    // The same pill, now wide enough for the words, with Flamey still in it.
+    expect(tester.getSize(pill).width, greaterThan(disc + 60));
+    expect(
+      find.descendant(of: pill, matching: find.text('Home page refreshed')),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.check_circle_rounded), findsNothing);
+    final face = tester.widget<FlameMascot>(find.byType(FlameMascot)).face;
+    expect(PageRefresh.pleased, contains(face));
+    // It stays on that reaction rather than going through them.
+    await tester.pump(BusyFlamey.beat * 2);
+    expect(tester.widget<FlameMascot>(find.byType(FlameMascot)).face, face);
+
+    await _settle(tester);
+    expect(find.byType(FlameMascot), findsNothing);
+  });
+
+  testWidgets('a refresh that failed leaves Flamey looking sorry', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _page(name: 'Home', onRefresh: () async => RefreshOutcome.offline),
+    );
+    await _pull(tester);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      PageRefresh.sorry,
+      contains(tester.widget<FlameMascot>(find.byType(FlameMascot)).face),
+    );
+    await _settle(tester);
   });
 
   testWidgets('the notice names the page that was refreshed', (tester) async {

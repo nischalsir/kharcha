@@ -278,35 +278,69 @@ void main() {
       expect('This week you spent'.allMatches(insight.message), isEmpty);
     });
 
-    test(
-      'an overspending habit is roasted, then teased, never twice running',
-      () {
-        final h = _habits(
-          <TransactionModel>[_spend(2, 12000, title: 'Rent', category: 'home')],
-          budgets: <Budget>[_budget(10000)],
-        );
-        final first = _engine.build(
-          summary: _summary(h),
-          kind: InsightKind.evening,
-          now: _now,
-        );
-        expect(first.tone, InsightTone.roast);
-        expect(first.mood, 'roasting');
-        expect(first.message.contains('NPR 2000'), isTrue);
-        expect(first.basis, isNotNull);
+    test('an overspending habit is roasted every time, in different words', () {
+      final h = _habits(
+        <TransactionModel>[_spend(2, 12000, title: 'Rent', category: 'home')],
+        budgets: <Budget>[_budget(10000)],
+      );
+      final first = _engine.build(
+        summary: _summary(h),
+        kind: InsightKind.evening,
+        now: _now,
+      );
+      expect(first.tone, InsightTone.roast);
+      expect(first.mood, 'roasting');
+      expect(first.message.contains('NPR 2000'), isTrue);
+      expect(first.basis, isNotNull);
 
-        final second = _engine.build(
-          summary: _summary(h),
-          kind: InsightKind.evening,
-          now: _now,
-          recent: <String>[first.variant!],
-          lastTone: first.tone,
-        );
-        expect(second.tone, InsightTone.playful);
-        expect(second.mood, 'teasing');
-        expect(second.variant, isNot(first.variant));
-      },
-    );
+      final second = _engine.build(
+        summary: _summary(h),
+        kind: InsightKind.evening,
+        now: _now,
+        recent: <String>[first.variant!],
+        lastTone: first.tone,
+      );
+      expect(second.tone, InsightTone.roast);
+      expect(second.mood, 'roasting');
+      expect(second.variant, isNot(first.variant));
+      expect(second.message, isNot(first.message));
+    });
+
+    test('what gets roasted, teased and left alone', () {
+      HabitSignal signal(HabitKind kind, HabitMood mood, double strength) =>
+          HabitSignal(kind: kind, mood: mood, strength: strength, basis: '');
+
+      // Anything worth worrying about is roasted, last time or not.
+      final small = signal(HabitKind.smallPurchases, HabitMood.bad, 0.55);
+      expect(SuggestionEngine.toneFor(small), InsightTone.roast);
+      expect(
+        SuggestionEngine.toneFor(small, lastTone: InsightTone.roast),
+        InsightTone.roast,
+      );
+      // So is a purchase far above the usual.
+      expect(
+        SuggestionEngine.toneFor(
+          signal(HabitKind.bigSpend, HabitMood.neutral, 0.8),
+          lastTone: InsightTone.roast,
+        ),
+        InsightTone.roast,
+      );
+      // A mild fact is roasted, then only teased the next time.
+      final top = signal(HabitKind.topCategory, HabitMood.neutral, 0.4);
+      expect(SuggestionEngine.toneFor(top), InsightTone.roast);
+      expect(
+        SuggestionEngine.toneFor(top, lastTone: InsightTone.roast),
+        InsightTone.playful,
+      );
+      // Good news never is, and nothing to say is said plainly.
+      expect(
+        SuggestionEngine.toneFor(
+          signal(HabitKind.savingWell, HabitMood.good, 0.65),
+        ),
+        InsightTone.playful,
+      );
+      expect(SuggestionEngine.toneFor(null), InsightTone.normal);
+    });
 
     test('good news is proud and playful, never roasted', () {
       final h = _habits(<TransactionModel>[
@@ -324,7 +358,7 @@ void main() {
       expect(insight.message, contains('NPR 46000'));
     });
 
-    test('an unusual purchase brings a surprised face', () {
+    test('an unusual purchase brings a shocked face', () {
       final h = _habits(<TransactionModel>[
         for (var i = 0; i < 9; i++) _spend(i + 2, 200),
         _spend(0, 5000, title: 'Phone repair'),
@@ -334,7 +368,7 @@ void main() {
         kind: InsightKind.endOfDay,
         now: _now,
       );
-      expect(insight.mood, 'surprised');
+      expect(insight.mood, 'shocked');
       expect(insight.message, contains('Phone repair'));
       expect(insight.message, contains('NPR 5000'));
     });

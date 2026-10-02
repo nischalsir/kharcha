@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kharcha_app/models/financial_summary.dart';
 import 'package:kharcha_app/services/ai_mood_service.dart';
+import 'package:kharcha_app/services/spending_habits.dart';
 import 'package:kharcha_app/services/weather_service.dart';
 import 'package:kharcha_app/widgets/common/flame_mascot.dart';
 
@@ -34,7 +35,8 @@ FinancialSummary _summary({
   );
 }
 
-DateTime _at(int hour) => DateTime(2026, 3, 14, hour);
+/// A Monday, so the weekend mood stays out of the way.
+DateTime _at(int hour) => DateTime(2026, 3, 16, hour);
 
 const AiWeather _clear = AiWeather(
   temperatureC: 22,
@@ -126,6 +128,184 @@ void main() {
     test('morning mood greets the user', () {
       final mood = service.buildMood(summary: _summary(), now: _at(7));
       expect(mood.message, startsWith('Good morning!'));
+    });
+  });
+
+  group('moods of its own', () {
+    AiMood mood(FinancialSummary summary, DateTime now, {int seed = 1}) =>
+        AiMoodService(random: math.Random(seed))
+            .buildMood(summary: summary, now: now);
+
+    FinancialSummary withDays(
+      List<double> amounts,
+      DateTime today, {
+      double income = 2000,
+      double monthExpense = 1000,
+      double thisWeek = 1000,
+      double lastWeek = 1000,
+      double budget = 5000,
+      int count = 10,
+      SpendingHabits habits = SpendingHabits.empty,
+    }) => FinancialSummary(
+      expenseThisWeek: thisWeek,
+      expensePreviousWeek: lastWeek,
+      expenseThisMonth: monthExpense,
+      incomeThisMonth: income,
+      budgetTotal: budget,
+      topCategory: 'Food',
+      topCategoryAmount: 400,
+      dailyExpense: <({DateTime day, double amount})>[
+        for (var i = 0; i < amounts.length; i++)
+          (
+            day: today.subtract(Duration(days: amounts.length - 1 - i)),
+            amount: amounts[i],
+          ),
+      ],
+      activeDays: 5,
+      transactionCount: count,
+      habits: habits,
+    );
+
+    final day = DateTime(2026, 3, 16);
+
+    test('what the records show decides the mood', () {
+      final afternoon = _at(15);
+      final cases = <String, (FinancialSummary, DateTime, MoodFace)>{
+        'Curious': (
+          withDays(<double>[100], day, count: 2),
+          afternoon,
+          MoodFace.curious,
+        ),
+        'Heartbroken': (
+          withDays(<double>[100], day, income: 1000, monthExpense: 5000),
+          afternoon,
+          MoodFace.crying,
+        ),
+        'Fuming': (
+          withDays(<double>[100], day, income: 9000, monthExpense: 6500),
+          afternoon,
+          MoodFace.grumpy,
+        ),
+        'Roasting': (
+          withDays(<double>[100], day, income: 9000, monthExpense: 5200),
+          afternoon,
+          MoodFace.roasting,
+        ),
+        'Shocked': (
+          withDays(<double>[100, 100, 100, 900], day),
+          afternoon,
+          MoodFace.shocked,
+        ),
+        'Dizzy': (
+          withDays(<double>[100], day, thisWeek: 1600, lastWeek: 1000),
+          afternoon,
+          MoodFace.dizzy,
+        ),
+        'Nervous': (
+          withDays(<double>[100], day, income: 9000, monthExpense: 4500),
+          afternoon,
+          MoodFace.worried,
+        ),
+        'Confused': (
+          withDays(<double>[100], day, income: 0),
+          afternoon,
+          MoodFace.confused,
+        ),
+        'On fire': (
+          withDays(<double>[100], day, income: 20000),
+          afternoon,
+          MoodFace.starstruck,
+        ),
+        'Proud': (
+          withDays(<double>[100], day, thisWeek: 800, lastWeek: 1000),
+          afternoon,
+          MoodFace.proud,
+        ),
+        'Cool': (
+          withDays(<double>[100], DateTime(2026, 3, 23)),
+          DateTime(2026, 3, 23, 15),
+          MoodFace.cool,
+        ),
+        'Smitten': (
+          withDays(<double>[100, 100, 0], day),
+          _at(19),
+          MoodFace.love,
+        ),
+        'Bored': (
+          withDays(<double>[100, 0, 0, 0], day),
+          afternoon,
+          MoodFace.bored,
+        ),
+      };
+      cases.forEach((label, c) {
+        final got = mood(c.$1, c.$2);
+        expect(got.label, label);
+        expect(got.face, c.$3, reason: label);
+        expect(got.message, isNotEmpty);
+      });
+    });
+
+    test('a quiet, steady day takes its mood from the hour', () {
+      // Seeds that offer no tip, so the hour has the floor.
+      String? at(DateTime now) {
+        for (var seed = 0; seed < 20; seed++) {
+          final got = mood(withDays(<double>[100], day), now, seed: seed);
+          if (got.label != 'Happy') return got.label;
+        }
+        return null;
+      }
+
+      expect(at(_at(6)), 'Fresh start');
+      expect(at(_at(12)), 'Peckish');
+      expect(at(DateTime(2026, 3, 14, 16)), 'Weekend mode');
+      expect(at(_at(16)), isNull);
+    });
+
+    test('there are more than twenty moods, and every reaction is drawn', () {
+      final labels = <String>{};
+      void add(FinancialSummary summary, DateTime now) {
+        for (var seed = 0; seed < 12; seed++) {
+          labels.add(mood(summary, now, seed: seed).label);
+        }
+      }
+
+      for (final hour in <int>[2, 6, 12, 15, 19]) {
+        add(withDays(<double>[100], day), _at(hour));
+        add(withDays(<double>[100, 100, 0], day), _at(hour));
+      }
+      add(withDays(<double>[100], day), DateTime(2026, 3, 14, 16));
+      add(
+        withDays(<double>[100], DateTime(2026, 3, 23)),
+        DateTime(2026, 3, 23, 15),
+      );
+      add(withDays(<double>[100], day, count: 2), _at(15));
+      add(withDays(<double>[100, 100, 100, 900], day), _at(15));
+      add(withDays(<double>[100, 0, 0, 0], day), _at(15));
+      add(withDays(<double>[100], day, income: 0), _at(15));
+      add(withDays(<double>[100], day, thisWeek: 1600), _at(15));
+      add(withDays(<double>[100], day, thisWeek: 800), _at(15));
+      // From nearly everything saved down to spending well past income.
+      for (final spent in <double>[200, 500, 1100, 1900, 2600, 3500]) {
+        add(
+          withDays(<double>[100], day, income: 2200, monthExpense: spent),
+          _at(15),
+        );
+      }
+      // The budget nearly used, used up, and left far behind.
+      for (final spent in <double>[4500, 5200, 6500]) {
+        add(
+          withDays(<double>[100], day, income: 9000, monthExpense: spent),
+          _at(15),
+        );
+      }
+      add(
+        withDays(<double>[100], day, income: 1000, monthExpense: 5000),
+        _at(15),
+      );
+      add(withDays(<double>[100], day, income: 20000), _at(15));
+
+      expect(labels.length, greaterThanOrEqualTo(20), reason: '$labels');
+      expect(MoodFace.values.length, greaterThanOrEqualTo(20));
     });
   });
 

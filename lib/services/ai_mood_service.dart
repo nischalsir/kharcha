@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import '../core/utils/currency_formatter.dart';
 import '../models/financial_summary.dart';
+import 'spending_habits.dart';
 import 'weather_service.dart';
 
 /// Business rules that turn a [FinancialSummary] + the current time + optional
@@ -142,15 +143,38 @@ class AiMoodService {
     // user's own numbers instead of a one-liner. On a steady day it "thinks"
     // while doing so; happy and worried moods keep their own face.
     final suggestion = _rng.nextBool() ? _suggestionFor(summary, level) : null;
-    final face = suggestion != null && level == _MoodLevel.steady
+
+    // Something in the records, or the hour, that calls for a mood of its
+    // own. What the records show always comes first; the hour only colours a
+    // day on which nothing else is going on and no tip is being offered.
+    final situation =
+        _situationFor(summary, now, energy) ??
+        (suggestion == null ? _momentFor(now, level) : null);
+    if (situation != null) {
+      return AiMood(
+        emoji: situation.emoji,
+        label: situation.label,
+        message:
+            '$greeting${_pickFresh('mood-${situation.label}', situation.lines)}'
+            '${_weatherSuffix(weather)}',
+        tone: situation.tone ?? level.tone,
+        // The sky may dampen a cheerful face, never one the numbers put there.
+        face: situation.weatherProof
+            ? situation.face
+            : _faceFor(situation.face, weather),
+        weatherLabel: weather?.label,
+        energy: energy,
+      );
+    }
+
+    final thinking = suggestion != null && level == _MoodLevel.steady;
+    final face = thinking
         ? MoodFace.thinking
         : _standingFace(level, energy, summary);
 
     return AiMood(
-      emoji: suggestion != null && level == _MoodLevel.steady
-          ? '🤔'
-          : level.emoji,
-      label: level.label,
+      emoji: thinking ? '🤔' : level.emoji,
+      label: thinking ? 'Thinking' : level.label,
       message:
           '$greeting${suggestion ?? _pickFresh('mood-${level.name}', level.lines)}${_weatherSuffix(weather)}',
       tone: level.tone,
@@ -158,6 +182,234 @@ class AiMoodService {
       weatherLabel: weather?.label,
       energy: energy,
     );
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// The mood the user's own records call for, or null when they show nothing
+  /// out of the ordinary. Trouble is looked for first, then good news, so a
+  /// blown budget is never hidden behind a streak.
+  _Situation? _situationFor(
+    FinancialSummary summary,
+    DateTime now,
+    double energy,
+  ) {
+    if (!summary.hasEnoughData) {
+      return const _Situation('🧐', 'Curious', MoodFace.curious, <String>[
+        'I am still getting to know you. Log a few more and I will have '
+            'opinions 🧐',
+        'Not much to go on yet. Add what you spend and watch me get nosy 👀',
+        'A few more entries and I can start spotting your habits 🔍',
+      ], tone: MoodTone.neutral);
+    }
+
+    String money(double amount) => CurrencyFormatter.format(amount);
+    final used = summary.budgetUsedPct;
+    final change = summary.weeklyChangePct;
+    final average = summary.dailyAverage;
+    final signals = summary.habits.signals;
+    bool has(HabitKind kind) => signals.any((s) => s.kind == kind);
+    final last = summary.dailyExpense.isEmpty
+        ? null
+        : summary.dailyExpense.last;
+    // Today's total, when the records run up to today.
+    final today = last != null && _sameDay(last.day, now) ? last.amount : null;
+
+    // --- trouble -----------------------------------------------------------
+    if (energy <= 0.08) {
+      return const _Situation('😭', 'Heartbroken', MoodFace.crying, <String>[
+        'Spending is far past income… I am down to my last spark 😭',
+        'This month is hurting. One no-spend day, for me? 🥺',
+        'More went out than I can watch. Let us stop the leak together 💧',
+      ], tone: MoodTone.bad);
+    }
+    if (used != null && used >= 120) {
+      return _Situation('😤', 'Fuming', MoodFace.grumpy, <String>[
+        '${used.round()}% of the budget. That is not a budget any more, '
+            'that is a memory 😤',
+        'The budget was ${money(summary.budgetTotal)}. You are at '
+            '${money(summary.expenseThisMonth)}. I am smoking 💨',
+        'Way past the budget. I am too hot to talk about it 😤',
+      ], tone: MoodTone.bad);
+    }
+    if (used != null && used >= 100) {
+      return _Situation('😈', 'Roasting', MoodFace.roasting, <String>[
+        'The budget has left the chat at ${used.round()}%. I am only here '
+            'for the smoke 🔥',
+        '${money(summary.budgetTotal)} was the plan. '
+            '${money(summary.expenseThisMonth)} is what happened 😈',
+        'Budget gone. Bold of you to keep shopping 🔥',
+      ], tone: MoodTone.bad);
+    }
+    if (today != null && average > 0 && today >= average * 2) {
+      return _Situation('😱', 'Shocked', MoodFace.shocked, <String>[
+        '${money(today)} today?! A normal day for you is about '
+            '${money(average)} 😱',
+        'Today alone came to ${money(today)}. I need to sit down 😱',
+        'That is a lot for one day: ${money(today)}. Easy now 🫣',
+      ], tone: MoodTone.warn);
+    }
+    if (change != null && change >= 50) {
+      return _Situation('😵', 'Dizzy', MoodFace.dizzy, <String>[
+        'Spending is up ${change.round()}% on last week. My head is '
+            'spinning 😵',
+        '${money(summary.expenseThisWeek)} this week against '
+            '${money(summary.expensePreviousWeek)} last week. Everything '
+            'is going round 💫',
+        'Up ${change.round()}% in a week. Slow down, I am getting dizzy 😵',
+      ], tone: MoodTone.warn);
+    }
+    if (used != null && used >= 85) {
+      return _Situation('😰', 'Nervous', MoodFace.worried, <String>[
+        '${used.round()}% of the budget is gone. We are on thin ice 😰',
+        'Only ${money(summary.budgetTotal - summary.expenseThisMonth)} of '
+            'the budget is left. Tread softly 🧊',
+        'The budget is nearly out at ${used.round()}%. Needs only, please 🙏',
+      ], tone: MoodTone.warn);
+    }
+    if (summary.incomeThisMonth <= 0 && summary.expenseThisMonth > 0) {
+      return _Situation('😕', 'Confused', MoodFace.confused, <String>[
+        '${money(summary.expenseThisMonth)} went out this month and I see '
+            'nothing coming in. Where is the income? 😕',
+        'Money is leaving but none has arrived. Did you forget to log '
+            'your income? 🤷',
+        'I cannot tell how you are doing without this month’s income 😕',
+      ], tone: MoodTone.neutral);
+    }
+    if (has(HabitKind.bigSpend)) {
+      return const _Situation('😮', 'Surprised', MoodFace.surprised, <String>[
+        'One of your purchases was far bigger than your usual. I noticed 😮',
+        'That big one stood out. Planned, I hope? 😮',
+        'A purchase like that does not slip past me 👀',
+      ]);
+    }
+
+    // --- good news ---------------------------------------------------------
+    if (signals.any((s) => s.kind == HabitKind.streak && s.strength >= 0.7)) {
+      return const _Situation(
+        '🥳',
+        'Celebrating',
+        MoodFace.party,
+        <String>[
+          'A logging streak milestone! Confetti is in order 🥳',
+          'Day after day you showed up. That deserves a party 🎉',
+          'Streak milestone reached. I am dancing 🕺',
+        ],
+        tone: MoodTone.good,
+        weatherProof: false,
+      );
+    }
+    if (energy >= 0.92) {
+      return const _Situation(
+        '🤩',
+        'On fire',
+        MoodFace.starstruck,
+        <String>[
+          'Nearly all of this month’s income is still yours. I am on fire 🤩',
+          'Saving like this, I could light up the whole street ✨',
+          'Stars in my eyes. Whatever you are doing, keep doing it 🤩',
+        ],
+        tone: MoodTone.good,
+        weatherProof: false,
+      );
+    }
+    if (change != null && change <= -15) {
+      return _Situation(
+        '😌',
+        'Proud',
+        MoodFace.proud,
+        <String>[
+          'Spending is down ${change.abs().round()}% on last week. I am '
+              'proud of you 😌',
+          '${money(summary.expenseThisWeek)} this week, down from '
+              '${money(summary.expensePreviousWeek)}. Chin up, well done ✨',
+          'A lighter week than the last. That is how it is done 😌',
+        ],
+        tone: MoodTone.good,
+        weatherProof: false,
+      );
+    }
+    if (used != null && used < 50 && now.day >= 20) {
+      return _Situation(
+        '😎',
+        'Cool',
+        MoodFace.cool,
+        <String>[
+          'Day ${now.day} and only ${used.round()}% of the budget used. '
+              'Smooth 😎',
+          'Late in the month with half the budget untouched. Ice cool 🧊',
+          'The budget is barely sweating. Neither am I 😎',
+        ],
+        tone: MoodTone.good,
+        weatherProof: false,
+      );
+    }
+    if (today != null && today <= 0 && now.hour >= 18) {
+      return const _Situation(
+        '😍',
+        'Smitten',
+        MoodFace.love,
+        <String>[
+          'Not a rupee spent today. I think I love you 😍',
+          'A whole day with the wallet shut. Be still, my flame 💖',
+          'Nothing spent today. This is my favourite kind of day 🥰',
+        ],
+        tone: MoodTone.good,
+        weatherProof: false,
+      );
+    }
+
+    // --- habits worth a look -----------------------------------------------
+    if (has(HabitKind.smallPurchases) || has(HabitKind.repeatPurchase)) {
+      return const _Situation('😏', 'Teasing', MoodFace.teasing, <String>[
+        'I see those little purchases. They think I am not counting 😏',
+        'Same purchase, again and again. We both know which one 👀',
+        'Small buys add up. Ask me how I know 😏',
+      ]);
+    }
+    final days = summary.dailyExpense;
+    if (days.length >= 3 &&
+        days.sublist(days.length - 3).every((d) => d.amount <= 0)) {
+      return const _Situation('😑', 'Bored', MoodFace.bored, <String>[
+        'Three quiet days. Either you are saving or you stopped telling '
+            'me things 😑',
+        'Nothing to count lately. I am twiddling my flames 🥱',
+        'So quiet. Log something, even a cup of tea ☕',
+      ], tone: MoodTone.neutral);
+    }
+    return null;
+  }
+
+  /// A mood for the hour or the day, on a day when the money itself has
+  /// nothing to say: only while things are steady or happy, so it never
+  /// covers a warning.
+  _Situation? _momentFor(DateTime now, _MoodLevel level) {
+    if (level != _MoodLevel.steady && level != _MoodLevel.happy) return null;
+    final hour = now.hour;
+    if (hour >= 5 && hour < 8) {
+      return const _Situation('🌅', 'Fresh start', MoodFace.happy, <String>[
+        'A new day and nothing spent yet. Let us keep it tidy 🌅',
+        'Up early! Today’s spending starts at zero ☀️',
+        'Fresh day, fresh wallet. Make it a light one 🌱',
+      ], weatherProof: false);
+    }
+    if (hour >= 12 && hour < 14) {
+      return const _Situation('🤤', 'Peckish', MoodFace.yum, <String>[
+        'Lunch o’clock. Eat well, spend sensibly 🍛',
+        'Something smells good. Log it after you eat 🤤',
+        'Food time! A home-cooked plate is the cheapest treat 🍚',
+      ], weatherProof: false);
+    }
+    // Saturday is the day off in Nepal.
+    if (now.weekday == DateTime.saturday) {
+      return const _Situation('😉', 'Weekend mode', MoodFace.wink, <String>[
+        'It is Saturday. Enjoy it, and let the wallet rest too 😉',
+        'Weekend mode. Fun does not have to cost much 🎈',
+        'Day off! Treat yourself, within reason 😉',
+      ], weatherProof: false);
+    }
+    return null;
   }
 
   /// The face for a standing mood. Mostly the level's own, with a few
@@ -851,6 +1103,11 @@ class AiMoodService {
       MoodFace.excited,
       MoodFace.cool,
       MoodFace.starstruck,
+      MoodFace.proud,
+      MoodFace.party,
+      MoodFace.love,
+      MoodFace.yum,
+      MoodFace.wink,
     };
     if (low.contains(base)) return base;
     final code = weather.code;
@@ -959,6 +1216,29 @@ enum _MoodLevel {
   final MoodTone tone;
   final MoodFace face;
   final List<String> lines;
+}
+
+/// A mood called for by something particular: what the records show, or the
+/// time of day. Its [tone] is the money's own unless it says otherwise.
+class _Situation {
+  const _Situation(
+    this.emoji,
+    this.label,
+    this.face,
+    this.lines, {
+    this.tone,
+    this.weatherProof = true,
+  });
+
+  final String emoji;
+  final String label;
+  final MoodFace face;
+  final List<String> lines;
+  final MoodTone? tone;
+
+  /// Whether the face stays whatever the weather. True for anything the
+  /// numbers put there; a cheerful or time-of-day face can be dampened.
+  final bool weatherProof;
 }
 
 /// One way the flame can react: the notification's emoji and title, the face

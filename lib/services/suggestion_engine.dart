@@ -26,24 +26,20 @@ class SuggestionEngine {
   static String _defaultMoney(double amount) =>
       CurrencyFormatter.format(amount);
 
-  /// How playful a signal deserves to be. A habit worth worrying about gets
-  /// roasted when it is strong, teased when it is mild; good news is
-  /// celebrated playfully; anything neutral is said plainly. Two roasts are
-  /// never served in a row.
+  /// How playful a signal deserves to be. Flamey roasts whatever the records
+  /// give it to roast: every habit worth worrying about, and the ones that
+  /// are simply funny (a purchase that keeps coming back, one category taking
+  /// most of the money, an open shop tab, a purchase far above the usual).
+  /// Good news is never roasted; it is celebrated playfully. A mild fact
+  /// that was roasted last time is only teased the next, so it is not all
+  /// one note.
   static InsightTone toneFor(HabitSignal? signal, {InsightTone? lastTone}) {
     if (signal == null) return InsightTone.normal;
-    switch (signal.mood) {
-      case HabitMood.bad:
-        final roast = signal.strength >= 0.7 && lastTone != InsightTone.roast;
-        return roast ? InsightTone.roast : InsightTone.playful;
-      case HabitMood.good:
-        return InsightTone.playful;
-      case HabitMood.neutral:
-        return signal.kind == HabitKind.repeatPurchase &&
-                lastTone != InsightTone.roast
-            ? InsightTone.roast
-            : InsightTone.normal;
-    }
+    if (signal.mood == HabitMood.good) return InsightTone.playful;
+    final mild = signal.mood == HabitMood.neutral && signal.strength < 0.5;
+    return mild && lastTone == InsightTone.roast
+        ? InsightTone.playful
+        : InsightTone.roast;
   }
 
   AiInsight build({
@@ -282,12 +278,12 @@ class SuggestionEngine {
         HabitKind.budgetNear: (
           'Budget nearly used',
           'Budget on thin ice',
-          'Budget on thin ice',
+          'Even I burn slower',
         ),
         HabitKind.bigSpend: (
           'A large purchase',
           'That was a big one',
-          'That was a big one',
+          'Your wallet felt that',
         ),
         HabitKind.weekUp: (
           'Spending is rising',
@@ -312,9 +308,9 @@ class SuggestionEngine {
         HabitKind.topCategory: (
           'Where most of it goes',
           'The main character',
-          'The main character',
+          'One category runs the show',
         ),
-        HabitKind.pasalDue: ('Shop tabs', 'Tabs are open', 'Tabs are open'),
+        HabitKind.pasalDue: ('Shop tabs', 'Tabs are open', 'The tab remembers'),
         HabitKind.savingWell: (
           'Saving well',
           'Character development',
@@ -350,6 +346,8 @@ class SuggestionEngine {
                 'coming back this month.',
             'You are $amount past the $other budget. At this point the '
                 'budget is more of a suggestion.',
+            'The $other budget lasted about as long as a New Year '
+                'resolution. You are $amount past it and still going.',
           ];
         }
         if (playful) {
@@ -366,6 +364,8 @@ class SuggestionEngine {
                 'spent against $other.',
             '$subject has eaten $amount of a $other budget. It did not even '
                 'leave crumbs.',
+            '$other was the plan for $subject. $amount is what happened. '
+                'The plan never stood a chance.',
           ];
         }
         if (playful) {
@@ -382,6 +382,8 @@ class SuggestionEngine {
                 'wallet would like a word.',
             'Spending is $amount ahead of income this month. Money is '
                 'supposed to come in too, you know.',
+            'You are living $amount beyond what came in this month. Bold, '
+                'for someone without a money tree.',
           ];
         }
         if (playful) {
@@ -399,6 +401,10 @@ class SuggestionEngine {
           return <String>[
             '$percent% of the budget is gone and there are still $days '
                 'left. $amount has to survive all of them.',
+            'You burned through $percent% of the budget with $days still '
+                'to go. Even I do not burn that fast, and I am fire.',
+            '$amount left for $days. Start practising the words "I already '
+                'ate".',
           ];
         }
         if (playful) {
@@ -413,7 +419,15 @@ class SuggestionEngine {
         ];
       case HabitKind.bigSpend:
         final times = (s.percent ?? 0).round();
-        if (roast || playful) {
+        if (roast) {
+          return <String>[
+            '$amount on $subject, about $times times your usual purchase. '
+                'Did the price tag come with a warning?',
+            '$subject for $amount? Your wallet is still lying down: that is '
+                'around $times times a normal purchase for you.',
+          ];
+        }
+        if (playful) {
           return <String>[
             'Whoa: $amount on $subject. That is about $times times your '
                 'usual purchase.',
@@ -433,6 +447,8 @@ class SuggestionEngine {
                 'up $percent%.',
             '$amount this week against $other last week. That is '
                 '$percent% more, in case the wallet had not noticed.',
+            'Up $percent% in a week: $amount against $other. If your income '
+                'grew like your spending, you would be rich by now.',
           ];
         }
         if (playful) {
@@ -455,6 +471,8 @@ class SuggestionEngine {
                 'Maybe give your wallet a recovery day.',
             '$amount on $subject this week, from $before. $subject is '
                 'clearly having a moment.',
+            '$subject took $amount off you this week, from $before. Blink '
+                'twice if $subject is holding your wallet hostage.',
           ];
         }
         if (playful) {
@@ -474,6 +492,8 @@ class SuggestionEngine {
                 'total. Those little ones are adding up suspiciously fast 👀',
             '$count small buys this week came to $amount. Each one '
                 'innocent, together a heist.',
+            '$count rounds of "it is only a little" later, $amount is gone. '
+                'The little ones hunt in packs.',
           ];
         }
         if (playful) {
@@ -491,6 +511,8 @@ class SuggestionEngine {
                 'subscription: $count times in 30 days, $amount in all.',
             '$subject again? That is $count times in 30 days and $amount. '
                 'They should name a seat after you.',
+            '$count rounds of $subject in 30 days for $amount. That is not '
+                'a purchase any more, that is a relationship.',
           ];
         }
         if (playful) {
@@ -504,7 +526,15 @@ class SuggestionEngine {
               'in total.',
         ];
       case HabitKind.topCategory:
-        if (roast || playful) {
+        if (roast) {
+          return <String>[
+            '$subject is eating $percent% of everything you spend: $amount '
+                'in 30 days. The other categories are extras in its film.',
+            '$percent% of your money goes to $subject, $amount in 30 days. '
+                'That is not a budget, that is a $subject fund.',
+          ];
+        }
+        if (playful) {
           return <String>[
             '$subject is the main character: $percent% of everything you '
                 'spent in 30 days, $amount.',
@@ -516,7 +546,15 @@ class SuggestionEngine {
         ];
       case HabitKind.pasalDue:
         final shops = count <= 1 ? 'one shop tab' : '$count shop tabs';
-        if (roast || playful) {
+        if (roast) {
+          return <String>[
+            'You owe $amount across $shops. The shopkeeper smiles at you '
+                'for a reason.',
+            '$amount on credit across $shops. "Put it on my tab" is not a '
+                'savings plan.',
+          ];
+        }
+        if (playful) {
           return <String>[
             'You owe $amount across $shops. Clearing one feels great, '
                 'promise.',
@@ -606,7 +644,7 @@ class SuggestionEngine {
     if (signal != null) {
       switch (signal.kind) {
         case HabitKind.bigSpend:
-          return 'surprised';
+          return tone == InsightTone.roast ? 'shocked' : 'surprised';
         case HabitKind.savingWell || HabitKind.weekDown:
           return 'proud';
         case HabitKind.streak:
@@ -614,7 +652,11 @@ class SuggestionEngine {
         case HabitKind.noSpendDays:
           return 'happy';
         case HabitKind.topCategory || HabitKind.pasalDue:
-          return tone == InsightTone.normal ? 'curious' : 'teasing';
+          return switch (tone) {
+            InsightTone.roast => 'roasting',
+            InsightTone.playful => 'teasing',
+            InsightTone.normal => 'curious',
+          };
         default:
           return switch (tone) {
             InsightTone.roast => 'roasting',
