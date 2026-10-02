@@ -9,8 +9,8 @@ import '../../services/app_lock.dart';
 import 'flame_mascot.dart';
 import 'form_helpers.dart';
 import 'glass_background.dart';
-import 'glass_card.dart';
 import 'primary_button.dart';
+import 'setting_row.dart';
 
 String _unlockReason(BuildContext context) =>
     context.t('Unlock Kharcha', 'खर्चा खोल्नुहोस्');
@@ -169,15 +169,15 @@ class _LockScreenState extends State<_LockScreen> {
   }
 }
 
-/// The App lock switch in Settings.
-class AppLockCard extends StatefulWidget {
-  const AppLockCard({super.key});
+/// The App lock switch in Settings: a row for the Security card.
+class AppLockRow extends StatefulWidget {
+  const AppLockRow({super.key});
 
   @override
-  State<AppLockCard> createState() => _AppLockCardState();
+  State<AppLockRow> createState() => _AppLockRowState();
 }
 
-class _AppLockCardState extends State<AppLockCard> {
+class _AppLockRowState extends State<AppLockRow> {
   /// Whether the phone has a screen lock; null until it has answered.
   bool? _available;
   bool _busy = false;
@@ -214,58 +214,30 @@ class _AppLockCardState extends State<AppLockCard> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final glass = context.glass;
     final lock = context.watch<AppLockController>();
     final available = _available;
     final usable = available ?? false;
 
-    return GlassCard(
-      key: const ValueKey<String>('app-lock-card'),
-      padding: EdgeInsets.zero,
-      child: Material(
-        type: MaterialType.transparency,
-        child: SwitchListTile(
-          key: const ValueKey<String>('app-lock-switch'),
-          value: lock.enabled,
-          // With no screen lock on the phone there is nothing to ask for.
-          onChanged: _busy || (!usable && !lock.enabled) ? null : _toggle,
-          secondary: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF453A).withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(12),
+    return SettingSwitchRow(
+      key: const ValueKey<String>('app-lock-row'),
+      switchKey: const ValueKey<String>('app-lock-switch'),
+      icon: Icons.lock_rounded,
+      color: const Color(0xFFFF453A),
+      title: context.t('App lock', 'एप लक'),
+      subtitle: available == false
+          ? context.t(
+              'Set a screen lock on this phone first.',
+              'पहिले यो फोनमा स्क्रिन लक राख्नुहोस्।',
+            )
+          : context.t(
+              'Ask for fingerprint, face or the phone’s PIN each time '
+                  'Kharcha is opened',
+              'खर्चा खोल्दा हरेक पटक फिंगरप्रिन्ट, अनुहार वा फोनको PIN '
+                  'माग्नुहोस्',
             ),
-            child: const Icon(
-              Icons.lock_rounded,
-              color: Color(0xFFFF453A),
-              size: 22,
-            ),
-          ),
-          title: Text(
-            context.t('App lock', 'एप लक'),
-            style: theme.textTheme.titleMedium,
-          ),
-          subtitle: Text(
-            available == false
-                ? context.t(
-                    'Set a screen lock on this phone first.',
-                    'पहिले यो फोनमा स्क्रिन लक राख्नुहोस्।',
-                  )
-                : context.t(
-                    'Ask for fingerprint, face or the phone’s PIN each '
-                        'time Kharcha is opened',
-                    'खर्चा खोल्दा हरेक पटक फिंगरप्रिन्ट, अनुहार वा फोनको PIN '
-                        'माग्नुहोस्',
-                  ),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: glass.textSecondary,
-            ),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-        ),
-      ),
+      value: lock.enabled,
+      // With no screen lock on the phone there is nothing to ask for.
+      onChanged: _busy || (!usable && !lock.enabled) ? null : _toggle,
     );
   }
 }

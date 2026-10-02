@@ -22,7 +22,10 @@ import 'package:kharcha_app/screens/auth/login_screen.dart';
 import 'package:kharcha_app/screens/auth/signup_screen.dart';
 import 'package:kharcha_app/screens/festivals/festivals_screen.dart';
 import 'package:kharcha_app/screens/settings/app_permissions_card.dart';
+import 'package:kharcha_app/screens/settings/settings_screen.dart';
 import 'package:kharcha_app/screens/tutorial/tutorial_screen.dart';
+import 'package:kharcha_app/services/account_avatar_cache.dart';
+import 'package:kharcha_app/services/app_lock.dart';
 import 'package:kharcha_app/services/app_permissions.dart';
 import 'package:kharcha_app/services/biometric_service.dart';
 import 'package:kharcha_app/services/cache_service.dart';
@@ -35,6 +38,8 @@ import 'package:kharcha_app/services/sync_service.dart';
 import 'package:kharcha_app/services/update_service.dart';
 import 'package:kharcha_app/widgets/common/auth_widgets.dart';
 import 'package:kharcha_app/widgets/common/code_field.dart';
+import 'package:kharcha_app/widgets/common/glass_card.dart';
+import 'package:kharcha_app/widgets/common/setting_row.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -589,7 +594,7 @@ void main() {
             theme: AppTheme.light(),
             home: Scaffold(
               body: SingleChildScrollView(
-                child: AppPermissionsCard(location: location, sms: sms()),
+                child: AppPermissionRows(location: location, sms: sms()),
               ),
             ),
           ),
@@ -598,18 +603,12 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    String stateOf(WidgetTester tester, String name) => tester
-        .widget<Text>(find.byKey(ValueKey<String>('permission-$name-state')))
-        .data!;
-    Finder action(String name) =>
-        find.byKey(ValueKey<String>('permission-$name-action'));
-    String actionOf(WidgetTester tester, String name) => tester
-        .widget<Text>(
-          find.descendant(of: action(name), matching: find.byType(Text)),
-        )
-        .data!;
+    Finder toggle(String name) =>
+        find.byKey(ValueKey<String>('permission-$name-switch'));
+    bool isOn(WidgetTester tester, String name) =>
+        tester.widget<Switch>(toggle(name)).value;
 
-    testWidgets('lists the three in plain words with where each stands', (
+    testWidgets('lists the three in plain words, each with a switch', (
       tester,
     ) async {
       final push = _FakePush(PushPermission.authorized);
@@ -619,9 +618,10 @@ void main() {
       expect(find.text('Notifications'), findsOneWidget);
       expect(find.text('Location'), findsOneWidget);
       expect(find.text('SMS'), findsOneWidget);
-      expect(stateOf(tester, 'notifications'), 'Allowed');
-      expect(stateOf(tester, 'location'), 'Not allowed');
-      expect(stateOf(tester, 'sms'), 'Not allowed');
+      // The switch shows where each stands.
+      expect(isOn(tester, 'notifications'), isTrue);
+      expect(isOn(tester, 'location'), isFalse);
+      expect(isOn(tester, 'sms'), isFalse);
       // Each says what it is for.
       expect(find.textContaining('weather'), findsOneWidget);
       expect(find.textContaining('payment messages'), findsOneWidget);
@@ -637,7 +637,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('Allow asks once, and the row shows the answer', (
+    testWidgets('switching one on asks once, and the switch shows the answer', (
       tester,
     ) async {
       final push = _FakePush(PushPermission.notDetermined);
@@ -645,56 +645,187 @@ void main() {
       smsGrantsOnRequest = true;
       await show(tester, push: push, location: location);
 
-      expect(actionOf(tester, 'location'), 'Allow');
-      await tester.tap(action('location'));
+      await tester.tap(toggle('location'));
       await tester.pumpAndSettle();
       expect(location.requests, 1);
-      expect(stateOf(tester, 'location'), 'Allowed');
-      expect(actionOf(tester, 'location'), 'Manage');
+      expect(isOn(tester, 'location'), isTrue);
 
-      expect(actionOf(tester, 'sms'), 'Allow');
-      await tester.tap(action('sms'));
+      await tester.tap(toggle('sms'));
       await tester.pumpAndSettle();
       expect(smsCalls.where((c) => c == 'requestPermission'), hasLength(1));
-      expect(stateOf(tester, 'sms'), 'Allowed');
+      expect(isOn(tester, 'sms'), isTrue);
 
-      expect(actionOf(tester, 'notifications'), 'Allow');
-      await tester.tap(action('notifications'));
+      await tester.tap(toggle('notifications'));
       await tester.pumpAndSettle();
       expect(push.requests, 1);
-      expect(stateOf(tester, 'notifications'), 'Allowed');
+      expect(isOn(tester, 'notifications'), isTrue);
+
+      // Tapping the row itself does the same as tapping its switch.
+      // Switching an allowed one off is done in the phone's settings.
+      await tester.tap(find.text('Location'));
+      await tester.pumpAndSettle();
+      expect(location.settingsOpened, 1);
+      expect(location.requests, 1);
     });
 
-    testWidgets('refused for good, the way on is the phone\'s settings', (
+    testWidgets('refused for good, the switch leads to the phone\'s settings', (
       tester,
     ) async {
       final push = _FakePush(PushPermission.denied);
       final location = _FakeLocation(AccessState.blocked);
       await show(tester, push: push, location: location);
 
-      expect(stateOf(tester, 'notifications'), 'Not allowed');
-      expect(actionOf(tester, 'notifications'), 'Open settings');
-      await tester.tap(action('notifications'));
+      expect(isOn(tester, 'notifications'), isFalse);
+      expect(find.textContaining('Blocked'), findsNWidgets(2));
+      await tester.tap(toggle('notifications'));
       await tester.pumpAndSettle();
       expect(push.settingsOpened, 1);
       expect(push.requests, 0);
 
-      expect(actionOf(tester, 'location'), 'Open settings');
-      await tester.tap(action('location'));
+      await tester.tap(toggle('location'));
       await tester.pumpAndSettle();
       expect(location.settingsOpened, 1);
       expect(location.requests, 0);
 
-      // Android will not show its SMS prompt: after one refusal the button
+      // Android will not show its SMS prompt: after one refusal the switch
       // leads to settings instead of asking again and again.
-      await tester.tap(action('sms'));
+      await tester.tap(toggle('sms'));
       await tester.pumpAndSettle();
-      expect(stateOf(tester, 'sms'), 'Not allowed');
-      expect(actionOf(tester, 'sms'), 'Open settings');
-      await tester.tap(action('sms'));
+      expect(isOn(tester, 'sms'), isFalse);
+      await tester.tap(toggle('sms'));
       await tester.pumpAndSettle();
       expect(smsCalls.where((c) => c == 'requestPermission'), hasLength(1));
       expect(smsCalls, contains('openAppSettings'));
+    });
+  });
+
+  group('the Settings page', () {
+    testWidgets('two cards where there were four, with everything in line', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(400, 3200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      FlutterSecureStorage.setMockInitialValues(<String, String>{});
+      _mockConnectivity();
+      final dates = NepaliDateService();
+      late AppSettingsProvider settings;
+      late SyncService sync;
+      await tester.runAsync(() async {
+        final cache = await CacheService.create();
+        sync = SyncService(cache: cache, remote: SupabaseService());
+        settings = AppSettingsProvider(
+          cache: cache,
+          sync: sync,
+          repository: SettingsRepository(cache, sync),
+          dates: dates,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      addTearDown(sync.dispose);
+      final push = PushProvider(service: _FakePush(PushPermission.authorized));
+      addTearDown(push.dispose);
+      await tester.runAsync(push.initialize);
+      final biometric = BiometricService();
+      final lock = AppLockController(biometric: biometric);
+      await tester.runAsync(lock.load);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<NepaliDateService>.value(value: dates),
+            Provider<BiometricService>.value(value: biometric),
+            Provider<AccountAvatarCache>(create: (_) => AccountAvatarCache()),
+            ChangeNotifierProvider<SyncService>.value(value: sync),
+            ChangeNotifierProvider<AppSettingsProvider>.value(value: settings),
+            ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
+            ChangeNotifierProvider<PushProvider>.value(value: push),
+            ChangeNotifierProvider<AppLockController>.value(value: lock),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const SettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 3));
+
+      Finder cardOf(Finder row) =>
+          find.ancestor(of: row, matching: find.byType(GlassCard)).first;
+      Element card(String key) =>
+          tester.element(cardOf(find.byKey(ValueKey<String>(key))));
+
+      // Permissions and what to be notified about: one card.
+      final permissions = card('permission-notifications');
+      for (final key in <String>[
+        'permission-location',
+        'permission-sms',
+        'notify-flamey',
+        'notify-daily',
+      ]) {
+        expect(card(key), same(permissions), reason: key);
+      }
+      // The app lock and the account's security rows: one card, another one.
+      final security = card('app-lock-row');
+      expect(security, isNot(same(permissions)));
+      expect(tester.element(cardOf(find.text('Remember me'))), same(security));
+      expect(
+        tester.element(cardOf(find.text('Change password'))),
+        same(security),
+      );
+      expect(
+        tester.element(cardOf(find.text('Two-factor sign-in'))),
+        same(security),
+      );
+      // One heading each, not two.
+      expect(find.text('Permissions & Notifications'), findsOneWidget);
+      expect(find.text('Security'), findsOneWidget);
+      expect(find.text('App Permissions'), findsNothing);
+
+      // Every one of those rows ends in a switch, and the switches stand in
+      // one column down both cards.
+      final switches = find.descendant(
+        of: find.byWidgetPredicate(
+          (w) => w is SettingRow && w.trailing is Switch,
+        ),
+        matching: find.byType(Switch),
+      );
+      expect(tester.widgetList(switches).length, greaterThanOrEqualTo(8));
+      final rights = <double>{
+        for (final element in switches.evaluate())
+          tester.getRect(find.byWidget(element.widget)).right,
+      };
+      expect(rights, hasLength(1), reason: 'switches in one column: $rights');
+
+      // So do the icons and the names, on every card of the page.
+      final rows = find.byType(SettingRow);
+      final iconLefts = <double>{};
+      final titleLefts = <double>{};
+      for (final element in rows.evaluate()) {
+        final row = find.byWidget(element.widget);
+        final tile = element.widget as SettingRow;
+        iconLefts.add(
+          tester
+              .getRect(
+                find
+                    .descendant(of: row, matching: find.byIcon(tile.icon))
+                    .first,
+              )
+              .center
+              .dx,
+        );
+        titleLefts.add(
+          tester
+              .getRect(
+                find.descendant(of: row, matching: find.text(tile.title)).first,
+              )
+              .left,
+        );
+      }
+      expect(iconLefts, hasLength(1), reason: 'icons in one column');
+      expect(titleLefts, hasLength(1), reason: 'names start in one column');
+      expect(tester.takeException(), isNull);
     });
   });
 

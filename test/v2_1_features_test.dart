@@ -289,7 +289,7 @@ void main() {
           ],
           child: MaterialApp(
             theme: AppTheme.light(),
-            home: const Scaffold(body: AppLockCard()),
+            home: const Scaffold(body: AppLockRow()),
           ),
         ),
       );
@@ -297,7 +297,7 @@ void main() {
       await tester.pump();
       expect(find.text('App lock'), findsOneWidget);
       expect(find.textContaining('Set a screen lock'), findsOneWidget);
-      final toggle = tester.widget<SwitchListTile>(
+      final toggle = tester.widget<Switch>(
         find.byKey(const ValueKey<String>('app-lock-switch')),
       );
       expect(toggle.onChanged, isNull);
@@ -312,7 +312,7 @@ void main() {
           ],
           child: MaterialApp(
             theme: AppTheme.light(),
-            home: Scaffold(body: AppLockCard(key: UniqueKey())),
+            home: Scaffold(body: AppLockRow(key: UniqueKey())),
           ),
         ),
       );

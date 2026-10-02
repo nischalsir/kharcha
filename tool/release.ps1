@@ -49,8 +49,12 @@ if (-not (Test-Path 'android\key.properties')) {
 }
 
 # --- The source being released is what is on GitHub -------------------------
-$dirty = git status --porcelain --untracked-files=no
-if ($dirty) { Fail 'There are uncommitted changes. Commit them first.' }
+# Only what is built into the app counts. The server's functions and
+# migrations under supabase/ are deployed on their own and are often being
+# worked on in another session; an edit there is not in the APK and must not
+# hold up, or be swept into, an app release.
+$dirty = git status --porcelain --untracked-files=no -- . ':(exclude)supabase'
+if ($dirty) { Fail "There are uncommitted changes to the app. Commit them first.`n$($dirty -join "`n")" }
 git fetch --quiet origin
 $head = git rev-parse HEAD
 $remote = git rev-parse 'origin/main'

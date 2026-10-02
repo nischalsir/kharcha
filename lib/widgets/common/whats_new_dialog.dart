@@ -24,21 +24,12 @@ class WhatsNew {
   /// lines. Replace the list with each release; do not add to it.
   static const List<(String, String)> items = <(String, String)>[
     (
-      'App lock: fingerprint or the phone PIN each time Kharcha opens',
-      'एप लक: खर्चा खोल्दा हरेक पटक फिंगरप्रिन्ट वा फोनको PIN',
-    ),
-    ('Search everything from Home', 'होमबाटै सबै कुरामा खोज्नुहोस्'),
-    (
-      'Net worth: what you have, less what you owe',
-      'कुल सम्पत्ति: तपाईंसँग भएको, तिर्नुपर्ने घटाएर',
+      'Settings: permissions and notifications are one card, security one',
+      'सेटिङ: अनुमति र सूचना एउटै कार्डमा, सुरक्षा एउटैमा',
     ),
     (
-      'Budgets can carry over from last month',
-      'बजेट अघिल्लो महिनाबाट सार्न सकिन्छ',
-    ),
-    (
-      'Add a transaction by saying it: "200 on tea"',
-      'बोलेर कारोबार थप्नुहोस्: "200 on tea"',
+      'Every permission is now a switch, lined up with the rest',
+      'हरेक अनुमति अब स्विच हो, अरूसँगै मिलाइएको',
     ),
   ];
 

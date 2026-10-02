@@ -21,6 +21,7 @@ import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/theme_mode_selector.dart';
+import '../../widgets/common/setting_row.dart';
 import 'app_permissions_card.dart';
 import 'change_password_screen.dart';
 import 'privacy_policy_screen.dart';
@@ -131,7 +132,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 GlassCard(
                   child: Column(
                     children: <Widget>[
-                      _SettingTile(
+                      SettingRow(
                         icon: Icons.currency_rupee_rounded,
                         color: const Color(0xFFFF9F0A),
                         title: context.t('Currency', 'मुद्रा'),
@@ -139,7 +140,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onTap: () => _pickCurrency(provider),
                       ),
                       const Divider(height: 1),
-                      _SettingTile(
+                      SettingRow(
                         icon: Icons.language_rounded,
                         color: const Color(0xFFBF5AF2),
                         title: context.t('Language', 'भाषा'),
@@ -149,7 +150,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onTap: () => _pickLanguage(provider),
                       ),
                       const Divider(height: 1),
-                      _SettingTile(
+                      SettingRow(
                         icon: Icons.calendar_today_rounded,
                         color: const Color(0xFF64D2FF),
                         title: context.t('Calendar', 'पात्रो'),
@@ -166,75 +167,92 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 24),
                 _SectionHeader(
-                  title: context.t('App Permissions', 'एप अनुमतिहरू'),
+                  title: context.t(
+                    'Permissions & Notifications',
+                    'अनुमति र सूचना',
+                  ),
                 ),
                 const SizedBox(height: 8),
-                const AppPermissionsCard(),
-                const SizedBox(height: 24),
-                _SectionHeader(title: context.t('Notifications', 'सूचनाहरू')),
-                const SizedBox(height: 8),
-                const _NotificationSettingsCard(),
+                // One card: what the app may use on this phone, then what it
+                // may notify about. Every row is the same tile with a switch
+                // at the end, so the icons, the text and the switches line
+                // up down the card and with the cards around it.
+                const GlassCard(
+                  child: Column(
+                    children: <Widget>[
+                      AppPermissionRows(),
+                      _NotificationRows(),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 24),
                 _SectionHeader(title: context.t('Security', 'सुरक्षा')),
                 const SizedBox(height: 8),
-                // The app lock guards this phone, whoever is using it. The
-                // rest belongs to an account; a guest has none to secure.
-                const AppLockCard(),
-                const SizedBox(height: 24),
-                if (!auth.isGuest) ...<Widget>[
-                  _SecurityCard(
-                    more: <Widget>[
-                      _SettingTile(
-                        icon: Icons.verified_user_rounded,
-                        color: const Color(0xFF30D158),
-                        title: context.t(
-                          'Two-factor sign-in',
-                          'दुई-चरण प्रमाणीकरण',
-                        ),
-                        subtitle: auth.hasMfaEnabled
-                            ? context.t(
-                                'On: a code is asked at sign-in',
-                                'खुला: साइन इनमा कोड मागिन्छ',
-                              )
-                            : context.t(
-                                'Off: protect your account with an authenticator app',
-                                'बन्द: प्रमाणक एपले खाता सुरक्षित गर्नुहोस्',
+                // One card here too. The app lock guards this phone, whoever
+                // is using it; the rows under it belong to an account, and a
+                // guest has none to secure.
+                GlassCard(
+                  child: Column(
+                    children: <Widget>[
+                      const AppLockRow(),
+                      if (!auth.isGuest) ...<Widget>[
+                        const Divider(height: 1),
+                        _SecurityRows(
+                          more: <Widget>[
+                            SettingRow(
+                              icon: Icons.verified_user_rounded,
+                              color: const Color(0xFF30D158),
+                              title: context.t(
+                                'Two-factor sign-in',
+                                'दुई-चरण प्रमाणीकरण',
                               ),
-                        trailing: Switch(
-                          value: auth.hasMfaEnabled,
-                          onChanged: _togglingTwoFactor
-                              ? null
-                              : (value) => _toggleTwoFactor(auth, value),
+                              subtitle: auth.hasMfaEnabled
+                                  ? context.t(
+                                      'On: a code is asked at sign-in',
+                                      'खुला: साइन इनमा कोड मागिन्छ',
+                                    )
+                                  : context.t(
+                                      'Off: protect your account with an authenticator app',
+                                      'बन्द: प्रमाणक एपले खाता सुरक्षित गर्नुहोस्',
+                                    ),
+                              trailing: Switch(
+                                value: auth.hasMfaEnabled,
+                                onChanged: _togglingTwoFactor
+                                    ? null
+                                    : (value) => _toggleTwoFactor(auth, value),
+                              ),
+                              onTap: () =>
+                                  _open(context, const TwoFactorAuthScreen()),
+                            ),
+                            const Divider(height: 1),
+                            SettingRow(
+                              icon: Icons.password_rounded,
+                              color: const Color(0xFF0A84FF),
+                              title: context.t(
+                                'Change password',
+                                'पासवर्ड परिवर्तन गर्नुहोस्',
+                              ),
+                              subtitle: context.t(
+                                'Update your account password',
+                                'तपाईंको खाता पासवर्ड अद्यावधिक गर्नुहोस्',
+                              ),
+                              onTap: () =>
+                                  _open(context, const ChangePasswordScreen()),
+                            ),
+                          ],
                         ),
-                        onTap: () =>
-                            _open(context, const TwoFactorAuthScreen()),
-                      ),
-                      const Divider(height: 1),
-                      _SettingTile(
-                        icon: Icons.password_rounded,
-                        color: const Color(0xFF0A84FF),
-                        title: context.t(
-                          'Change password',
-                          'पासवर्ड परिवर्तन गर्नुहोस्',
-                        ),
-                        subtitle: context.t(
-                          'Update your account password',
-                          'तपाईंको खाता पासवर्ड अद्यावधिक गर्नुहोस्',
-                        ),
-                        onTap: () =>
-                            _open(context, const ChangePasswordScreen()),
-                      ),
+                      ],
                     ],
                   ),
-                  const SizedBox(height: 24),
-                ],
+                ),
+                const SizedBox(height: 24),
                 // Backup, Help and About live on the More page.
                 _SectionHeader(title: context.t('Privacy', 'गोपनीयता')),
                 const SizedBox(height: 8),
                 GlassCard(
                   child: Column(
                     children: <Widget>[
-                      _SettingTile(
+                      SettingRow(
                         icon: Icons.privacy_tip_rounded,
                         color: const Color(0xFF8E8E93),
                         title: context.t('Privacy Policy', 'गोपनीयता नीति'),
@@ -254,7 +272,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 GlassCard(
                   child: Column(
                     children: <Widget>[
-                      _SettingTile(
+                      SettingRow(
                         icon: Icons.delete_forever_rounded,
                         color: glass.danger,
                         title: context.t(
@@ -626,218 +644,98 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _SettingTile extends StatelessWidget {
-  const _SettingTile({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    this.trailing,
-    this.enabled = true,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-  final Widget? trailing;
-
-  /// False greys the row out and stops it answering a tap.
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final glass = context.glass;
-    // A Material of its own: the card paints a background, and without one
-    // the row's tap highlight would be drawn underneath it.
-    return Material(
-      type: MaterialType.transparency,
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        title: Text(title, style: theme.textTheme.titleMedium),
-        subtitle: Text(
-          subtitle,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: glass.textSecondary,
-          ),
-        ),
-        trailing:
-            trailing ??
-            Icon(Icons.chevron_right_rounded, color: glass.textTertiary),
-        enabled: enabled,
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      ),
-    );
-  }
-}
-
-/// Biometric sign-in, "remember me" and sign-out for the local account.
-/// Notifications: the OS permission, and whether the AI is allowed to send
-/// anything at all.
+/// What Kharcha may notify about: the switches that go under the
+/// permissions, in the same card.
 ///
-/// The two are separate switches on purpose. The permission is what Android
-/// enforces, and once denied there is no way back except system settings. The AI
-/// switch is a server-side preference the daily job reads, so it can be turned
-/// off and on again freely, and turning it off never leaves the device
-/// unregistered.
-class _NotificationSettingsCard extends StatefulWidget {
-  const _NotificationSettingsCard();
+/// These are preferences the server reads, separate from Android's own
+/// permission in the row above them, so they can be turned off and on again
+/// freely. With no notifications on this build there is nothing to choose.
+class _NotificationRows extends StatelessWidget {
+  const _NotificationRows();
 
-  @override
-  State<_NotificationSettingsCard> createState() =>
-      _NotificationSettingsCardState();
-}
-
-class _NotificationSettingsCardState extends State<_NotificationSettingsCard> {
   Future<void> _toggleAiContent(
+    BuildContext context,
     AppSettingsProvider settings,
     NotificationPrefs prefs,
     bool value,
   ) async {
-    await settings.updateNotificationPrefs(prefs.copyWith(aiContent: value));
-    if (!mounted) return;
-    showMessage(
-      context,
-      value
-          ? 'Flamey will notify you about important things only.'
-          : 'Flamey’s notifications are off.',
+    final on = context.t(
+      'Flamey will notify you about important things only.',
+      'Flamey ले महत्त्वपूर्ण कुराको मात्र सूचना दिनेछ।',
     );
+    final off = context.t(
+      'Flamey’s notifications are off.',
+      'Flamey का सूचना बन्द छन्।',
+    );
+    await settings.updateNotificationPrefs(prefs.copyWith(aiContent: value));
+    if (!context.mounted) return;
+    showMessage(context, value ? on : off);
   }
 
   @override
   Widget build(BuildContext context) {
     final push = context.watch<PushProvider>();
+    if (!push.isReady) return const SizedBox.shrink();
     final settings = context.watch<AppSettingsProvider>();
     final prefs = settings.settings.notifications;
-    final theme = Theme.of(context);
-    final glass = context.glass;
 
-    if (!push.isReady) {
-      return GlassCard(
-        child: ListTile(
-          leading: const Icon(Icons.notifications_off_rounded, size: 22),
-          title: Text(
-            context.t('Notifications', 'सूचनाहरू'),
-            style: theme.textTheme.titleMedium,
+    return Column(
+      children: <Widget>[
+        const Divider(height: 1),
+        SettingSwitchRow(
+          key: const ValueKey<String>('notify-flamey'),
+          icon: Icons.auto_awesome_rounded,
+          color: const Color(0xFF5E5CE6),
+          title: context.t(
+            'Flamey’s insights & alerts',
+            'Flamey का सुझाव र चेतावनी',
           ),
-          subtitle: Text(
-            push.error ??
-                context.t(
-                  'Not available on this build.',
-                  'यो संस्करणमा उपलब्ध छैन।',
-                ),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: glass.textSecondary,
-            ),
+          subtitle: context.t(
+            'Only genuinely important things, at most about once a day',
+            'मात्र महत्त्वपूर्ण कुरा, दिनमा बढीमा एक पटक',
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          value: prefs.aiContent,
+          // The AI job is server-side, so the switch works either way; it
+          // simply has nothing to send if the phone is blocking everything.
+          onChanged: (value) =>
+              _toggleAiContent(context, settings, prefs, value),
         ),
-      );
-    }
-
-    return GlassCard(
-      child: Column(
-        children: <Widget>[
-          SwitchListTile(
-            value: prefs.aiContent,
-            // The AI job is server-side, so the switch works either way; it
-            // simply has nothing to send if the OS is blocking everything.
-            onChanged: (value) => _toggleAiContent(settings, prefs, value),
-            secondary: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF5E5CE6).withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.auto_awesome_rounded,
-                color: Color(0xFF5E5CE6),
-                size: 22,
-              ),
-            ),
-            title: Text(
-              context.t(
-                'Flamey’s insights & alerts',
-                'Flamey का सुझाव र चेतावनी',
-              ),
-              style: theme.textTheme.titleMedium,
-            ),
-            subtitle: Text(
-              context.t(
-                'Only genuinely important things, at most about once a day',
-                'मात्र महत्त्वपूर्ण कुरा, दिनमा बढीमा एक पटक',
-              ),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: glass.textSecondary,
-              ),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        const Divider(height: 1),
+        SettingSwitchRow(
+          key: const ValueKey<String>('notify-daily'),
+          icon: Icons.wb_twilight_rounded,
+          color: const Color(0xFFFF9F0A),
+          title: context.t('Daily greetings', 'दैनिक शुभकामना'),
+          subtitle: context.t(
+            'Good morning at 6, good night at 10, and a few tips from '
+                'Flamey in between',
+            'बिहान ६ बजे शुभ प्रभात, राति १० बजे शुभ रात्रि, र बीचमा केही '
+                'AI सुझाव',
           ),
-          const Divider(height: 1),
-          SwitchListTile(
-            value: prefs.dailyBuddy,
-            onChanged: (value) => settings.updateNotificationPrefs(
-              prefs.copyWith(dailyBuddy: value),
-            ),
-            secondary: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF9F0A).withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.wb_twilight_rounded,
-                color: Color(0xFFFF9F0A),
-                size: 22,
-              ),
-            ),
-            title: Text(
-              context.t('Daily greetings', 'दैनिक शुभकामना'),
-              style: theme.textTheme.titleMedium,
-            ),
-            subtitle: Text(
-              context.t(
-                'Good morning at 6, good night at 10, and a few tips from Flamey in between',
-                'बिहान ६ बजे शुभ प्रभात, राति १० बजे शुभ रात्रि, र बीचमा केही AI सुझाव',
-              ),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: glass.textSecondary,
-              ),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          value: prefs.dailyBuddy,
+          onChanged: (value) => settings.updateNotificationPrefs(
+            prefs.copyWith(dailyBuddy: value),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _SecurityCard extends StatefulWidget {
-  const _SecurityCard({this.more = const <Widget>[]});
+/// Biometric sign-in and "remember me" for the account on this phone, as
+/// rows for the Security card, with the account's own rows after them.
+class _SecurityRows extends StatefulWidget {
+  const _SecurityRows({this.more = const <Widget>[]});
 
   /// The account's own security rows (two-factor, password), shown in the
   /// same card under this phone's.
   final List<Widget> more;
 
   @override
-  State<_SecurityCard> createState() => _SecurityCardState();
+  State<_SecurityRows> createState() => _SecurityRowsState();
 }
 
-class _SecurityCardState extends State<_SecurityCard> {
+class _SecurityRowsState extends State<_SecurityRows> {
   BiometricCapability _capability = BiometricCapability.none;
   bool _biometricEnabled = false;
   bool _rememberMe = true;
@@ -1006,60 +904,58 @@ class _SecurityCardState extends State<_SecurityCard> {
     final glass = context.glass;
 
     final biometricOn = _capability.available && !_busy;
-    // One card, and every row the same tile: the same icon box, the same
-    // text sizes and the same place for the switch or the arrow.
-    return GlassCard(
-      child: Column(
-        children: <Widget>[
-          _SettingTile(
-            icon: _capability.kind.icon,
-            color: const Color(0xFF5E5CE6),
-            title: _capability.available
-                ? '${_capability.kind.label} sign-in'
-                : 'Biometric sign-in',
-            subtitle: _capability.available
-                ? 'Unlock with ${_capability.kind.label.toLowerCase()} instead of a password'
-                : 'No fingerprint or face enrolled on this device',
-            enabled: biometricOn,
-            trailing: Switch(
-              value: _biometricEnabled,
-              onChanged: biometricOn ? _toggleBiometric : null,
-            ),
-            onTap: () => _toggleBiometric(!_biometricEnabled),
+    // Every row the same tile: the same icon box, the same text sizes and
+    // the same place for the switch or the arrow. The card is the page's.
+    return Column(
+      children: <Widget>[
+        SettingRow(
+          icon: _capability.kind.icon,
+          color: const Color(0xFF5E5CE6),
+          title: _capability.available
+              ? '${_capability.kind.label} sign-in'
+              : 'Biometric sign-in',
+          subtitle: _capability.available
+              ? 'Unlock with ${_capability.kind.label.toLowerCase()} instead of a password'
+              : 'No fingerprint or face enrolled on this device',
+          enabled: biometricOn,
+          trailing: Switch(
+            value: _biometricEnabled,
+            onChanged: biometricOn ? _toggleBiometric : null,
           ),
-          const Divider(height: 1),
-          _SettingTile(
-            icon: Icons.person_pin_circle_rounded,
-            color: const Color(0xFFFF9F0A),
-            title: 'Remember me',
-            subtitle: 'Keep me signed in on this device',
-            enabled: !_busy,
-            trailing: Switch(
-              value: _rememberMe,
-              onChanged: _busy ? null : _toggleRememberMe,
-            ),
-            onTap: () => _toggleRememberMe(!_rememberMe),
+          onTap: () => _toggleBiometric(!_biometricEnabled),
+        ),
+        const Divider(height: 1),
+        SettingRow(
+          icon: Icons.person_pin_circle_rounded,
+          color: const Color(0xFFFF9F0A),
+          title: 'Remember me',
+          subtitle: 'Keep me signed in on this device',
+          enabled: !_busy,
+          trailing: Switch(
+            value: _rememberMe,
+            onChanged: _busy ? null : _toggleRememberMe,
           ),
-          // One line above each row; the rows are handed over with lines of
-          // their own between them, which are left out.
-          for (final row in widget.more)
-            if (row is! Divider) ...<Widget>[const Divider(height: 1), row],
-          SizedBox(
-            height: 4,
-            child: _busy ? const LinearProgressIndicator(minHeight: 2) : null,
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-            child: Text(
-              'Passwords are stored in the device keystore, never in app data.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: glass.textTertiary,
-                height: 1.3,
-              ),
+          onTap: () => _toggleRememberMe(!_rememberMe),
+        ),
+        // One line above each row; the rows are handed over with lines of
+        // their own between them, which are left out.
+        for (final row in widget.more)
+          if (row is! Divider) ...<Widget>[const Divider(height: 1), row],
+        SizedBox(
+          height: 4,
+          child: _busy ? const LinearProgressIndicator(minHeight: 2) : null,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          child: Text(
+            'Passwords are stored in the device keystore, never in app data.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: glass.textTertiary,
+              height: 1.3,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
