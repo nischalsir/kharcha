@@ -46,7 +46,11 @@ class _TransactionRow extends StatelessWidget {
     final theme = Theme.of(context);
     final glass = context.glass;
     final isIncome = item.type == TransactionType.income;
-    final color = isIncome ? glass.success : glass.danger;
+    final isTransfer = item.type == TransactionType.transfer;
+    // A transfer is neither good nor bad news, so it gets no colour.
+    final color = isTransfer
+        ? glass.textSecondary
+        : (isIncome ? glass.success : glass.danger);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
@@ -59,7 +63,9 @@ class _TransactionRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              isIncome ? Icons.south_west : Icons.north_east,
+              isTransfer
+                  ? Icons.swap_horiz_rounded
+                  : (isIncome ? Icons.south_west : Icons.north_east),
               size: 18,
               color: color,
             ),
@@ -74,9 +80,10 @@ class _TransactionRow extends StatelessWidget {
             ),
           ),
           Text(
-            '${isIncome ? '+' : '-'}${CurrencyFormatter.format(item.amount)}',
+            '${isTransfer ? '' : (isIncome ? '+' : '-')}'
+            '${CurrencyFormatter.format(item.amount)}',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: color,
+              color: isTransfer ? null : color,
               fontWeight: FontWeight.w700,
             ),
           ),

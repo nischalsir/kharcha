@@ -13,7 +13,8 @@ import '../auth/guest_upgrade_screen.dart';
 
 /// Everything that does not have its own tab, in three groups:
 ///
-///   * **Plan & track** - budgets, reports and the calendar: looking at money;
+///   * **Plan & track** - budgets, savings goals, wallets, reports and the
+///     calendar: looking at money;
 ///   * **Tools** - importing a statement and the calculator: doing something;
 ///   * **App** - settings, backup, help and about: the app itself.
 ///
@@ -101,10 +102,32 @@ class MoreScreen extends StatelessWidget {
                 color: const Color(0xFF30D158),
                 title: context.t('Budgets', 'बजेटहरू'),
                 subtitle: context.t(
-                  'Monthly limits by category',
-                  'श्रेणी अनुसार मासिक सीमा',
+                  'Limits by month, category and festival',
+                  'महिना, श्रेणी र चाडपर्व अनुसार सीमा',
                 ),
                 onTap: () => open(RoutePaths.budgets),
+              ),
+              _Row(
+                key: const ValueKey<String>('more-goals'),
+                icon: Icons.savings_rounded,
+                color: const Color(0xFFFF375F),
+                title: context.t('Savings goals', 'बचत लक्ष्यहरू'),
+                subtitle: context.t(
+                  'Put money aside and track it',
+                  'पैसा छुट्याउनुहोस् र हिसाब राख्नुहोस्',
+                ),
+                onTap: () => open(RoutePaths.goals),
+              ),
+              _Row(
+                key: const ValueKey<String>('more-wallets'),
+                icon: Icons.account_balance_rounded,
+                color: const Color(0xFF64D2FF),
+                title: context.t('Wallets', 'वालेटहरू'),
+                subtitle: context.t(
+                  'Cash, bank, eSewa and Khalti balances',
+                  'नगद, बैंक, eSewa र Khalti को ब्यालेन्स',
+                ),
+                onTap: () => open(RoutePaths.wallets),
               ),
               _Row(
                 key: const ValueKey<String>('more-reports'),

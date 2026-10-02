@@ -95,6 +95,22 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/update_paths" />
         </provider>
+        <!--
+            The home-screen widget: today's spending and an Add button.
+            Exported because it is the launcher, another app, that asks it
+            to draw; it accepts nothing but Android's own widget update.
+        -->
+        <receiver
+            android:name=".KharchaWidgetProvider"
+            android:exported="true"
+            android:label="@string/app_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/kharcha_widget_info" />
+        </receiver>
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
             android:exported="false" />

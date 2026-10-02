@@ -157,6 +157,52 @@ class FriendRepository {
     );
   }
 
+  /// Records a bill the user paid for a group: each friend in [shares] now
+  /// owes their part. One credit per friend, all with the same [title].
+  Future<List<FriendCredit>> splitBill({
+    required String title,
+    required Map<String, double> shares,
+    String? notes,
+    DateTime? dueDate,
+  }) async {
+    if (title.trim().isEmpty) {
+      throw const AppFailure(FailureKind.invalidData, 'Title is required.');
+    }
+    if (shares.isEmpty) {
+      throw const AppFailure(
+        FailureKind.invalidData,
+        'Choose at least one friend.',
+      );
+    }
+    // Checked for every friend before anything is written, so a bill is
+    // split for everyone or for no one.
+    for (final entry in shares.entries) {
+      if (friendById(entry.key) == null) {
+        throw const AppFailure(FailureKind.invalidData, 'Friend not found.');
+      }
+      if (entry.value <= 0) {
+        throw const AppFailure(
+          FailureKind.invalidData,
+          'The bill is too small to split between this many people.',
+        );
+      }
+    }
+    final created = <FriendCredit>[];
+    for (final entry in shares.entries) {
+      created.add(
+        await createCredit(
+          friendId: entry.key,
+          direction: FriendCreditDirection.theyOwe,
+          title: title,
+          amount: entry.value,
+          notes: notes,
+          dueDate: dueDate,
+        ),
+      );
+    }
+    return created;
+  }
+
   Future<void> deleteCredit(String id) async {
     final credit = creditById(id);
     if (credit == null) return;

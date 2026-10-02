@@ -39,6 +39,12 @@ class RoutePaths {
   static const String pasalPaymentHistory = '/pasal/payment/history';
 
   static const String budgets = '/budgets';
+
+  /// Savings goals: money being put aside towards something.
+  static const String goals = '/goals';
+
+  /// Wallets: what each payment method holds, and transfers between them.
+  static const String wallets = '/wallets';
   static const String reports = '/reports';
   static const String calculator = '/calculator';
   static const String festivals = '/festivals';
@@ -82,6 +88,8 @@ class RoutePaths {
     pasalCreditHistory,
     pasalPaymentHistory,
     budgets,
+    goals,
+    wallets,
     reports,
     calculator,
     festivals,

@@ -50,6 +50,7 @@ class TransactionModel {
     this.notes,
     this.attachmentPath,
     this.recurringId,
+    this.transferTo,
     this.deletedAt,
   });
 
@@ -64,6 +65,10 @@ class TransactionModel {
   final String? notes;
   final String? attachmentPath;
   final String? recurringId;
+
+  /// For a transfer: the wallet the money moved to. [paymentMethod] is the
+  /// wallet it left. Null for an expense or an income.
+  final PaymentMethod? transferTo;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -71,6 +76,8 @@ class TransactionModel {
   bool get isExpense => type == TransactionType.expense;
 
   bool get isIncome => type == TransactionType.income;
+
+  bool get isTransfer => type == TransactionType.transfer;
 
   bool get isCompleted => status == TransactionStatus.completed;
 
@@ -88,6 +95,9 @@ class TransactionModel {
       notes: jsonString(json['notes']),
       attachmentPath: jsonString(json['attachment_path']),
       recurringId: jsonString(json['recurring_id']),
+      transferTo: jsonString(json['transfer_to']) == null
+          ? null
+          : PaymentMethod.fromCode(json['transfer_to'] as String?),
       createdAt: jsonDateTime(json['created_at']) ?? now,
       updatedAt: jsonDateTime(json['updated_at']) ?? now,
       deletedAt: jsonDateTime(json['deleted_at']),
@@ -107,6 +117,7 @@ class TransactionModel {
       'notes': notes,
       'attachment_path': attachmentPath,
       'recurring_id': recurringId,
+      'transfer_to': transferTo?.code,
       'created_at': jsonTimestamp(createdAt),
       'updated_at': jsonTimestamp(updatedAt),
       'deleted_at': deletedAt == null ? null : jsonTimestamp(deletedAt!),
@@ -125,6 +136,7 @@ class TransactionModel {
     String? Function()? notes,
     String? Function()? attachmentPath,
     String? Function()? recurringId,
+    PaymentMethod? Function()? transferTo,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? Function()? deletedAt,
@@ -143,6 +155,7 @@ class TransactionModel {
           ? attachmentPath()
           : this.attachmentPath,
       recurringId: recurringId != null ? recurringId() : this.recurringId,
+      transferTo: transferTo != null ? transferTo() : this.transferTo,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt != null ? deletedAt() : this.deletedAt,

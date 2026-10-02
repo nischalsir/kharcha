@@ -19,6 +19,7 @@ import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/page_refresh.dart';
 import '../../services/flamey_controller.dart';
+import 'festival_budgets_section.dart';
 
 class BudgetsScreen extends StatelessWidget {
   const BudgetsScreen({super.key});
@@ -200,6 +201,10 @@ class BudgetsScreen extends StatelessWidget {
                     ),
                   ),
                 ],
+                const SizedBox(height: 28),
+                // Not tied to the month being looked at: a festival budget
+                // runs over its own days.
+                const FestivalBudgetsSection(),
               ],
             ),
           ),
@@ -309,29 +314,34 @@ class _BudgetProgress extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         // A wrap, not a row: with large amounts or a narrow phone the "left"
-        // figure drops to its own line instead of overflowing.
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          spacing: 8,
-          runSpacing: 2,
-          children: <Widget>[
-            Text(
-              '${CurrencyFormatter.format(progress.spent)} / '
-              '${CurrencyFormatter.format(progress.budget.amount)}',
-              style: theme.textTheme.bodyMedium,
-            ),
-            Text(
-              over
-                  ? '${context.t('Over by', 'बढी')} '
-                        '${CurrencyFormatter.format(progress.remaining.abs())}'
-                  : '${CurrencyFormatter.format(progress.remaining)} '
-                        '${context.t('left', 'बाँकी')}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: over ? glass.danger : glass.textSecondary,
-                fontWeight: FontWeight.w600,
+        // figure drops to its own line instead of overflowing. Full width, so
+        // the two figures sit at opposite ends like on the festival cards.
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 2,
+            children: <Widget>[
+              Text(
+                '${CurrencyFormatter.format(progress.spent)} / '
+                '${CurrencyFormatter.format(progress.budget.amount)}',
+                style: theme.textTheme.bodyMedium,
               ),
-            ),
-          ],
+              Text(
+                over
+                    ? '${context.t('Over by', 'बढी')} '
+                          '${CurrencyFormatter.format(progress.remaining.abs())}'
+                    : '${CurrencyFormatter.format(progress.remaining)} '
+                          '${context.t('left', 'बाँकी')}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: over ? glass.danger : glass.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
         if (perDay != null) ...<Widget>[
           const SizedBox(height: 6),

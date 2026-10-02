@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Home-screen widget. The texts are only what the widget shows before the
+      app has sent it anything; after that the app supplies them in the
+      language chosen in Settings.
+    -->
+    <string name="app_widget_name">Kharcha</string>
+    <string name="app_widget_description">Today\'s spending and a quick way to add an expense</string>
+    <string name="app_widget_today">Spent today</string>
+    <string name="app_widget_open">Open Kharcha</string>
+    <string name="app_widget_add">+ Add</string>
+    <color name="widget_background">#F2FFFFFF</color>
+    <color name="widget_text">#1C1C1E</color>
+    <color name="widget_text_secondary">#6C6C70</color>
+</resources>

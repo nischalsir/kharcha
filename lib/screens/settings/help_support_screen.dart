@@ -96,6 +96,51 @@ class HelpSupportScreen extends StatelessWidget {
         ),
       ),
       (
+        context.t(
+          'Why is a wallet balance wrong or below zero?',
+          'वालेटको ब्यालेन्स किन गलत वा शून्यभन्दा कम छ?',
+        ),
+        context.t(
+          'A wallet starts at zero and follows the income, expenses and '
+              'transfers recorded against it, so it only knows what you have '
+              'entered. Open More → Wallets, tap the wallet and type what is '
+              'really in it now. Your transactions are not changed.',
+          'वालेट शून्यबाट सुरु हुन्छ र यसमा लेखिएको आम्दानी, खर्च र सारेको '
+              'रकम अनुसार चल्छ, त्यसैले यसले तपाईंले लेखेको मात्र जान्दछ। '
+              'थप → वालेटहरूमा गएर वालेट थिच्नुहोस् र अहिले साँच्चै भएको रकम '
+              'लेख्नुहोस्। तपाईंका कारोबार बदलिँदैनन्।',
+        ),
+      ),
+      (
+        context.t(
+          'How do I put Kharcha on my home screen?',
+          'खर्चालाई होम स्क्रिनमा कसरी राख्ने?',
+        ),
+        context.t(
+          'Press and hold an empty spot on your home screen, choose '
+              'Widgets and pick Kharcha. It shows what you spent today and '
+              'this month, and its Add button opens a new expense.',
+          'होम स्क्रिनको खाली ठाउँमा थिचिराख्नुहोस्, Widgets छानेर खर्चा '
+              'रोज्नुहोस्। यसले आज र यस महिनाको खर्च देखाउँछ, र Add बटनले नयाँ '
+              'खर्च खोल्छ।',
+        ),
+      ),
+      (
+        context.t(
+          'Where are my receipt photos kept?',
+          'रसिदका फोटो कहाँ राखिन्छन्?',
+        ),
+        context.t(
+          'In your own private folder in the cloud, so only your account '
+              'can open them. Attaching one needs internet; if it cannot be '
+              'uploaded the transaction is still saved, and you can add the '
+              'photo later by tapping the transaction.',
+          'क्लाउडमा तपाईंको आफ्नै निजी फोल्डरमा, त्यसैले तपाईंको खाताले मात्र '
+              'खोल्न सक्छ। फोटो जोड्न इन्टरनेट चाहिन्छ; अपलोड हुन नसके पनि '
+              'कारोबार सुरक्षित हुन्छ, र पछि कारोबार थिचेर फोटो थप्न सकिन्छ।',
+        ),
+      ),
+      (
         context.t('How does Flamey work?', 'Flamey ले कसरी काम गर्छ?'),
         context.t(
           'Suggestions arrive on their own: in the morning (yesterday), at '

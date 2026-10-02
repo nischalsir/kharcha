@@ -24,6 +24,7 @@ class DashboardData {
   const DashboardData({
     required this.totalIncome,
     required this.totalExpense,
+    required this.todayExpense,
     required this.totalBalance,
     required this.netSavings,
     required this.monthlyBudget,
@@ -39,6 +40,9 @@ class DashboardData {
 
   final double totalIncome;
   final double totalExpense;
+
+  /// Spent since midnight, for the home-screen widget.
+  final double todayExpense;
   final double totalBalance;
   final double netSavings;
   final double monthlyBudget;
@@ -117,6 +121,10 @@ class DashboardProvider extends ChangeNotifier with CacheAware {
     final all = _transactions.all();
     var income = 0.0;
     var expense = 0.0;
+    var todayExpense = 0.0;
+    final now = DateTime.now();
+    final dayStart = DateTime(now.year, now.month, now.day);
+    final dayEnd = DateTime(now.year, now.month, now.day + 1);
     var allTimeIncome = 0.0;
     var allTimeExpense = 0.0;
     final categoryTotals = <String?, double>{};
@@ -129,6 +137,10 @@ class DashboardProvider extends ChangeNotifier with CacheAware {
         }
       } else if (item.type == TransactionType.expense) {
         allTimeExpense += item.amount;
+        if (!item.occurredAt.isBefore(dayStart) &&
+            item.occurredAt.isBefore(dayEnd)) {
+          todayExpense += item.amount;
+        }
         if (!item.occurredAt.isBefore(range.start) &&
             item.occurredAt.isBefore(range.endExclusive)) {
           expense += item.amount;
@@ -171,6 +183,7 @@ class DashboardProvider extends ChangeNotifier with CacheAware {
     return DashboardData(
       totalIncome: income,
       totalExpense: expense,
+      todayExpense: todayExpense,
       totalBalance: allTimeIncome - allTimeExpense,
       netSavings: income - expense,
       monthlyBudget: monthlyBudget,

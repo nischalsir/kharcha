@@ -179,6 +179,26 @@ class FriendProvider extends ChangeNotifier with CacheAware {
     );
   }
 
+  /// Splits a bill the user paid: each friend in [shares] owes their part.
+  Future<bool> splitBill({
+    required String title,
+    required Map<String, double> shares,
+    String? notes,
+    DateTime? dueDate,
+  }) {
+    return _guarded(
+      () => _repository.splitBill(
+        title: title,
+        shares: shares,
+        notes: notes,
+        dueDate: dueDate,
+      ),
+    );
+  }
+
+  /// Every friend, whatever is typed in the search box.
+  List<Friend> get allFriends => _friends;
+
   Future<bool> updateCredit(FriendCredit credit) {
     return _guarded(() => _repository.saveCredit(credit));
   }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/id_generator.dart';
 import '../../models/payment_method.dart';
 import '../../models/recurring_payment_model.dart';
 import '../../models/transaction_model.dart';
@@ -10,12 +11,16 @@ import '../../providers/ai_insight_provider.dart';
 import '../../providers/recurring_payment_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../services/nepali_date_service.dart';
+import '../../services/receipt_store.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_button.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/receipt_field.dart';
+import '../../widgets/pasal/pasal_item_image.dart';
+import 'transaction_filter_sheet.dart';
 
 import 'package:flutter/services.dart';
 
@@ -51,6 +56,12 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   void dispose() {
     _search.dispose();
     super.dispose();
+  }
+
+  /// Back to every transaction: the filters, the type chip and the search.
+  void _clearFilters() {
+    _search.clear();
+    context.read<TransactionProvider>().clearFilters();
   }
 
   void _add() {
@@ -117,6 +128,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     final glass = context.glass;
     final items = provider.visible;
     final type = provider.filter.type;
+    final filterCount = provider.activeFilterCount;
 
     Widget chip(String label, TransactionType? value) {
       return Padding(
@@ -153,13 +165,30 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         ),
       ),
       const SizedBox(height: 16),
-      TextField(
-        controller: _search,
-        onChanged: provider.setSearch,
-        decoration: const InputDecoration(
-          hintText: 'Search transactions',
-          prefixIcon: Icon(Icons.search_rounded),
-        ),
+      Row(
+        children: <Widget>[
+          Expanded(
+            child: TextField(
+              controller: _search,
+              onChanged: provider.setSearch,
+              decoration: const InputDecoration(
+                hintText: 'Search transactions',
+                prefixIcon: Icon(Icons.search_rounded),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Badge(
+            isLabelVisible: filterCount > 0,
+            label: Text('$filterCount'),
+            child: IconButton.filledTonal(
+              key: const ValueKey<String>('payments-filter'),
+              tooltip: 'Filter',
+              onPressed: () => showTransactionFilterSheet(context),
+              icon: const Icon(Icons.tune_rounded),
+            ),
+          ),
+        ],
       ),
       const SizedBox(height: 12),
       SizedBox(
@@ -170,11 +199,48 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             chip('All', null),
             chip('Expense', TransactionType.expense),
             chip('Income', TransactionType.income),
+            chip('Transfer', TransactionType.transfer),
           ],
         ),
       ),
+      if (filterCount > 0)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  '${provider.totalMatching} found with '
+                  '$filterCount filter${filterCount == 1 ? '' : 's'}',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: glass.textSecondary,
+                  ),
+                ),
+              ),
+              TextButton(
+                key: const ValueKey<String>('payments-clear-filters'),
+                onPressed: _clearFilters,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: const Text('Clear filters'),
+              ),
+            ],
+          ),
+        ),
       const SizedBox(height: 12),
-      if (items.isEmpty)
+      if (items.isEmpty && provider.isFiltered)
+        SizedBox(
+          height: 300,
+          child: EmptyState(
+            icon: Icons.search_off_rounded,
+            title: 'Nothing matches',
+            message: 'No transaction fits this search and these filters.',
+            actionLabel: 'Clear filters',
+            onAction: _clearFilters,
+          ),
+        )
+      else if (items.isEmpty)
         SizedBox(
           height: 300,
           child: EmptyState(
@@ -293,10 +359,16 @@ class _TransactionTile extends StatelessWidget {
     final glass = context.glass;
     final theme = Theme.of(context);
     final income = item.isIncome;
-    final tint = income ? glass.success : glass.danger;
+    final transfer = item.isTransfer;
+    // A transfer is neither good nor bad news, so it gets no colour.
+    final tint = transfer
+        ? glass.textSecondary
+        : (income ? glass.success : glass.danger);
     final pending = item.status == TransactionStatus.pending
         ? ' • Pending'
         : '';
+    // The title of a transfer already names both wallets.
+    final method = transfer ? 'Transfer' : item.paymentMethod.label;
     return GlassCard(
       onTap: () => showGlassSheet<void>(
         context: context,
@@ -313,9 +385,11 @@ class _TransactionTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              income
-                  ? Icons.arrow_downward_rounded
-                  : Icons.arrow_upward_rounded,
+              transfer
+                  ? Icons.swap_horiz_rounded
+                  : (income
+                        ? Icons.arrow_downward_rounded
+                        : Icons.arrow_upward_rounded),
               color: tint,
               size: 20,
             ),
@@ -332,18 +406,30 @@ class _TransactionTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  '${item.paymentMethod.label} • ${formatDate(item.occurredAt)}$pending',
+                  '$method • ${formatDate(item.occurredAt)}$pending',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: glass.textSecondary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
+          if (item.attachmentPath != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Icon(
+                Icons.attach_file_rounded,
+                size: 16,
+                color: glass.textSecondary,
+              ),
+            ),
           Text(
-            '${income ? '+' : '-'}${CurrencyFormatter.format(item.amount)}',
+            '${transfer ? '' : (income ? '+' : '-')}'
+            '${CurrencyFormatter.format(item.amount)}',
             style: theme.textTheme.titleSmall?.copyWith(
-              color: tint,
+              color: transfer ? null : tint,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -353,18 +439,57 @@ class _TransactionTile extends StatelessWidget {
   }
 }
 
-class _TransactionActions extends StatelessWidget {
+class _TransactionActions extends StatefulWidget {
   const _TransactionActions({required this.id});
 
   final String id;
 
   @override
+  State<_TransactionActions> createState() => _TransactionActionsState();
+}
+
+class _TransactionActionsState extends State<_TransactionActions> {
+  bool _uploading = false;
+
+  String get id => widget.id;
+
+  /// Attaches a receipt to a transaction that was saved without one, or
+  /// replaces the one it has.
+  Future<void> _attachReceipt() async {
+    final provider = context.read<TransactionProvider>();
+    final bytes = await pickReceiptImage(context);
+    if (bytes == null || !mounted) return;
+    setState(() => _uploading = true);
+    final path = await uploadReceipt(bytes, id);
+    if (!mounted) return;
+    if (path == null) {
+      setState(() => _uploading = false);
+      showMessage(
+        context,
+        'The receipt could not be uploaded. Check your connection and try '
+        'again.',
+      );
+      return;
+    }
+    await provider.setAttachment(id, path);
+    if (mounted) setState(() => _uploading = false);
+  }
+
+  Future<void> _removeReceipt(String path) async {
+    final provider = context.read<TransactionProvider>();
+    final ok = await provider.setAttachment(id, null);
+    // Only once the transaction no longer points at it.
+    if (ok) await const ReceiptStore().remove(path);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final glass = context.glass;
-    final provider = context.read<TransactionProvider>();
+    final provider = context.watch<TransactionProvider>();
     final item = provider.byId(id);
     if (item == null) return const SizedBox.shrink();
     final theme = Theme.of(context);
+    final receipt = item.attachmentPath;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -386,6 +511,62 @@ class _TransactionActions extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 16),
+        if (receipt != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Center(
+              child: GestureDetector(
+                key: const ValueKey<String>('transaction-receipt'),
+                onTap: () => showReceipt(context, receipt),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: PasalItemImage(
+                    path: receipt,
+                    size: 120,
+                    fallback: Container(
+                      width: 120,
+                      height: 120,
+                      color: glass.fill,
+                      child: Icon(
+                        Icons.receipt_long_outlined,
+                        color: glass.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (_uploading)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              ),
+            ),
+          )
+        else if (!item.isTransfer) ...<Widget>[
+          if (receipt != null)
+            ActionTile(
+              icon: Icons.open_in_full_rounded,
+              label: 'View receipt',
+              onTap: () => showReceipt(context, receipt),
+            ),
+          ActionTile(
+            icon: Icons.add_a_photo_outlined,
+            label: receipt == null ? 'Add receipt' : 'Replace receipt',
+            onTap: _attachReceipt,
+          ),
+          if (receipt != null)
+            ActionTile(
+              icon: Icons.hide_image_outlined,
+              label: 'Remove receipt',
+              onTap: () => _removeReceipt(receipt),
+            ),
+        ],
         ActionTile(
           icon: Icons.copy_rounded,
           label: 'Duplicate',
@@ -401,6 +582,8 @@ class _TransactionActions extends StatelessWidget {
           onTap: () {
             Navigator.pop(context);
             provider.delete(id);
+            // The picture goes with the transaction it was taken for.
+            if (receipt != null) const ReceiptStore().remove(receipt);
           },
         ),
       ],
@@ -422,6 +605,7 @@ class _TransactionFormState extends State<_TransactionForm> {
   TransactionType _type = TransactionType.expense;
   PaymentMethod _method = PaymentMethod.cash;
   DateTime _date = DateTime.now();
+  Uint8List? _receipt;
   bool _saving = false;
 
   @override
@@ -446,13 +630,22 @@ class _TransactionFormState extends State<_TransactionForm> {
     setState(() => _saving = true);
     final provider = context.read<TransactionProvider>();
     final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    // The id is chosen here so the receipt can be stored under it first.
+    final id = newId();
+    final receipt = _receipt;
+    final receiptPath = receipt == null
+        ? null
+        : await uploadReceipt(receipt, id);
     final ok = await provider.create(
+      id: id,
       title: title,
       amount: amount,
       type: _type,
       occurredAt: _date,
       paymentMethod: _method,
       notes: blankToNull(_notes.text),
+      attachmentPath: receiptPath,
     );
     if (!mounted) return;
     if (ok) {
@@ -461,6 +654,11 @@ class _TransactionFormState extends State<_TransactionForm> {
         amount: amount,
       );
       navigator.pop();
+      if (receipt != null && receiptPath == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text(receiptNotUploadedMessage)),
+        );
+      }
     } else {
       setState(() => _saving = false);
       showMessage(context, provider.errorMessage ?? 'Could not save');
@@ -516,6 +714,11 @@ class _TransactionFormState extends State<_TransactionForm> {
         TextField(
           controller: _notes,
           decoration: const InputDecoration(hintText: 'Notes'),
+        ),
+        const FieldLabel('Receipt (optional)'),
+        ReceiptField(
+          value: _receipt,
+          onChanged: (bytes) => setState(() => _receipt = bytes),
         ),
         const SizedBox(height: 20),
         PrimaryButton(label: 'Save', onPressed: _save, isLoading: _saving),

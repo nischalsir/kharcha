@@ -16,6 +16,10 @@ import java.util.concurrent.Executors
 class MainActivity : FlutterFragmentActivity() {
 
     private var incomingChannel: MethodChannel? = null
+    private var widgetChannel: MethodChannel? = null
+
+    /** What the home-screen widget asked for, until Dart has asked for it. */
+    private var widgetAction: String? = null
 
     /** The intent this activity was opened with, until Dart has asked for it. */
     private var launchIntent: Intent? = null
@@ -52,7 +56,10 @@ class MainActivity : FlutterFragmentActivity() {
         // Reopening the app from Recents replays the old intent too.
         val replayed =
             (intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
-        if (savedInstanceState == null && !replayed) launchIntent = intent
+        if (savedInstanceState == null && !replayed) {
+            launchIntent = intent
+            widgetAction = widgetActionOf(intent)
+        }
         super.onCreate(savedInstanceState)
     }
 
@@ -157,6 +164,40 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
+        // The home-screen widget: the app sends it its figures, and it sends
+        // back the tap on its Add button.
+        widgetChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            HOME_WIDGET_CHANNEL,
+        ).also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "update" -> {
+                        val values = call.arguments as? Map<*, *>
+                        if (values == null) {
+                            result.error("bad_args", "Expected a map.", null)
+                        } else {
+                            KharchaWidget.save(applicationContext, values)
+                            result.success(null)
+                        }
+                    }
+
+                    "clear" -> {
+                        KharchaWidget.clear(applicationContext)
+                        result.success(null)
+                    }
+
+                    "takeInitialAction" -> {
+                        val pending = widgetAction
+                        widgetAction = null
+                        result.success(pending)
+                    }
+
+                    else -> result.notImplemented()
+                }
+            }
+        }
+
         // A statement shared into the app from a bank app or a file manager.
         incomingChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -191,6 +232,13 @@ class MainActivity : FlutterFragmentActivity() {
     // The app is already open (singleTop) and something else was shared in.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        val action = widgetActionOf(intent)
+        if (action != null) {
+            val widget = widgetChannel
+            // The engine is not up yet: keep it for `takeInitialAction`.
+            if (widget == null) widgetAction = action else widget.invokeMethod("action", action)
+            return
+        }
         val uri = IncomingFiles.uriOf(intent) ?: return
         val channel = incomingChannel
         if (channel == null) {
@@ -209,6 +257,10 @@ class MainActivity : FlutterFragmentActivity() {
         super.onDestroy()
     }
 
+    /** The widget action an intent carries, by the name Dart knows it by. */
+    private fun widgetActionOf(intent: Intent?): String? =
+        if (intent?.action == KharchaWidget.ACTION_ADD_EXPENSE) "add_expense" else null
+
     private companion object {
         const val NOTIFICATION_SETTINGS_CHANNEL =
             "com.nischalpandey.kharcha/notification_settings"
@@ -220,5 +272,7 @@ class MainActivity : FlutterFragmentActivity() {
             "com.nischalpandey.kharcha/app_update"
         const val CONTACTS_CHANNEL =
             "com.nischalpandey.kharcha/contacts"
+        const val HOME_WIDGET_CHANNEL =
+            "com.nischalpandey.kharcha/home_widget"
     }
 }

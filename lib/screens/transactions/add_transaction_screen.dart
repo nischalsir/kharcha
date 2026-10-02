@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/utils/id_generator.dart';
 import '../../models/category_model.dart';
 import '../../models/payment_method.dart';
 import '../../models/transaction_model.dart';
@@ -9,6 +10,7 @@ import '../../providers/app_settings_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/receipt_field.dart';
 import 'package:flutter/services.dart';
 
 /// Records a single expense or income.
@@ -42,6 +44,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   PaymentMethod _method = PaymentMethod.cash;
   String? _categoryId;
   DateTime _date = DateTime.now();
+  Uint8List? _receipt;
   bool _saving = false;
 
   @override
@@ -84,6 +87,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     setState(() => _saving = true);
     final provider = context.read<TransactionProvider>();
     final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     final amount = parseAmount(_amount.text)!;
     String? categoryName;
     final categories = _categoriesFor(_type);
@@ -94,7 +98,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         break;
       }
     }
+    // The id is chosen here so the receipt can be stored under it first.
+    final id = newId();
+    final receipt = _receipt;
+    final receiptPath = receipt == null
+        ? null
+        : await uploadReceipt(receipt, id);
     final ok = await provider.create(
+      id: id,
+      attachmentPath: receiptPath,
       title: _title.text.trim(),
       amount: amount,
       type: _type,
@@ -113,6 +125,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         categoryName: categoryName,
       );
       navigator.pop(true);
+      if (receipt != null && receiptPath == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text(receiptNotUploadedMessage)),
+        );
+      }
       return;
     }
     setState(() => _saving = false);
@@ -192,6 +209,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 controller: _notes,
                 maxLines: 3,
                 decoration: const InputDecoration(hintText: 'Notes'),
+              ),
+              const FieldLabel('Receipt (optional)'),
+              ReceiptField(
+                value: _receipt,
+                onChanged: (bytes) => setState(() => _receipt = bytes),
               ),
               const SizedBox(height: 28),
               PrimaryButton(

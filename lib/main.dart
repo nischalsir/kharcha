@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/config/env.dart';
 import 'core/router/route_paths.dart';
 import 'core/theme/app_theme.dart';
+import 'core/utils/currency_formatter.dart';
 import 'models/push_message.dart';
 import 'models/sync_models.dart';
 import 'models/transaction_model.dart';
@@ -18,14 +19,17 @@ import 'providers/app_settings_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/budget_provider.dart';
 import 'providers/dashboard_provider.dart';
+import 'providers/festival_budget_provider.dart';
 import 'providers/festival_provider.dart';
 import 'providers/friend_provider.dart';
 import 'providers/pasal_provider.dart';
 import 'providers/push_provider.dart';
 import 'providers/recurring_payment_provider.dart';
 import 'providers/report_provider.dart';
+import 'providers/savings_goal_provider.dart';
 import 'providers/transaction_provider.dart';
 import 'providers/update_provider.dart';
+import 'providers/wallet_provider.dart';
 import 'screens/auth/introduction_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/mfa_challenge_screen.dart';
@@ -35,6 +39,7 @@ import 'screens/calculator/calculator_screen.dart';
 import 'screens/festivals/festivals_screen.dart';
 import 'screens/friends/friend_detail_screen.dart';
 import 'screens/friends/friends_screen.dart';
+import 'screens/goals/goals_screen.dart';
 import 'screens/pasal/add_pasal_credit_screen.dart';
 import 'screens/pasal/add_pasal_screen.dart';
 import 'screens/pasal/pasal_credit_history_screen.dart';
@@ -50,6 +55,7 @@ import 'screens/settings/profile_edit_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/settings/version_screen.dart';
 import 'screens/transactions/add_transaction_screen.dart';
+import 'screens/wallets/wallets_screen.dart';
 import 'services/root_shell.dart';
 import 'services/biometric_service.dart';
 import 'services/cache_service.dart';
@@ -58,6 +64,7 @@ import 'services/app_images.dart';
 import 'services/flamey_controller.dart';
 import 'services/google_account.dart';
 import 'services/google_drive_backup_service.dart';
+import 'services/home_widget_service.dart';
 import 'services/incoming_file_service.dart';
 import 'services/image_preload.dart';
 import 'services/nepali_date_service.dart';
@@ -140,6 +147,15 @@ class KharchaApp extends StatelessWidget {
         ChangeNotifierProvider<FestivalProvider>(
           create: (_) => AppProviders.festivals(env),
         ),
+        ChangeNotifierProvider<SavingsGoalProvider>(
+          create: (_) => AppProviders.savingsGoals(env),
+        ),
+        ChangeNotifierProvider<WalletProvider>(
+          create: (_) => AppProviders.wallets(env),
+        ),
+        ChangeNotifierProvider<FestivalBudgetProvider>(
+          create: (_) => AppProviders.festivalBudgets(env),
+        ),
         ChangeNotifierProvider<DashboardProvider>(
           create: (_) => AppProviders.dashboard(env),
         ),
@@ -153,6 +169,10 @@ class KharchaApp extends StatelessWidget {
         ),
         Provider<IncomingFileService>(
           create: (_) => IncomingFileService(),
+          dispose: (_, service) => service.dispose(),
+        ),
+        Provider<HomeWidgetService>(
+          create: (_) => HomeWidgetService(),
           dispose: (_, service) => service.dispose(),
         ),
         ChangeNotifierProvider<AiInsightProvider>(
@@ -244,6 +264,8 @@ class KharchaApp extends StatelessWidget {
     RoutePaths.pasalPaymentHistory =>
       id == null ? null : PasalPaymentHistoryScreen(pasalId: id),
     RoutePaths.budgets => const BudgetsScreen(),
+    RoutePaths.goals => const GoalsScreen(),
+    RoutePaths.wallets => const WalletsScreen(),
     RoutePaths.reports => const ReportsScreen(),
     RoutePaths.calculator => const CalculatorScreen(),
     RoutePaths.festivals => const FestivalsScreen(),
@@ -310,6 +332,17 @@ class _AuthWrapperState extends State<_AuthWrapper>
   IncomingFile? _pendingFile;
   StreamSubscription<IncomingFile>? _incomingSub;
 
+  /// The home-screen widget, the figures it shows and the settings that
+  /// decide how they are written.
+  HomeWidgetService? _homeWidget;
+  DashboardProvider? _dashboard;
+  AppSettingsProvider? _settings;
+  StreamSubscription<String>? _widgetSub;
+
+  /// The page the widget's button asked for, waiting like [_pendingFile] for
+  /// an account to be signed in and ready.
+  String? _pendingShortcut;
+
   /// When the app last went to the background, to greet a return.
   DateTime? _leftAt;
 
@@ -335,6 +368,7 @@ class _AuthWrapperState extends State<_AuthWrapper>
     _installPushWiring(auth);
     _installUpdateCheck(auth);
     _installIncomingFiles();
+    _installHomeWidget(auth);
     // After the first frame, so fetching pictures never delays the app
     // appearing.
     WidgetsBinding.instance.addPostFrameCallback((_) => _preloadImages());
@@ -386,6 +420,78 @@ class _AuthWrapperState extends State<_AuthWrapper>
         ),
       );
     });
+  }
+
+  /// Keeps the home-screen widget showing this account's spending, and
+  /// listens for its Add button.
+  void _installHomeWidget(AuthProvider auth) {
+    final service = context.read<HomeWidgetService>();
+    _homeWidget = service;
+    _widgetSub = service.actions.listen(_receiveWidgetAction);
+    service.takeInitialAction().then((action) {
+      if (action != null) _receiveWidgetAction(action);
+    });
+    _dashboard = context.read<DashboardProvider>()
+      ..addListener(_syncHomeWidget);
+    // The currency and the language are part of what the widget shows.
+    _settings = context.read<AppSettingsProvider>()
+      ..addListener(_syncHomeWidget);
+    auth.addListener(_syncHomeWidget);
+  }
+
+  void _receiveWidgetAction(String action) {
+    if (!mounted || action != HomeWidgetService.addExpenseAction) return;
+    _pendingShortcut = RoutePaths.addExpense;
+    _openPendingShortcut();
+  }
+
+  /// Opens the page the widget asked for, under the same conditions as a
+  /// shared statement: only for a signed-in account whose data is on screen.
+  void _openPendingShortcut() {
+    final route = _pendingShortcut;
+    final auth = _auth;
+    if (route == null || auth == null || !mounted) return;
+    if (!auth.isAuthenticated || auth.mfaPending) return;
+    if (_readyUserId != auth.userId) return;
+    _pendingShortcut = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) navigator.popUntil((route) => route.isFirst);
+      navigator.pushNamed(route);
+    });
+  }
+
+  /// Sends the widget what it should show now. Nothing of an account is put
+  /// on the home screen until that account is the one the app is showing,
+  /// and it is taken off again when it signs out.
+  void _syncHomeWidget() {
+    final auth = _auth;
+    final service = _homeWidget;
+    final dashboard = _dashboard;
+    if (!mounted || auth == null || service == null || dashboard == null) {
+      return;
+    }
+    if (!auth.isAuthenticated) {
+      if (!auth.isInitializing) unawaited(service.clear());
+      return;
+    }
+    if (auth.mfaPending || _readyUserId != auth.userId) return;
+    final nepali = context.read<NepaliDateService>().devanagari;
+    final data = dashboard.data;
+    final month = CurrencyFormatter.format(data.totalExpense);
+    unawaited(
+      service.update(
+        HomeWidgetData(
+          day: HomeWidgetData.dayOf(DateTime.now()),
+          today: CurrencyFormatter.format(data.todayExpense),
+          zero: CurrencyFormatter.format(0),
+          month: nepali ? 'यो महिना · $month' : 'This month · $month',
+          label: nepali ? 'आजको खर्च' : 'Spent today',
+          add: nepali ? '+ थप्नुहोस्' : '+ Add',
+        ),
+      ),
+    );
   }
 
   /// Fetches the app's pictures into its on-disk cache, so the pages that
@@ -581,6 +687,8 @@ class _AuthWrapperState extends State<_AuthWrapper>
         _scheduleUpdateOffer();
         _preloadImages();
         _openPendingFile();
+        _openPendingShortcut();
+        _syncHomeWidget();
       }
     }
   }
@@ -629,6 +737,10 @@ class _AuthWrapperState extends State<_AuthWrapper>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _incomingSub?.cancel();
+    _widgetSub?.cancel();
+    _dashboard?.removeListener(_syncHomeWidget);
+    _settings?.removeListener(_syncHomeWidget);
+    _auth?.removeListener(_syncHomeWidget);
     final auth = _auth;
     final listener = _registrationListener;
     if (auth != null && listener != null) auth.removeListener(listener);
@@ -655,6 +767,10 @@ class _AuthWrapperState extends State<_AuthWrapper>
       }
       context.read<AiInsightProvider>().onAppResumed();
       _openPendingFile();
+      _openPendingShortcut();
+      // A new day may have begun while the app was away: "today" is worked
+      // out again, which also puts the widget right.
+      _dashboard?.refreshFromCache();
       return;
     }
     // "Remember me" off means the session must not survive leaving the app, so

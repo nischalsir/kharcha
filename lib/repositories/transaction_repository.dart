@@ -145,6 +145,20 @@ class TransactionRepository extends CachedRepository<TransactionModel> {
         'Amount must be greater than zero.',
       );
     }
+    if (item.isTransfer) {
+      final to = item.transferTo;
+      if (to == null || to == item.paymentMethod) {
+        throw const AppFailure(
+          FailureKind.invalidData,
+          'Choose two different wallets.',
+        );
+      }
+    } else if (item.transferTo != null) {
+      throw const AppFailure(
+        FailureKind.invalidData,
+        'Only a transfer moves money to another wallet.',
+      );
+    }
   }
 
   Future<TransactionModel> save(TransactionModel item) async {
@@ -168,6 +182,7 @@ class TransactionRepository extends CachedRepository<TransactionModel> {
     String? notes,
     String? attachmentPath,
     String? recurringId,
+    PaymentMethod? transferTo,
     String? id,
   }) {
     final now = DateTime.now();
@@ -186,6 +201,7 @@ class TransactionRepository extends CachedRepository<TransactionModel> {
         notes: notes,
         attachmentPath: attachmentPath,
         recurringId: recurringId,
+        transferTo: transferTo,
         createdAt: now,
         updatedAt: now,
       ),
@@ -214,10 +230,31 @@ class TransactionRepository extends CachedRepository<TransactionModel> {
         paymentMethod: item.paymentMethod,
         occurredAt: now,
         notes: item.notes,
-        attachmentPath: item.attachmentPath,
+        // The receipt belongs to the original; a copy starts without one.
+        transferTo: item.transferTo,
         createdAt: now,
         updatedAt: now,
       ),
+    );
+  }
+
+  /// Moves [amount] from one wallet to another. Recorded as one transaction,
+  /// so it shows in the history without counting as spending or income.
+  Future<TransactionModel> createTransfer({
+    required PaymentMethod from,
+    required PaymentMethod to,
+    required double amount,
+    required DateTime occurredAt,
+    String? notes,
+  }) {
+    return create(
+      title: '${from.label} to ${to.label}',
+      amount: amount,
+      type: TransactionType.transfer,
+      occurredAt: occurredAt,
+      paymentMethod: from,
+      transferTo: to,
+      notes: notes,
     );
   }
 }

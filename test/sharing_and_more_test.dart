@@ -488,6 +488,8 @@ void main() {
       for (final key in <String>[
         'more-account',
         'more-budgets',
+        'more-goals',
+        'more-wallets',
         'more-reports',
         'more-calendar',
         'more-import',
@@ -510,6 +512,8 @@ void main() {
       expect(opened, <String>[
         RoutePaths.profile,
         RoutePaths.budgets,
+        RoutePaths.goals,
+        RoutePaths.wallets,
         RoutePaths.reports,
         RoutePaths.festivals,
         RoutePaths.statementImport,

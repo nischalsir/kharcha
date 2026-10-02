@@ -128,6 +128,31 @@ class TransactionProvider extends ChangeNotifier with CacheAware {
     notifyListeners();
   }
 
+  /// Replaces every filter at once, as chosen on the filter sheet. The search
+  /// text is typed on the page itself, so it is kept.
+  void applyFilter(TransactionFilter filter) {
+    _filter = filter.copyWith(query: _filter.query);
+    _resetPaging();
+    notifyListeners();
+  }
+
+  /// How many filters besides the search text and the type chips are on.
+  int get activeFilterCount {
+    var count = 0;
+    if (_filter.categoryId != null) count++;
+    if (_filter.paymentMethod != null) count++;
+    if (_filter.from != null || _filter.toExclusive != null) count++;
+    if (_filter.minAmount != null || _filter.maxAmount != null) count++;
+    if (_filter.sort != TransactionSort.dateDesc) count++;
+    return count;
+  }
+
+  /// Whether anything at all is narrowing the list.
+  bool get isFiltered =>
+      activeFilterCount > 0 ||
+      _filter.type != null ||
+      _filter.query.trim().isNotEmpty;
+
   void clearFilters() {
     _filter = const TransactionFilter();
     _resetPaging();
@@ -172,6 +197,13 @@ class TransactionProvider extends ChangeNotifier with CacheAware {
         attachmentPath: attachmentPath,
       ),
     );
+  }
+
+  /// Sets or removes the receipt picture of a saved transaction.
+  Future<bool> setAttachment(String id, String? path) {
+    final item = _repository.byId(id);
+    if (item == null) return Future<bool>.value(false);
+    return update(item.copyWith(attachmentPath: () => path));
   }
 
   /// Whether a transaction with this id is already saved.

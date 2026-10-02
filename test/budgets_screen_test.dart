@@ -5,11 +5,14 @@ import 'package:kharcha_app/core/theme/app_theme.dart';
 import 'package:kharcha_app/models/sync_models.dart';
 import 'package:kharcha_app/providers/app_settings_provider.dart';
 import 'package:kharcha_app/providers/budget_provider.dart';
+import 'package:kharcha_app/providers/festival_budget_provider.dart';
 import 'package:kharcha_app/repositories/budget_repository.dart';
+import 'package:kharcha_app/repositories/festival_budget_repository.dart';
 import 'package:kharcha_app/repositories/settings_repository.dart';
 import 'package:kharcha_app/repositories/transaction_repository.dart';
 import 'package:kharcha_app/screens/budgets/budgets_screen.dart';
 import 'package:kharcha_app/services/cache_service.dart';
+import 'package:kharcha_app/services/festival_service.dart';
 import 'package:kharcha_app/services/nepali_date_service.dart';
 import 'package:kharcha_app/services/supabase_service.dart';
 import 'package:kharcha_app/services/sync_service.dart';
@@ -60,6 +63,13 @@ void main() {
       transactions: transactions,
       dates: dates,
     );
+    final festivalBudgets = FestivalBudgetProvider(
+      cache: cache,
+      repository: FestivalBudgetRepository(cache, sync),
+      transactions: transactions,
+      festivals: FestivalService(dates),
+      dates: dates,
+    );
     final settings = AppSettingsProvider(
       cache: cache,
       sync: sync,
@@ -72,6 +82,9 @@ void main() {
         providers: [
           Provider<NepaliDateService>.value(value: dates),
           ChangeNotifierProvider<BudgetProvider>.value(value: budgets),
+          ChangeNotifierProvider<FestivalBudgetProvider>.value(
+            value: festivalBudgets,
+          ),
           ChangeNotifierProvider<AppSettingsProvider>.value(value: settings),
         ],
         child: MaterialApp(

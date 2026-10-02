@@ -13,6 +13,7 @@ import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
 import '../../widgets/common/primary_button.dart';
 import 'friend_detail_screen.dart';
+import 'split_bill_sheet.dart';
 
 import 'package:flutter/services.dart';
 
@@ -65,6 +66,13 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   child: Text('Friends', style: theme.textTheme.headlineMedium),
                 ),
                 IconButton(
+                  key: const ValueKey<String>('friends-split'),
+                  tooltip: 'Split a bill',
+                  onPressed: () => showSplitBillSheet(context),
+                  icon: const Icon(Icons.call_split_rounded, size: 26),
+                ),
+                IconButton(
+                  tooltip: 'Add friend',
                   onPressed: () => showAddFriendSheet(context),
                   icon: const Icon(Icons.person_add_alt_1_rounded, size: 28),
                 ),

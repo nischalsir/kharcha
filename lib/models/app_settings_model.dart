@@ -218,6 +218,7 @@ class AppSettings {
     this.aiEnabled = false,
     this.hasSeenIntroduction = false,
     this.profile = const UserProfile(),
+    this.walletBalances = const <String, double>{},
   });
 
   final String currency;
@@ -228,6 +229,10 @@ class AppSettings {
   final bool aiEnabled;
   final bool hasSeenIntroduction;
   final UserProfile profile;
+
+  /// What each wallet held before the first recorded transaction, by payment
+  /// method code. A wallet that is not listed started at zero.
+  final Map<String, double> walletBalances;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -240,6 +245,7 @@ class AppSettings {
     final now = DateTime.now();
     final notifications = json['notifications'];
     final profile = json['profile'];
+    final wallets = json['wallet_balances'];
     return AppSettings(
       currency: (json['currency'] as String?) ?? 'NPR',
       themeMode: AppThemeMode.fromCode(json['theme_mode'] as String?),
@@ -253,6 +259,11 @@ class AppSettings {
       profile: UserProfile.fromJson(
         profile is Map ? Map<String, dynamic>.from(profile) : null,
       ),
+      walletBalances: <String, double>{
+        if (wallets is Map)
+          for (final entry in wallets.entries)
+            '${entry.key}': jsonDouble(entry.value),
+      },
       createdAt: jsonDateTime(json['created_at']) ?? now,
       updatedAt: jsonDateTime(json['updated_at']) ?? now,
     );
@@ -269,6 +280,7 @@ class AppSettings {
       'ai_enabled': aiEnabled,
       'has_seen_introduction': hasSeenIntroduction,
       'profile': profile.toJson(),
+      'wallet_balances': walletBalances,
       'created_at': jsonTimestamp(createdAt),
       'updated_at': jsonTimestamp(updatedAt),
     };
@@ -283,6 +295,7 @@ class AppSettings {
     bool? aiEnabled,
     bool? hasSeenIntroduction,
     UserProfile? profile,
+    Map<String, double>? walletBalances,
     DateTime? updatedAt,
   }) {
     return AppSettings(
@@ -294,6 +307,7 @@ class AppSettings {
       aiEnabled: aiEnabled ?? this.aiEnabled,
       hasSeenIntroduction: hasSeenIntroduction ?? this.hasSeenIntroduction,
       profile: profile ?? this.profile,
+      walletBalances: walletBalances ?? this.walletBalances,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

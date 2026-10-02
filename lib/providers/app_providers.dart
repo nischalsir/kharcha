@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 
 import '../repositories/budget_repository.dart';
+import '../repositories/festival_budget_repository.dart';
 import '../repositories/friend_repository.dart';
 import '../repositories/pasal_repository.dart';
 import '../repositories/recurring_payment_repository.dart';
+import '../repositories/savings_goal_repository.dart';
 import '../repositories/settings_repository.dart';
 import '../repositories/transaction_repository.dart';
 import '../services/ai_insight_service.dart';
@@ -21,12 +23,15 @@ import 'ai_insight_provider.dart';
 import 'app_settings_provider.dart';
 import 'budget_provider.dart';
 import 'dashboard_provider.dart';
+import 'festival_budget_provider.dart';
 import 'festival_provider.dart';
 import 'friend_provider.dart';
 import 'pasal_provider.dart';
 import 'recurring_payment_provider.dart';
 import 'report_provider.dart';
+import 'savings_goal_provider.dart';
 import 'transaction_provider.dart';
+import 'wallet_provider.dart';
 
 @immutable
 class AppEnvironment {
@@ -41,6 +46,8 @@ class AppEnvironment {
     required this.recurringRepository,
     required this.pasalRepository,
     required this.festivalService,
+    required this.savingsGoalRepository,
+    required this.festivalBudgetRepository,
   });
 
   final CacheService cache;
@@ -53,6 +60,8 @@ class AppEnvironment {
   final RecurringPaymentRepository recurringRepository;
   final PasalRepository pasalRepository;
   final FestivalService festivalService;
+  final SavingsGoalRepository savingsGoalRepository;
+  final FestivalBudgetRepository festivalBudgetRepository;
 
   static Future<AppEnvironment> bootstrap() async {
     final cache = await CacheService.create();
@@ -76,6 +85,8 @@ class AppEnvironment {
       ),
       pasalRepository: PasalRepository(cache, sync),
       festivalService: FestivalService(dates),
+      savingsGoalRepository: SavingsGoalRepository(cache, sync),
+      festivalBudgetRepository: FestivalBudgetRepository(cache, sync),
     );
   }
 }
@@ -129,6 +140,31 @@ class AppProviders {
 
   static FestivalProvider festivals(AppEnvironment env) {
     return FestivalProvider(service: env.festivalService, dates: env.dates);
+  }
+
+  static SavingsGoalProvider savingsGoals(AppEnvironment env) {
+    return SavingsGoalProvider(
+      cache: env.cache,
+      repository: env.savingsGoalRepository,
+    );
+  }
+
+  static WalletProvider wallets(AppEnvironment env) {
+    return WalletProvider(
+      cache: env.cache,
+      settings: env.settingsRepository,
+      transactions: env.transactionRepository,
+    );
+  }
+
+  static FestivalBudgetProvider festivalBudgets(AppEnvironment env) {
+    return FestivalBudgetProvider(
+      cache: env.cache,
+      repository: env.festivalBudgetRepository,
+      transactions: env.transactionRepository,
+      festivals: env.festivalService,
+      dates: env.dates,
+    );
   }
 
   static DashboardProvider dashboard(AppEnvironment env) {

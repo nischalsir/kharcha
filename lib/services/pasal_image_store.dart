@@ -112,6 +112,9 @@ class PasalImageStore {
     }
   }
 
+  /// Forgets the cached URL of one path, after its file was replaced.
+  static void forget(String path) => _urls.remove(path);
+
   /// Forgets every cached URL. Called when a different account takes over.
   static void clearCache() => _urls.clear();
 }

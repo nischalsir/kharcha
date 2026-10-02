@@ -119,6 +119,19 @@ class SettingsRepository {
     return saved;
   }
 
+  /// Records what the wallet [method] held before its first transaction.
+  Future<AppSettings> setWalletOpening(PaymentMethod method, double amount) {
+    final current = settings();
+    return saveSettings(
+      current.copyWith(
+        walletBalances: <String, double>{
+          ...current.walletBalances,
+          method.code: amount,
+        },
+      ),
+    );
+  }
+
   Future<CategoryModel> saveCategory(CategoryModel category) async {
     final name = category.name.trim();
     if (name.isEmpty) {

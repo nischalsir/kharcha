@@ -23,7 +23,9 @@ enum SyncEntity {
   pasalPayments('pasal_payments'),
   recurringTransactions('recurring_transactions'),
   transactions('transactions'),
-  budgets('budgets');
+  budgets('budgets'),
+  savingsGoals('savings_goals'),
+  festivalBudgets('festival_budgets');
 
   const SyncEntity(this.table, {this.conflictColumn = 'id'});
 
