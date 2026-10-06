@@ -391,6 +391,14 @@ class CacheService {
     await _prefs.setString('$_cursorPrefix${entity.table}', value);
   }
 
+  /// Forgets how far every table has been fetched, so the next sync fetches
+  /// each from the start. The rows themselves are left alone.
+  Future<void> clearCursors() async {
+    for (final entity in SyncEntity.values) {
+      await _prefs.remove('$_cursorPrefix${entity.table}');
+    }
+  }
+
   DateTime? get lastSyncAt {
     final raw = _prefs.getString(_lastSyncKey);
     if (raw == null) return null;

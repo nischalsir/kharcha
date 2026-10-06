@@ -160,7 +160,9 @@ void main() {
       for (var i = 0; i < 20; i++) {
         remote.put(id(i), start.add(Duration(seconds: i)));
       }
-      // As an earlier version of the app left it: the newest change seen.
+      // A device that has already done its one catch-up fetch.
+      await cache.writeBoolSetting(SyncService.caughtUpKey, true);
+      // The newest change it has seen.
       await cache.setCursor(
         SyncEntity.transactions,
         start.add(const Duration(seconds: 9)).toIso8601String(),
@@ -242,6 +244,53 @@ void main() {
 
       expect(remote.rowsSent, 0);
       expect(remote.requests, 1, reason: 'one question, answered "nothing"');
+    });
+  });
+  group('a device an earlier version left short', () {
+    test('is filled in once, and not fetched again after that', () async {
+      for (var i = 0; i < 20; i++) {
+        remote.put(id(i), start.add(Duration(seconds: i)));
+      }
+      // As the older paging could leave it: holding rows 10 to 19 and a
+      // cursor at the newest, with rows 0 to 9 never fetched.
+      await cache.mergeRemoteRows(
+        SyncEntity.transactions,
+        <Map<String, dynamic>>[
+          for (var i = 10; i < 20; i++) remote.rows[id(i)]!,
+        ],
+      );
+      await cache.setCursor(
+        SyncEntity.transactions,
+        start.add(const Duration(seconds: 19)).toIso8601String(),
+      );
+      expect(onDevice(), hasLength(10));
+
+      await sync.refresh();
+
+      expect(onDevice(), hasLength(20));
+      expect(remote.rows.keys.toSet().difference(onDevice()), isEmpty);
+
+      remote
+        ..requests = 0
+        ..rowsSent = 0;
+      await sync.refresh();
+      expect(remote.rowsSent, 0, reason: 'the catch-up happens once');
+    });
+
+    test('a change waiting to be uploaded survives the catch-up', () async {
+      remote.put(id(1), start);
+      await sync.recordWrite(SyncEntity.transactions, <String, dynamic>{
+        ...remote.rows[id(1)]!,
+        'title': 'Edited on this phone',
+        'updated_at': start.add(const Duration(days: 1)).toIso8601String(),
+      });
+
+      await sync.refresh();
+
+      expect(
+        cache.row(SyncEntity.transactions, id(1))!['title'],
+        'Edited on this phone',
+      );
     });
   });
 }

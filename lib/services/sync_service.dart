@@ -503,7 +503,23 @@ class SyncService extends ChangeNotifier {
     }
   }
 
+  /// Set on a device once it has fetched everything afresh; see [_pull].
+  static const String caughtUpKey = 'sync.caught_up_v2';
+
   Future<void> _pull(int account) async {
+    // Once per device. Versions before this one could skip rows that share
+    // a server time when an account was fetched onto a device, and a device
+    // that skipped them is already past them. So every table is fetched
+    // from the start one time. Rows already held are simply found the
+    // same; nothing waiting to be uploaded is touched.
+    //
+    // Noted before the fetch, not after: from here the cursors themselves
+    // record how far it has got, so a fetch that is cut off carries on
+    // instead of starting over.
+    if (_cache.readBoolSetting(caughtUpKey) != true) {
+      await _cache.clearCursors();
+      await _cache.writeBoolSetting(caughtUpKey, true);
+    }
     for (final entity in SyncEntity.values) {
       if (entity.shared) {
         final rows = await _remote.fetchShared(entity);
