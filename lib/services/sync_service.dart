@@ -344,13 +344,22 @@ class SyncService extends ChangeNotifier {
     _schedulePush();
   }
 
+  /// Saves several rows of one table together.
+  ///
+  /// Saving a row puts its whole table, and the whole upload queue, back
+  /// into storage and tells every page to work its figures out again. Done
+  /// once per row, a 300-row statement did all of that 300 times, each time
+  /// with a longer table. Here it is done once for all of them.
   Future<void> recordWrites(
     SyncEntity entity,
     List<Map<String, dynamic>> rows,
   ) async {
-    for (final row in rows) {
-      await recordWrite(entity, row);
-    }
+    if (rows.isEmpty) return;
+    await _cache.putRows(entity, rows);
+    await _cache.enqueueAll(entity, rows);
+    _refreshCounts();
+    _notify();
+    _schedulePush();
   }
 
   void _schedulePush() {

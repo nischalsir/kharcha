@@ -316,6 +316,30 @@ class CacheService {
     await _persistPending();
   }
 
+  /// Queues several rows of one table for upload, writing the queue to
+  /// storage once for all of them. As [enqueue] for each: a row already
+  /// queued keeps its place and its upload carries the newest version.
+  Future<void> enqueueAll(
+    SyncEntity entity,
+    List<Map<String, dynamic>> rows,
+  ) async {
+    if (rows.isEmpty) return;
+    final now = DateTime.now();
+    for (final payload in rows) {
+      final recordId = entity.recordId(payload);
+      final key = '${entity.table}:$recordId';
+      final existing = _pending[key];
+      _pending[key] = PendingOperation(
+        entity: entity,
+        recordId: recordId,
+        payload: Map<String, dynamic>.from(payload),
+        createdAt: existing?.createdAt ?? now,
+        revision: (existing?.revision ?? 0) + 1,
+      );
+    }
+    await _persistPending();
+  }
+
   Future<void> completeOperation(PendingOperation op) async {
     final current = _pending[op.key];
     if (current == null || current.revision != op.revision) return;

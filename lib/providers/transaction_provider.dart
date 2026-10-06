@@ -228,6 +228,20 @@ class TransactionProvider extends ChangeNotifier with CacheAware {
     );
   }
 
+  /// Creates many transactions together, as an imported statement does.
+  /// Says, in order, whether each was saved.
+  Future<List<bool>> createMany(List<NewTransaction> drafts) async {
+    try {
+      final saved = await _repository.createMany(drafts);
+      _errorMessage = null;
+      return saved;
+    } catch (error) {
+      _errorMessage = AppFailure.from(error).message;
+      notifyListeners();
+      return List<bool>.filled(drafts.length, false);
+    }
+  }
+
   /// Sets or removes the receipt picture of a saved transaction.
   Future<bool> setAttachment(String id, String? path) {
     final item = _repository.byId(id);

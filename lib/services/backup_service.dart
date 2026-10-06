@@ -101,7 +101,7 @@ class BackupService {
     for (final entity in SyncEntity.personal) {
       final raw = tables[entity.table];
       if (raw is! List) continue;
-      var wroteAny = false;
+      final rows = <Map<String, dynamic>>[];
       for (final item in raw) {
         if (item is! Map) continue;
         final row = Map<String, dynamic>.from(item)
@@ -112,11 +112,14 @@ class BackupService {
           final id = row['id'];
           if (id is! String || id.isEmpty) continue;
         }
-        await sync.recordWrite(entity, row);
-        records++;
-        wroteAny = true;
+        rows.add(row);
       }
-      if (wroteAny) tableCount++;
+      if (rows.isEmpty) continue;
+      // A table at a time, not a row at a time: see
+      // [SyncService.recordWrites].
+      await sync.recordWrites(entity, rows);
+      records += rows.length;
+      tableCount++;
     }
     if (records == 0) {
       throw const AppFailure(

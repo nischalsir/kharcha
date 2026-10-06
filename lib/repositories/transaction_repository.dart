@@ -87,6 +87,16 @@ class TransactionFilter {
   }
 }
 
+/// One transaction to be created by [TransactionRepository.createMany].
+typedef NewTransaction = ({
+  String id,
+  String title,
+  double amount,
+  TransactionType type,
+  DateTime occurredAt,
+  PaymentMethod paymentMethod,
+});
+
 class TransactionRepository extends CachedRepository<TransactionModel> {
   TransactionRepository(super.cache, super.sync);
 
@@ -223,6 +233,42 @@ class TransactionRepository extends CachedRepository<TransactionModel> {
         updatedAt: now,
       ),
     );
+  }
+
+  /// Creates many transactions with one write to the store, as an imported
+  /// statement needs. Says, in order, whether each was saved: one that the
+  /// app's own rules refuse is left out, and the rest still go in.
+  Future<List<bool>> createMany(List<NewTransaction> drafts) async {
+    final now = DateTime.now();
+    final saved = <bool>[];
+    final valid = <TransactionModel>[];
+    for (final draft in drafts) {
+      final item = TransactionModel(
+        id: draft.id,
+        title: draft.title.trim(),
+        amount: draft.amount,
+        type: draft.type,
+        status: TransactionStatus.completed,
+        categoryId: null,
+        paymentMethod: draft.paymentMethod,
+        occurredAt: draft.occurredAt,
+        notes: null,
+        attachmentPath: null,
+        recurringId: null,
+        transferTo: null,
+        createdAt: now,
+        updatedAt: now,
+      );
+      try {
+        _validate(item);
+        valid.add(item);
+        saved.add(true);
+      } on AppFailure {
+        saved.add(false);
+      }
+    }
+    await writeAll(valid);
+    return saved;
   }
 
   Future<void> delete(String id) async {

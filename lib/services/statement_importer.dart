@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../repositories/transaction_repository.dart';
 import '../models/statement_entry.dart';
 import '../providers/transaction_provider.dart';
 import 'statement_import_service.dart';
@@ -64,23 +65,33 @@ class StatementImporter {
   Future<StatementImportOutcome> import(
     Iterable<StatementEntry> entries,
   ) async {
+    final chosen = <StatementEntry>[
+      for (final entry in entries)
+        if (entry.selected && !entry.alreadyImported) entry,
+    ];
+    // All of them in one write. One at a time, each row put the whole table
+    // back into storage again, so a long statement froze the page for
+    // longer with every row it added.
+    final saved = await _transactions.createMany(<NewTransaction>[
+      for (final entry in chosen)
+        (
+          // The same row always gets the same id, so it can only ever be one
+          // record however many times the statement is imported.
+          id: entry.importId,
+          title: entry.title,
+          amount: entry.amount,
+          type: entry.type,
+          occurredAt: entry.occurredAt,
+          paymentMethod: entry.paymentMethod,
+        ),
+    ]);
     var imported = 0;
     var failed = 0;
-    for (final entry in entries) {
-      if (!entry.selected || entry.alreadyImported) continue;
-      final ok = await _transactions.create(
-        // The same row always gets the same id, so it can only ever be one
-        // record however many times the statement is imported.
-        id: entry.importId,
-        title: entry.title,
-        amount: entry.amount,
-        type: entry.type,
-        occurredAt: entry.occurredAt,
-        paymentMethod: entry.paymentMethod,
-      );
-      if (ok) {
-        entry.alreadyImported = true;
-        entry.selected = false;
+    for (var index = 0; index < chosen.length; index++) {
+      if (saved[index]) {
+        chosen[index]
+          ..alreadyImported = true
+          ..selected = false;
         imported++;
       } else {
         failed++;
