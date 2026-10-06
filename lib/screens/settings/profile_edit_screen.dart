@@ -207,24 +207,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        DropdownButtonFormField<UserGender>(
-                          initialValue: _selectedGender,
-                          // Without this a long choice runs off the edge on a
-                          // narrow phone.
-                          isExpanded: true,
-                          borderRadius: BorderRadius.circular(12),
-                          dropdownColor: colorScheme.surfaceContainerHigh,
-                          decoration: buildInputDecoration(
-                            context,
-                            label: 'Gender',
-                            prefixIcon: Icons.transgender_rounded,
-                          ),
-                          items: UserGender.values.map((gender) {
-                            return DropdownMenuItem(
-                              value: gender,
-                              child: Text(_genderLabel(gender)),
-                            );
-                          }).toList(),
+                        GenderPicker(
+                          value: _selectedGender,
+                          label: _genderLabel,
                           onChanged: (value) {
                             setState(() => _selectedGender = value);
                           },
@@ -275,6 +260,144 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       case UserGender.preferNotToSay:
         return 'Prefer not to say';
     }
+  }
+}
+
+/// Gender as four pills to tap, in a box like the fields around it. There
+/// is no menu to open: every choice is in view, and the chosen one is filled.
+class GenderPicker extends StatelessWidget {
+  const GenderPicker({
+    super.key,
+    required this.value,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final UserGender? value;
+  final String Function(UserGender) label;
+  final ValueChanged<UserGender?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final glass = context.glass;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Icon(
+              Icons.transgender_rounded,
+              size: 20,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Gender',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: glass.textSecondary,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          key: const ValueKey<String>('gender-picker'),
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+          ),
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              for (final gender in UserGender.values)
+                _GenderPill(
+                  key: ValueKey<String>('gender-${gender.name}'),
+                  label: label(gender),
+                  selected: gender == value,
+                  onTap: () => onChanged(gender == value ? null : gender),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GenderPill extends StatelessWidget {
+  const _GenderPill({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(999),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: selected ? colorScheme.primary : colorScheme.surface,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: selected
+                    ? colorScheme.primary
+                    : colorScheme.outlineVariant,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                if (selected) ...<Widget>[
+                  Icon(
+                    Icons.check_rounded,
+                    size: 16,
+                    color: colorScheme.onPrimary,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: selected
+                          ? colorScheme.onPrimary
+                          : colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

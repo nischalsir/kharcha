@@ -78,6 +78,9 @@ class RoutePaths {
   /// What you have, what you owe, and the difference.
   static const String netWorth = '/net-worth';
 
+  /// Write a bill (rent, water, electricity) and make a PDF of it.
+  static const String billMaker = '/bills/make';
+
   static const String addExpense = '/transactions/expense/add';
   static const String addIncome = '/transactions/income/add';
 

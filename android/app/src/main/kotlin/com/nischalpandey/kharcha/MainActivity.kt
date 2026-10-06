@@ -1,6 +1,5 @@
 package com.nischalpandey.kharcha
 
-import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -77,17 +76,6 @@ class MainActivity : FlutterFragmentActivity() {
             // Null when the person backed out or nothing was heard.
             pending.success(heard)
         }
-    }
-
-    /** The Dart call waiting for the SMS permission dialog to close. */
-    private var smsPermissionResult: MethodChannel.Result? = null
-
-    private val smsPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        val pending = smsPermissionResult
-        smsPermissionResult = null
-        pending?.success(granted)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -275,50 +263,6 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
-        // Bank and wallet payment alerts among the phone's text messages.
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            SMS_CHANNEL,
-        ).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "hasPermission" -> result.success(SmsReader.hasPermission(this))
-
-                "requestPermission" -> {
-                    if (SmsReader.hasPermission(this)) {
-                        result.success(true)
-                    } else if (smsPermissionResult != null) {
-                        result.error("busy", "Already asking.", null)
-                    } else {
-                        smsPermissionResult = result
-                        smsPermission.launch(Manifest.permission.READ_SMS)
-                    }
-                }
-
-                // Where "Allow restricted settings" and the SMS permission
-                // are, for a phone that refused to ask.
-                "openAppSettings" -> {
-                    startActivity(
-                        Intent(
-                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.fromParts("package", packageName, null),
-                        ),
-                    )
-                    result.success(true)
-                }
-
-                "read" -> {
-                    val since = (call.argument<Number>("since") ?: 0).toLong()
-                    val limit = (call.argument<Number>("limit") ?: 500).toInt()
-                    copier.execute {
-                        val messages = SmsReader.read(applicationContext, since, limit)
-                        runOnUiThread { result.success(messages) }
-                    }
-                }
-
-                else -> result.notImplemented()
-            }
-        }
-
         // A statement shared into the app from a bank app or a file manager.
         incomingChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -391,8 +335,6 @@ class MainActivity : FlutterFragmentActivity() {
             "com.nischalpandey.kharcha/contacts"
         const val HOME_WIDGET_CHANNEL =
             "com.nischalpandey.kharcha/home_widget"
-        const val SMS_CHANNEL =
-            "com.nischalpandey.kharcha/sms"
         const val VOICE_CHANNEL =
             "com.nischalpandey.kharcha/voice"
     }

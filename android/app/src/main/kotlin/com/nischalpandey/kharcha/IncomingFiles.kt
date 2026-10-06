@@ -62,6 +62,13 @@ object IncomingFiles {
             null
         } ?: declaredType
 
+        // "Open with" can come from any app, naming any file:// path. One
+        // that points into this app's own storage is not a statement someone
+        // shared: it is this app's private data being fed back to it.
+        if (isOwnFile(context, uri)) {
+            return mapOf("error" to "unreadable", "name" to name, "mimeType" to mimeType)
+        }
+
         val folder = File(context.cacheDir, FOLDER)
         // Anything left from an earlier share that was never read.
         folder.listFiles()?.forEach { it.delete() }
@@ -102,6 +109,26 @@ object IncomingFiles {
     }
 
     private class TooLarge : IOException()
+
+    /** Whether a `file://` address resolves to somewhere inside this app's own data. */
+    private fun isOwnFile(context: Context, uri: Uri): Boolean {
+        if (uri.scheme != "file") return false
+        val path = uri.path ?: return true
+        return try {
+            val target = File(path).canonicalPath
+            listOfNotNull(
+                context.dataDir,
+                context.applicationInfo.dataDir?.let { File(it) },
+                context.externalCacheDir?.parentFile,
+            ).any { own ->
+                val root = own.canonicalPath
+                target == root || target.startsWith(root + File.separator)
+            }
+        } catch (_: IOException) {
+            // A path that cannot be resolved is not one to read.
+            true
+        }
+    }
 
     private fun displayName(context: Context, uri: Uri): String {
         if (uri.scheme == "content") {

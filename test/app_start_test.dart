@@ -64,6 +64,20 @@ void main() {
     expect(context.read<FlameyController>(), isNotNull);
     expect(context.read<IncomingFileService>(), isNotNull);
 
+    // Behind every page is the app theme's own colour, not Android's
+    // window, which follows the phone and not the theme picked in Settings.
+    Color background() => tester
+        .widget<ColoredBox>(
+          find.byKey(const ValueKey<String>('app-background')),
+        )
+        .color;
+    expect(background(), Colors.white);
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(background(), Colors.black);
+
     // Leave cleanly: no timer left running behind the app.
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));

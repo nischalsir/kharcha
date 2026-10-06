@@ -14,7 +14,6 @@ import '../screens/home/home_screen.dart';
 import '../screens/more/more_screen.dart';
 import '../screens/pasal/pasal_screen.dart';
 import '../screens/payments/payments_screen.dart';
-import '../screens/payments/sms_import_screen.dart';
 import 'flamey_controller.dart';
 
 class RootShell extends StatefulWidget {
@@ -38,21 +37,9 @@ class _RootShellState extends State<RootShell>
     AppNavRouteObserver.bind(_nav);
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkMessages();
       // Once after an update: what changed in this version.
       if (mounted) unawaited(maybeShowWhatsNew(context));
     });
-  }
-
-  /// Looks for payment alerts that arrived by text since the last look. Does
-  /// nothing unless that was switched on under More > Import from SMS.
-  void _checkMessages() {
-    if (mounted) unawaited(checkNewSmsPayments(context));
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _checkMessages();
   }
 
   /// Watches the keyboard through window metrics instead of

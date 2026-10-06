@@ -1,11 +1,10 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 
 import '../models/payment_method.dart';
 import '../models/statement_entry.dart';
 import '../models/transaction_model.dart';
 
-/// One received text message.
+/// One payment message, as it was pasted in.
 @immutable
 class SmsMessage {
   const SmsMessage({
@@ -22,72 +21,6 @@ class SmsMessage {
   final String sender;
   final String body;
   final DateTime date;
-
-  static SmsMessage? fromMap(Object? raw) {
-    if (raw is! Map) return null;
-    final body = raw['body'];
-    final date = raw['date'];
-    if (body is! String || date is! num) return null;
-    return SmsMessage(
-      id: (raw['id'] as num?)?.toInt() ?? 0,
-      sender: (raw['sender'] as String?) ?? '',
-      body: body,
-      date: DateTime.fromMillisecondsSinceEpoch(date.toInt()),
-    );
-  }
-}
-
-/// Reads the phone's text messages through the native side. Android only;
-/// everywhere else there is no permission and nothing to read.
-class SmsService {
-  SmsService({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel(channelName);
-
-  static const String channelName = 'com.nischalpandey.kharcha/sms';
-
-  final MethodChannel _channel;
-
-  Future<bool> hasPermission() => _flag('hasPermission');
-
-  /// Asks Android for permission to read messages. False when it is refused,
-  /// or when Android will not ask (see the screen's own advice for that).
-  Future<bool> requestPermission() => _flag('requestPermission');
-
-  Future<bool> _flag(String method) async {
-    try {
-      return await _channel.invokeMethod<bool>(method) ?? false;
-    } on MissingPluginException {
-      return false;
-    } catch (error) {
-      debugPrint('SMS: $method failed ($error)');
-      return false;
-    }
-  }
-
-  /// Opens Kharcha's page in the phone's settings, where the permission (and
-  /// on newer phones "Allow restricted settings") is given by hand.
-  Future<bool> openAppSettings() => _flag('openAppSettings');
-
-  /// Messages received after [since], newest first.
-  Future<List<SmsMessage>> read({
-    required DateTime since,
-    int limit = 1000,
-  }) async {
-    try {
-      final raw = await _channel.invokeMethod<List<Object?>>(
-        'read',
-        <String, Object>{'since': since.millisecondsSinceEpoch, 'limit': limit},
-      );
-      return <SmsMessage>[
-        for (final item in raw ?? const <Object?>[]) ?SmsMessage.fromMap(item),
-      ];
-    } on MissingPluginException {
-      return const <SmsMessage>[];
-    } catch (error) {
-      debugPrint('SMS: could not read messages ($error)');
-      return const <SmsMessage>[];
-    }
-  }
 }
 
 /// Picks the payment alerts out of text messages and reads each one into a
@@ -285,9 +218,8 @@ class SmsParser {
     );
   }
 
-  /// Messages typed or pasted in by hand, one per paragraph, for a phone
-  /// that will not let the app read them itself. Each is dated by the day it
-  /// names, or today when it names none.
+  /// Messages typed or pasted in by hand, one per paragraph. Each is dated by
+  /// the day it names, or today when it names none.
   static List<SmsMessage> fromPasted(String text, {DateTime? now}) {
     final today = now ?? DateTime.now();
     final parts = text

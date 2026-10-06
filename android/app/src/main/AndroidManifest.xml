@@ -13,15 +13,11 @@
     -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!--
-        Reading bank and wallet payment alerts, so they can be added as
-        transactions without typing. Asked for only when the user starts a
-        scan from More > Import from SMS; the messages are read on the phone
-        and nothing leaves it until the user picks what to import.
+        No SMS permission, on purpose. Payment alerts are imported by pasting
+        them (More > Import from SMS). READ_SMS on an app installed from a
+        file is what Google Play Protect blocks as a likely scam app; see
+        docs/play-protect.md before ever adding it back.
     -->
-    <uses-permission android:name="android.permission.READ_SMS" />
-    <uses-feature
-        android:name="android.hardware.telephony"
-        android:required="false" />
     <!--
         Approximate only, and only for the weather on the Calendar page. Asked
         for from Settings > App Permissions, never by opening the Calendar.

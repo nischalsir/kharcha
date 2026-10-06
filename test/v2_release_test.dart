@@ -32,7 +32,6 @@ import 'package:kharcha_app/services/cache_service.dart';
 import 'package:kharcha_app/services/festival_service.dart';
 import 'package:kharcha_app/services/nepali_date_service.dart';
 import 'package:kharcha_app/services/push_notification_service.dart';
-import 'package:kharcha_app/services/sms_service.dart';
 import 'package:kharcha_app/services/supabase_service.dart';
 import 'package:kharcha_app/services/sync_service.dart';
 import 'package:kharcha_app/services/update_service.dart';
@@ -550,30 +549,6 @@ void main() {
   });
 
   group('Settings > App Permissions', () {
-    late List<String> smsCalls;
-    late bool smsAllowed;
-    late bool smsGrantsOnRequest;
-
-    SmsService sms() {
-      const channel = MethodChannel('test/sms_permissions');
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            smsCalls.add(call.method);
-            if (call.method == 'hasPermission') return smsAllowed;
-            if (call.method == 'requestPermission') {
-              return smsAllowed = smsGrantsOnRequest;
-            }
-            return true;
-          });
-      return SmsService(channel: channel);
-    }
-
-    setUp(() {
-      smsCalls = <String>[];
-      smsAllowed = false;
-      smsGrantsOnRequest = false;
-    });
-
     Future<void> show(
       WidgetTester tester, {
       required _FakePush push,
@@ -594,7 +569,7 @@ void main() {
             theme: AppTheme.light(),
             home: Scaffold(
               body: SingleChildScrollView(
-                child: AppPermissionRows(location: location, sms: sms()),
+                child: AppPermissionRows(location: location),
               ),
             ),
           ),
@@ -608,7 +583,7 @@ void main() {
     bool isOn(WidgetTester tester, String name) =>
         tester.widget<Switch>(toggle(name)).value;
 
-    testWidgets('lists the three in plain words, each with a switch', (
+    testWidgets('lists the two in plain words, each with a switch', (
       tester,
     ) async {
       final push = _FakePush(PushPermission.authorized);
@@ -617,14 +592,13 @@ void main() {
 
       expect(find.text('Notifications'), findsOneWidget);
       expect(find.text('Location'), findsOneWidget);
-      expect(find.text('SMS'), findsOneWidget);
+      // Reading messages is not asked for at all: see docs/play-protect.md.
+      expect(find.text('SMS'), findsNothing);
       // The switch shows where each stands.
       expect(isOn(tester, 'notifications'), isTrue);
       expect(isOn(tester, 'location'), isFalse);
-      expect(isOn(tester, 'sms'), isFalse);
       // Each says what it is for.
       expect(find.textContaining('weather'), findsOneWidget);
-      expect(find.textContaining('payment messages'), findsOneWidget);
       // No names from the inside of the app.
       for (final word in <String>['FCM', 'Firebase', 'channel', 'READ_SMS']) {
         expect(find.textContaining(word), findsNothing, reason: word);
@@ -633,7 +607,6 @@ void main() {
       // Looking at the page asked the phone for nothing.
       expect(push.requests, 0);
       expect(location.requests, 0);
-      expect(smsCalls, isNot(contains('requestPermission')));
       expect(tester.takeException(), isNull);
     });
 
@@ -642,18 +615,12 @@ void main() {
     ) async {
       final push = _FakePush(PushPermission.notDetermined);
       final location = _FakeLocation(AccessState.notAllowed);
-      smsGrantsOnRequest = true;
       await show(tester, push: push, location: location);
 
       await tester.tap(toggle('location'));
       await tester.pumpAndSettle();
       expect(location.requests, 1);
       expect(isOn(tester, 'location'), isTrue);
-
-      await tester.tap(toggle('sms'));
-      await tester.pumpAndSettle();
-      expect(smsCalls.where((c) => c == 'requestPermission'), hasLength(1));
-      expect(isOn(tester, 'sms'), isTrue);
 
       await tester.tap(toggle('notifications'));
       await tester.pumpAndSettle();
@@ -686,16 +653,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(location.settingsOpened, 1);
       expect(location.requests, 0);
-
-      // Android will not show its SMS prompt: after one refusal the switch
-      // leads to settings instead of asking again and again.
-      await tester.tap(toggle('sms'));
-      await tester.pumpAndSettle();
-      expect(isOn(tester, 'sms'), isFalse);
-      await tester.tap(toggle('sms'));
-      await tester.pumpAndSettle();
-      expect(smsCalls.where((c) => c == 'requestPermission'), hasLength(1));
-      expect(smsCalls, contains('openAppSettings'));
     });
   });
 
@@ -760,7 +717,6 @@ void main() {
       final permissions = card('permission-notifications');
       for (final key in <String>[
         'permission-location',
-        'permission-sms',
         'notify-flamey',
         'notify-daily',
       ]) {
@@ -778,6 +734,16 @@ void main() {
         tester.element(cardOf(find.text('Two-factor sign-in'))),
         same(security),
       );
+      // Data & Sync is the same tile as the rest, with the state under the
+      // name.
+      final syncRow = find.descendant(
+        of: find.byKey(const ValueKey<String>('settings-sync')),
+        matching: find.byType(SettingRow),
+      );
+      expect(syncRow, findsOneWidget);
+      expect(tester.widget<SettingRow>(syncRow).title, 'Sync');
+      expect(tester.widget<SettingRow>(syncRow).subtitle, isNotEmpty);
+
       // One heading each, not two.
       expect(find.text('Permissions & Notifications'), findsOneWidget);
       expect(find.text('Security'), findsOneWidget);

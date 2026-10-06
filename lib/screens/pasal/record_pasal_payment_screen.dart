@@ -102,7 +102,6 @@ class _RecordPasalPaymentScreenState extends State<RecordPasalPaymentScreen> {
     final dates = context.read<NepaliDateService>();
     final glass = context.glass;
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: const GlassBackButton(),
         title: const Text('Record Payment'),

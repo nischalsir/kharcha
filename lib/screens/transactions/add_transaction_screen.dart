@@ -215,7 +215,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget build(BuildContext context) {
     final categories = _categoriesFor(_type);
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: const GlassBackButton(),
         title: Text('Add $_titleLabel'),

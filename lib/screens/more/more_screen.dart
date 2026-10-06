@@ -235,6 +235,17 @@ class MoreScreen extends StatelessWidget {
                 subtitle: context.t('Quick calculations', 'द्रुत हिसाबकिताब'),
                 onTap: () => open(RoutePaths.calculator),
               ),
+              _Row(
+                key: const ValueKey<String>('more-bill-maker'),
+                icon: Icons.request_quote_rounded,
+                color: const Color(0xFFFF9F0A),
+                title: context.t('Bill maker', 'बिल बनाउने'),
+                subtitle: context.t(
+                  'Rent and other bills as a PDF',
+                  'भाडा र अरू बिल PDF मा',
+                ),
+                onTap: () => open(RoutePaths.billMaker),
+              ),
             ],
           ),
           _Group(

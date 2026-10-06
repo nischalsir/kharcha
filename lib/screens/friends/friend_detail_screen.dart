@@ -5,10 +5,12 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/friend_credit_model.dart';
 import '../../providers/friend_provider.dart';
+import '../../services/payment_qr_store.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
+import '../../widgets/common/payment_qr.dart';
 import '../../widgets/common/primary_button.dart';
 
 import 'package:flutter/services.dart';
@@ -166,6 +168,16 @@ class FriendDetailScreen extends StatelessWidget {
                       ),
                     ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            PaymentQrTile(
+              owner: PaymentQrOwner.friend,
+              id: friendId,
+              name: friend.name,
+              path: friend.qrPath,
+              onChanged: (path) => context.read<FriendProvider>().updateFriend(
+                friend.copyWith(qrPath: () => path),
               ),
             ),
             const SizedBox(height: 16),

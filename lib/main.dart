@@ -38,6 +38,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/mfa_challenge_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/budgets/budgets_screen.dart';
+import 'screens/bills/bill_maker_screen.dart';
 import 'screens/calculator/calculator_screen.dart';
 import 'screens/festivals/festivals_screen.dart';
 import 'screens/friends/friend_detail_screen.dart';
@@ -228,15 +229,24 @@ class KharchaApp extends StatelessWidget {
             // are not always wrapped in their own Scaffold, but widgets such as
             // InkWell/ListTile require a Material ancestor. This transparent
             // Material sits above the Navigator so every route has one.
-            builder: (context, child) => Material(
-              type: MaterialType.transparency,
-              // Above the navigator, so the signing in / out screen covers
-              // every route and dialog, not just the page underneath.
-              // The app lock covers all of that in turn: whatever page or
-              // dialog was open when the phone was put down.
-              child: AppLockGate(
-                child: AccountTransitionOverlay(
-                  child: child ?? const SizedBox.shrink(),
+            // The theme's own page colour, behind every route. A page that
+            // paints no background of its own (several are a bare list, or a
+            // see-through Scaffold) would otherwise show Android's window,
+            // which follows the phone's theme and not the one chosen here:
+            // white behind white text with Dark picked on a light phone.
+            builder: (context, child) => ColoredBox(
+              key: const ValueKey<String>('app-background'),
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: Material(
+                type: MaterialType.transparency,
+                // Above the navigator, so the signing in / out screen covers
+                // every route and dialog, not just the page underneath.
+                // The app lock covers all of that in turn: whatever page or
+                // dialog was open when the phone was put down.
+                child: AppLockGate(
+                  child: AccountTransitionOverlay(
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
               ),
             ),
@@ -310,6 +320,7 @@ class KharchaApp extends StatelessWidget {
     RoutePaths.help => const HelpSupportScreen(),
     RoutePaths.search => const SearchScreen(),
     RoutePaths.netWorth => const NetWorthScreen(),
+    RoutePaths.billMaker => const BillMakerScreen(),
     RoutePaths.addExpense => const AddTransactionScreen(
       initialType: TransactionType.expense,
     ),

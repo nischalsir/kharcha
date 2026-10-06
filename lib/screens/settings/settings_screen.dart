@@ -79,49 +79,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 24),
                 _SectionHeader(title: context.t('Data & Sync', 'डाटा र सिंक')),
                 const SizedBox(height: 8),
-                // As short as the Appearance card above it: one line, with
-                // the state said beside the name instead of under it.
+                // The same tile as every other card. The icon says how the
+                // sync stands, and the button at the end is as wide as a
+                // switch, so the words under the name keep their room and
+                // the card keeps the height of a one-row card.
                 GlassCard(
                   key: const ValueKey<String>('settings-sync'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  onTap: () => showSyncStatusSheet(context),
-                  child: Row(
-                    children: <Widget>[
-                      const Icon(
-                        Icons.cloud_sync_rounded,
-                        color: Color(0xFF0A84FF),
-                        size: 22,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          context.t('Sync', 'सिङ्क'),
-                          style: theme.textTheme.titleSmall,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Flexible(
-                        child: Text(
-                          syncDisplay.short(context),
-                          key: const ValueKey<String>('settings-sync-state'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: glass.textSecondary,
+                  child: SettingRow(
+                    icon: syncDisplay.icon,
+                    color: syncDisplay == SyncDisplay.localOnly
+                        ? const Color(0xFF0A84FF)
+                        : syncDisplay.color(context),
+                    title: context.t('Sync', 'सिङ्क'),
+                    subtitle: syncDisplay.long(
+                      context,
+                      waiting: sync.waitingCount,
+                    ),
+                    trailing: syncDisplay == SyncDisplay.localOnly
+                        ? null
+                        : IconButton.filledTonal(
+                            key: const ValueKey<String>('settings-sync-now'),
+                            tooltip: context.t(
+                              'Sync now',
+                              'अहिले सिङ्क गर्नुहोस्',
+                            ),
+                            onPressed: syncDisplay == SyncDisplay.syncing
+                                ? null
+                                : () => syncDisplay == SyncDisplay.failed
+                                      ? sync.retryFailed()
+                                      : sync.refresh(),
+                            constraints: const BoxConstraints.tightFor(
+                              width: 40,
+                              height: 40,
+                            ),
+                            padding: EdgeInsets.zero,
+                            // The theme's tonal fill is the card's own
+                            // colour in light mode, which left no button
+                            // to see.
+                            style: IconButton.styleFrom(
+                              backgroundColor: glass.fill,
+                              disabledBackgroundColor: glass.fill,
+                              foregroundColor: theme.colorScheme.primary,
+                            ),
+                            icon: syncDisplay == SyncDisplay.syncing
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.sync_rounded, size: 20),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Icon(
-                        syncDisplay.icon,
-                        color: syncDisplay.color(context),
-                        size: 18,
-                      ),
-                    ],
+                    onTap: () => showSyncStatusSheet(context),
                   ),
                 ),
                 const SizedBox(height: 24),

@@ -35,6 +35,38 @@ tried to avoid it is exactly what it exists to catch. What does reduce it:
 The rest of this note is about the stronger case, where Play Protect blocks
 the install instead of offering a scan.
 
+## The block in v1.6 to v2.1.1: the SMS permission
+
+From v1.6 the app asked for `READ_SMS`, to find bank and wallet payment
+alerts among the phone's messages. People installing those versions were
+stopped by Play Protect with a warning that the app may be a scam, and could
+not install it at all.
+
+That is Play Protect doing what it says it does. For an app installed from a
+file (not from Google Play), it blocks the install when the app declares one
+of the permissions fraud apps use to steal one-time passwords: `READ_SMS`,
+`RECEIVE_SMS`, the notification listener, or accessibility. It does not look
+at what the app does with the permission, only that it asks. An app that can
+also install packages (`REQUEST_INSTALL_PACKAGES`, for the in-app updater)
+and reads SMS has the same outline as a banking trojan.
+
+v2.2 removes it:
+
+- `READ_SMS` is no longer in the manifest, and the code that read the inbox
+  (`SmsReader.kt`, the `sms` method channel) is deleted.
+- More > Import from SMS still exists. The messages are copied in the
+  messages app and pasted in, which needs no permission.
+- `test/v2_2_features_test.dart` fails if any of those permissions is ever
+  declared again.
+
+**Do not add an SMS, notification-listener or accessibility permission back**
+while the app is distributed as an APK. Only an app on Google Play, with the
+SMS use declared and approved there, can hold it.
+
+If a block is still shown after v2.2, the next thing to look at is
+`REQUEST_INSTALL_PACKAGES` (see below): without it "Update" would open the
+download in the browser instead of installing from inside the app.
+
 ## What changed
 
 The block started with v1.0.8. Comparing the published v1.0.7 APK with v1.0.8
@@ -62,7 +94,9 @@ Checked on the built release APK with `aapt2` and `apksigner`:
   `VIBRATE`, `USE_BIOMETRIC`,
   `USE_FINGERPRINT`, `WAKE_LOCK`, `ACCESS_COARSE_LOCATION` (weather only, optional), and the FCM receive permission. None of the
   permissions Play Protect blocks sideloaded apps for (`READ_SMS`,
-  `RECEIVE_SMS`, notification listener, accessibility) is requested.
+  `RECEIVE_SMS`, notification listener, accessibility) is requested. (True
+  up to v1.5 and again from v2.2; v1.6 to v2.1.1 asked for `READ_SMS`, see
+  above.)
 - **Components** no accessibility service, device admin or notification
   listener. Up to v1.0.21 the app did not request `REQUEST_INSTALL_PACKAGES`
   and "Update" opened the download in the browser.

@@ -24,13 +24,22 @@ class WhatsNew {
   /// lines. Replace the list with each release; do not add to it.
   static const List<(String, String)> items = <(String, String)>[
     (
-      'Settings: permissions and notifications are one card, security one',
-      'सेटिङ: अनुमति र सूचना एउटै कार्डमा, सुरक्षा एउटैमा',
+      'Bill maker: rent, water and electricity bills as a PDF',
+      'बिल बनाउने: भाडा, पानी र बिजुलीको बिल PDF मा',
     ),
     (
-      'Every permission is now a switch, lined up with the rest',
-      'हरेक अनुमति अब स्विच हो, अरूसँगै मिलाइएको',
+      'Payment QR: save a shop’s or a friend’s QR and open it to pay',
+      'भुक्तानी QR: पसल वा साथीको QR राख्नुहोस्, तिर्दा खोल्नुहोस्',
     ),
+    (
+      'Dark mode fixed on the pages that turned white',
+      'सेतो देखिने पृष्ठहरूमा डार्क मोड ठीक गरियो',
+    ),
+    (
+      'No SMS permission any more: paste messages to import them',
+      'अब SMS अनुमति चाहिँदैन: आयात गर्न सन्देश टाँस्नुहोस्',
+    ),
+    ('Sync now, straight from Settings', 'सेटिङबाटै अहिले सिङ्क गर्नुहोस्'),
   ];
 
   /// Whether this version's changes have not been shown on this phone yet.

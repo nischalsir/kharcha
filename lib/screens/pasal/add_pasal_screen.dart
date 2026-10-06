@@ -91,7 +91,6 @@ class _AddPasalScreenState extends State<AddPasalScreen> {
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: const GlassBackButton(),
         title: Text(isEdit ? 'Edit Pasal' : 'Add Pasal'),

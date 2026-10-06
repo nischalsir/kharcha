@@ -447,6 +447,8 @@ void main() {
         amount: 100,
         summary: _summary(),
         categoryName: 'Food',
+        // An afternoon: late at night the flame is sleepy whatever is spent.
+        now: DateTime(2026, 10, 2, 14),
       );
       expect(const <MoodFace>{
         MoodFace.wink,

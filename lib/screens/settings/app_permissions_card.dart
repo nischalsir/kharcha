@@ -5,7 +5,6 @@ import '../../core/l10n/app_l10n.dart';
 import '../../providers/push_provider.dart';
 import '../../services/app_permissions.dart';
 import '../../services/push_notification_service.dart';
-import '../../services/sms_service.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/setting_row.dart';
 
@@ -21,16 +20,9 @@ import '../../widgets/common/setting_row.dart';
 /// Rows only, with a line between them: the card around them is the
 /// Settings page's, shared with the notification switches.
 class AppPermissionRows extends StatefulWidget {
-  const AppPermissionRows({
-    super.key,
-    this.location = const LocationAccess(),
-    this.sms,
-  });
+  const AppPermissionRows({super.key, this.location = const LocationAccess()});
 
   final LocationAccess location;
-
-  /// Replaced in tests.
-  final SmsService? sms;
 
   @override
   State<AppPermissionRows> createState() => _AppPermissionRowsState();
@@ -38,10 +30,7 @@ class AppPermissionRows extends StatefulWidget {
 
 class _AppPermissionRowsState extends State<AppPermissionRows>
     with WidgetsBindingObserver {
-  late final SmsService _sms = widget.sms ?? SmsService();
-
   AccessState _location = AccessState.notAllowed;
-  AccessState _smsState = AccessState.notAllowed;
 
   /// The permission a request or a trip to settings is in progress for.
   String? _busy;
@@ -71,18 +60,8 @@ class _AppPermissionRowsState extends State<AppPermissionRows>
 
   Future<void> _refresh() async {
     final location = await widget.location.status();
-    final sms = await _sms.hasPermission();
     if (!mounted) return;
-    setState(() {
-      _location = location;
-      // Once Android has refused to ask, only the settings page can change
-      // it; a plain "not allowed" would ask again and get nowhere.
-      _smsState = sms
-          ? AccessState.allowed
-          : _smsState == AccessState.blocked
-          ? AccessState.blocked
-          : AccessState.notAllowed;
-    });
+    setState(() => _location = location);
   }
 
   Future<void> _run(String name, Future<void> Function() action) async {
@@ -121,21 +100,6 @@ class _AppPermissionRowsState extends State<AppPermissionRows>
       return;
     }
     if (!await widget.location.openSettings() && mounted) _couldNotOpen();
-  });
-
-  Future<void> _smsAction() => _run('sms', () async {
-    if (_smsState == AccessState.notAllowed) {
-      final granted = await _sms.requestPermission();
-      if (!mounted) return;
-      // Refused, or Android would not show its prompt (it holds this
-      // permission back from apps installed outside the Play Store until
-      // "Allow restricted settings" is chosen on the settings page).
-      setState(
-        () => _smsState = granted ? AccessState.allowed : AccessState.blocked,
-      );
-      return;
-    }
-    if (!await _sms.openAppSettings() && mounted) _couldNotOpen();
   });
 
   /// What a row says under its name: what the permission is for, and, where
@@ -203,25 +167,6 @@ class _AppPermissionRowsState extends State<AppPermissionRows>
           ),
           value: _location == AccessState.allowed,
           onChanged: _busy != null ? null : (_) => _locationAction(),
-        ),
-        const Divider(height: 1),
-        SettingSwitchRow(
-          key: const ValueKey<String>('permission-sms'),
-          switchKey: const ValueKey<String>('permission-sms-switch'),
-          icon: Icons.sms_rounded,
-          color: const Color(0xFFFF9F0A),
-          title: 'SMS',
-          subtitle: _about(
-            _smsState,
-            context.t(
-              'Reads bank and wallet payment messages to import, on this '
-                  'phone, only when you start a scan.',
-              'बैंक र वालेटका भुक्तानी सन्देश आयात गर्न पढ्छ, यही फोनमा, '
-                  'तपाईंले स्क्यान सुरु गर्दा मात्र।',
-            ),
-          ),
-          value: _smsState == AccessState.allowed,
-          onChanged: _busy != null ? null : (_) => _smsAction(),
         ),
       ],
     );

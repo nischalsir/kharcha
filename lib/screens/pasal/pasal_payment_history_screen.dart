@@ -31,7 +31,6 @@ class _PasalPaymentHistoryScreenState extends State<PasalPaymentHistoryScreen> {
     if (pasal == null) {
       return SafeArea(
         child: Scaffold(
-          backgroundColor: Colors.transparent,
           body: Center(
             child: Text('Pasal not found', style: theme.textTheme.titleMedium),
           ),

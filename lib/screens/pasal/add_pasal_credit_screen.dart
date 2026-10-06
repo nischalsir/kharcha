@@ -314,7 +314,6 @@ class _AddPasalCreditScreenState extends State<AddPasalCreditScreen> {
     final dates = context.read<NepaliDateService>();
     final isEdit = widget.existing != null;
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: const GlassBackButton(),
         title: Text(isEdit ? 'Edit Credit' : 'Add Pasal Credit'),

@@ -278,19 +278,6 @@ void main() {
       expect(result.entries.first.title, 'FT/09620042209/Ghar bada');
       expect(SmsParser.fromPasted('   \n\n '), isEmpty);
     });
-
-    test('messages arrive from the phone as they are', () {
-      expect(SmsMessage.fromMap(null), isNull);
-      expect(SmsMessage.fromMap(<String, Object?>{'body': 'x'}), isNull);
-      final message = SmsMessage.fromMap(<String, Object?>{
-        'id': 7,
-        'sender': 'eSewa',
-        'body': 'hi',
-        'date': DateTime(2026, 1, 2).millisecondsSinceEpoch,
-      })!;
-      expect(message.id, 7);
-      expect(message.date, DateTime(2026, 1, 2));
-    });
   });
 
   group('loans', () {
@@ -838,34 +825,10 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
     });
 
-    testWidgets('Import from SMS reviews what it found before saving', (
+    testWidgets('Import from SMS reviews what was pasted before saving', (
       tester,
     ) async {
       final e = await env(tester);
-      const channel = MethodChannel('test/sms');
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            if (call.method == 'read') {
-              return <Object?>[
-                <String, Object?>{
-                  'id': 1,
-                  'sender': 'LAXMI_ALERT',
-                  'body':
-                      'Dear Customer, Your #20042209 has been debited by NPR '
-                      '10,538.00 on 25/09/26. Remarks:CIPS//Done\n'
-                      '-Laxmi Sunrise',
-                  'date': DateTime.now().millisecondsSinceEpoch,
-                },
-                <String, Object?>{
-                  'id': 2,
-                  'sender': 'LAXMI_ALERT',
-                  'body': 'Your OTP is 445566',
-                  'date': DateTime.now().millisecondsSinceEpoch,
-                },
-              ];
-            }
-            return true;
-          });
       final transactions = TransactionProvider(
         cache: e.cache,
         repository: e.transactions,
@@ -873,17 +836,29 @@ void main() {
       await show(
         tester,
         e,
-        SmsImportScreen(service: SmsService(channel: channel)),
+        const SmsImportScreen(),
         <InheritedProvider<dynamic>>[
           ChangeNotifierProvider<TransactionProvider>.value(
             value: transactions,
           ),
         ],
       );
-      await tester.tap(find.byKey(const ValueKey<String>('sms-scan')));
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      // Nothing to scan and nothing to allow: the phone's messages are
+      // never read by the app.
+      expect(find.byKey(const ValueKey<String>('sms-scan')), findsNothing);
+      expect(find.textContaining('asks for no permission'), findsOneWidget);
+
+      // A payment and a one-time password, an empty line between them.
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('sms-paste-field')),
+        'Dear Customer, Your #20042209 has been debited by NPR 10,538.00 '
+        'on 25/09/26. Remarks:CIPS//Done\n-Laxmi Sunrise\n\n'
+        'Your OTP is 445566',
       );
+      await tester.ensureVisible(
+        find.byKey(const ValueKey<String>('sms-paste-read')),
+      );
+      await tester.tap(find.byKey(const ValueKey<String>('sms-paste-read')));
       await tester.pumpAndSettle();
 
       // The review page, with the one payment and not the OTP.
@@ -906,75 +881,51 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('a refused permission is explained, not ignored', (
-      tester,
-    ) async {
+    testWidgets('what was copied is pasted in with one tap', (tester) async {
       final e = await env(tester);
-      const channel = MethodChannel('test/sms_refused');
+      String? copied;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async => false);
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.getData') {
+              return copied == null ? null : <String, Object?>{'text': copied};
+            }
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
       await show(
         tester,
         e,
-        SmsImportScreen(service: SmsService(channel: channel)),
+        const SmsImportScreen(),
         const <InheritedProvider<dynamic>>[],
       );
-      await tester.tap(find.byKey(const ValueKey<String>('sms-scan')));
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 50)),
-      );
-      await tester.pumpAndSettle();
-      // What happened, the steps to allow it, and the way there.
-      expect(find.text('Android blocked the SMS permission'), findsOneWidget);
-      expect(find.textContaining('Allow restricted settings'), findsWidgets);
-      expect(
-        find.byKey(const ValueKey<String>('sms-open-settings')),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('pasting a message works without any permission', (
-      tester,
-    ) async {
-      final e = await env(tester);
-      const channel = MethodChannel('test/sms_none');
-      final calls = <String>[];
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            calls.add(call.method);
-            return false;
-          });
-      final transactions = TransactionProvider(
-        cache: e.cache,
-        repository: e.transactions,
-      );
-      await show(
-        tester,
-        e,
-        SmsImportScreen(service: SmsService(channel: channel)),
-        <InheritedProvider<dynamic>>[
-          ChangeNotifierProvider<TransactionProvider>.value(
-            value: transactions,
-          ),
-        ],
-      );
-      await tester.tap(find.byKey(const ValueKey<String>('sms-paste')));
-      await tester.pumpAndSettle();
-      await tester.enterText(
+      final paste = find.byKey(const ValueKey<String>('sms-paste'));
+      TextField field() => tester.widget<TextField>(
         find.byKey(const ValueKey<String>('sms-paste-field')),
-        'Dear Customer, Your #20042209 has been debited by NPR 10,538.00 '
-        'on 25/09/26. Remarks:CIPS//Done\n-Laxmi Sunrise',
       );
-      await tester.tap(find.byKey(const ValueKey<String>('sms-paste-read')));
-      await tester.pumpAndSettle();
 
-      // Straight to the review, and the phone was never asked for anything.
-      expect(find.text('CIPS//Done'), findsOneWidget);
-      expect(find.text('Import 1'), findsOneWidget);
-      expect(calls, isEmpty);
+      // Nothing copied: said so, and nothing is made up.
+      await tester.tap(paste);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Nothing is copied yet'), findsOneWidget);
+      expect(field().controller!.text, isEmpty);
+
+      copied = 'Rs 1,000 received from Ram Bahadur on Khalti.';
+      await tester.tap(paste);
+      await tester.pumpAndSettle();
+      expect(field().controller!.text, copied);
+      // A second one goes after the first, as a message of its own.
+      copied = 'NPR 40.00 debited. Remarks:Tea';
+      await tester.tap(paste);
+      await tester.pumpAndSettle();
+      expect(
+        field().controller!.text,
+        'Rs 1,000 received from Ram Bahadur on Khalti.\n\n'
+        'NPR 40.00 debited. Remarks:Tea',
+      );
       expect(tester.takeException(), isNull);
-      await tester.pump(const Duration(seconds: 3));
     });
   });
 }

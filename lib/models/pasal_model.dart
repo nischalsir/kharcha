@@ -11,6 +11,7 @@ class Pasal {
     this.address,
     this.notes,
     this.logoPath,
+    this.qrPath,
     this.isActive = true,
     this.deletedAt,
   });
@@ -22,6 +23,9 @@ class Pasal {
   final String? address;
   final String? notes;
   final String? logoPath;
+
+  /// The shop's payment QR, as a path in the private `kharcha-files` bucket.
+  final String? qrPath;
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -39,6 +43,7 @@ class Pasal {
       address: jsonString(json['address']),
       notes: jsonString(json['notes']),
       logoPath: jsonString(json['logo_path']),
+      qrPath: jsonString(json['qr_path']),
       isActive: (json['is_active'] as bool?) ?? true,
       createdAt: jsonDateTime(json['created_at']) ?? now,
       updatedAt: jsonDateTime(json['updated_at']) ?? now,
@@ -55,6 +60,7 @@ class Pasal {
       'address': address,
       'notes': notes,
       'logo_path': logoPath,
+      'qr_path': qrPath,
       'is_active': isActive,
       'created_at': jsonTimestamp(createdAt),
       'updated_at': jsonTimestamp(updatedAt),
@@ -70,6 +76,7 @@ class Pasal {
     String? Function()? address,
     String? Function()? notes,
     String? Function()? logoPath,
+    String? Function()? qrPath,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -83,6 +90,7 @@ class Pasal {
       address: address != null ? address() : this.address,
       notes: notes != null ? notes() : this.notes,
       logoPath: logoPath != null ? logoPath() : this.logoPath,
+      qrPath: qrPath != null ? qrPath() : this.qrPath,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

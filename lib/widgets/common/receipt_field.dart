@@ -15,10 +15,15 @@ const String receiptNotUploadedMessage =
 
 /// Asks where the receipt picture comes from, then returns it. Null when the
 /// user backed out or the picture could not be used (they are told why).
-Future<Uint8List?> pickReceiptImage(BuildContext context) async {
+///
+/// [title] names the sheet, for the other pictures picked the same way.
+Future<Uint8List?> pickReceiptImage(
+  BuildContext context, {
+  String title = 'Receipt photo',
+}) async {
   final source = await showGlassSheet<ImageSource>(
     context: context,
-    title: 'Receipt photo',
+    title: title,
     builder: (sheetContext) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[

@@ -9,10 +9,12 @@ import '../../models/pasal_credit_model.dart';
 import '../../models/pasal_payment_model.dart';
 import '../../providers/pasal_provider.dart';
 import '../../services/nepali_date_service.dart';
+import '../../services/payment_qr_store.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/glass_button.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
+import '../../widgets/common/payment_qr.dart';
 import '../../widgets/common/section_header.dart';
 import 'add_pasal_credit_screen.dart';
 import 'add_pasal_screen.dart';
@@ -100,10 +102,7 @@ class PasalDetailScreen extends StatelessWidget {
     final provider = context.watch<PasalProvider>();
     final pasal = provider.pasalById(pasalId);
     if (pasal == null) {
-      return const Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Center(child: Text('Pasal not found')),
-      );
+      return const Scaffold(body: Center(child: Text('Pasal not found')));
     }
     final balance = provider.balanceFor(pasalId);
     final credits = provider.creditsFor(pasalId);
@@ -112,7 +111,6 @@ class PasalDetailScreen extends StatelessWidget {
     final dates = context.read<NepaliDateService>();
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: const GlassBackButton(),
         title: Text(pasal.name),
@@ -203,6 +201,16 @@ class PasalDetailScreen extends StatelessWidget {
                   ),
                 ),
               ],
+              const SizedBox(height: 12),
+              PaymentQrTile(
+                owner: PaymentQrOwner.pasal,
+                id: pasalId,
+                name: pasal.name,
+                path: pasal.qrPath,
+                onChanged: (path) => context.read<PasalProvider>().updatePasal(
+                  pasal.copyWith(qrPath: () => path),
+                ),
+              ),
               const SizedBox(height: 12),
               Row(
                 children: <Widget>[
