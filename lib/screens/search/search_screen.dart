@@ -94,7 +94,7 @@ class _SearchScreenState extends State<SearchScreen> {
               title,
               style: theme.textTheme.labelLarge?.copyWith(
                 color: glass.textSecondary,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -147,7 +147,7 @@ class _SearchScreenState extends State<SearchScreen> {
               trailing,
               style: theme.textTheme.labelLarge?.copyWith(
                 color: trailingColor,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
       dense: true,

@@ -211,7 +211,7 @@ class _SyncStatusSheet extends StatelessWidget {
                       display.long(context, waiting: sync.waitingCount),
                       key: const ValueKey<String>('sync-status-text'),
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../widgets/common/grouped_list.dart';
 import '../../widgets/pasal/pasal_item_image.dart';
 
+import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/pasal_credit_model.dart';
@@ -116,6 +118,7 @@ class PasalDetailScreen extends StatelessWidget {
         title: Text(pasal.name),
         actions: <Widget>[
           IconButton(
+            tooltip: context.t('Edit pasal', 'पसल सम्पादन'),
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => Navigator.push(
               context,
@@ -125,6 +128,7 @@ class PasalDetailScreen extends StatelessWidget {
             ),
           ),
           IconButton(
+            tooltip: context.t('Delete pasal', 'पसल हटाउनुहोस्'),
             icon: const Icon(Icons.delete_outline),
             onPressed: () => _confirmDelete(context, pasalId),
           ),
@@ -160,7 +164,7 @@ class PasalDetailScreen extends StatelessWidget {
                           Text(
                             CurrencyFormatter.format(balance.remaining),
                             style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w800),
+                                ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -253,15 +257,17 @@ class PasalDetailScreen extends StatelessWidget {
                   title: 'No purchases yet',
                 )
               else
-                for (final credit in credits)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _CreditTile(
-                      pasalId: pasalId,
-                      credit: credit,
-                      dates: dates,
-                    ),
-                  ),
+                GroupedCard(
+                  dividerIndent: 16,
+                  children: <Widget>[
+                    for (final credit in credits)
+                      _CreditTile(
+                        pasalId: pasalId,
+                        credit: credit,
+                        dates: dates,
+                      ),
+                  ],
+                ),
               const SizedBox(height: 8),
               const SectionHeader(title: 'Payment History'),
               if (payments.isEmpty)
@@ -270,11 +276,13 @@ class PasalDetailScreen extends StatelessWidget {
                   title: 'No payments yet',
                 )
               else
-                for (final payment in payments)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _PaymentTile(payment: payment, dates: dates),
-                  ),
+                GroupedCard(
+                  dividerIndent: 16,
+                  children: <Widget>[
+                    for (final payment in payments)
+                      _PaymentTile(payment: payment, dates: dates),
+                  ],
+                ),
             ],
           ),
         ),
@@ -312,7 +320,7 @@ class _CreditTile extends StatelessWidget {
         break;
       }
     }
-    return GlassCard(
+    return CardRow(
       onTap: () {
         final items = context.read<PasalProvider>().itemsFor(credit.id);
         Navigator.push(
@@ -376,7 +384,7 @@ class _CreditTile extends StatelessWidget {
               Text(
                 status.label,
                 style: Theme.of(context).textTheme.labelSmall
-                    ?.copyWith(color: color, fontWeight: FontWeight.w700),
+                    ?.copyWith(color: color, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -395,7 +403,9 @@ class _PaymentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final glass = context.glass;
-    return GlassCard(
+    return CardRow(
+      // The delete button at the end brings its own room.
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 4, 4, 4),
       child: Row(
         children: <Widget>[
           Expanded(
@@ -417,9 +427,10 @@ class _PaymentTile extends StatelessWidget {
           Text(
             CurrencyFormatter.format(payment.amount),
             style: Theme.of(context).textTheme.titleSmall
-                ?.copyWith(color: glass.success, fontWeight: FontWeight.w700),
+                ?.copyWith(color: glass.success, fontWeight: FontWeight.w600),
           ),
           IconButton(
+            tooltip: context.t('Delete this payment', 'यो भुक्तानी हटाउनुहोस्'),
             icon: const Icon(Icons.delete_outline, size: 20),
             onPressed: () =>
                 context.read<PasalProvider>().deletePayment(payment.id),

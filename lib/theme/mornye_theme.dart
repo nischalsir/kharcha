@@ -23,8 +23,9 @@ class MornyeTheme extends ThemeExtension<MornyeTheme> {
   /// The accent color family.
   final MornyeAccent accent;
 
-  /// Use the platform's default font (SF Pro on Apple, Roboto on Android)
-  /// instead of Inter.
+  /// Kept for callers that still pass it. Every platform now uses its own
+  /// system font (SF Pro on Apple, Roboto on Android): the Inter this used to
+  /// opt out of was named here but never bundled, so it was never drawn.
   final bool useSystemFont;
 
   /// A single translucent fill for controls inside an existing glass surface.
@@ -86,7 +87,7 @@ class MornyeTheme extends ThemeExtension<MornyeTheme> {
     radiusThumb: 6,
     radiusCover: 10,
     radiusControl: 12,
-    radiusCard: 12,
+    radiusCard: 20,
     radiusSheet: 32,
     coverMini: 38,
     headerExpandedTitleSize: 34,
@@ -210,61 +211,83 @@ class MornyeTheme extends ThemeExtension<MornyeTheme> {
               : const Color(0xffc6c6c8),
           surfaceTint: Colors.transparent,
         );
-    // Cupertino's font proxies resolve to SF on Apple and the platform fallback
-    // elsewhere. Inter remains the default on other platforms unless opted out.
+    // Apple platforms keep SF and Apple's own tracking table. Everywhere else
+    // the system font is used with tracking tuned for it: SF's display
+    // sizes are spaced *wider* as they grow, which on Roboto reads as loose
+    // headings, so large text is tightened and the smallest opened a little.
     final apple =
         defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS;
     final type = CupertinoThemeData(brightness: brightness).textTheme;
+    final systemFamily = Typography.material2021(
+      platform: defaultTargetPlatform,
+    ).black.bodyMedium?.fontFamily;
     final text = type.textStyle.copyWith(
       inherit: true,
       color: foreground,
-      fontFamily: apple || useSystemFont ? type.textStyle.fontFamily : 'Inter',
+      fontFamily: apple ? type.textStyle.fontFamily : systemFamily,
+      letterSpacing: apple ? null : -0.1,
     );
     final display = type.navLargeTitleTextStyle.copyWith(
       inherit: true,
       color: foreground,
-      fontFamily: apple || useSystemFont
-          ? type.navLargeTitleTextStyle.fontFamily
-          : 'Inter',
+      fontFamily: apple ? type.navLargeTitleTextStyle.fontFamily : systemFamily,
+      letterSpacing: apple ? null : -0.6,
     );
+    // Size-specific tracking: (Apple, everything else).
+    double track(double sf, double system) => apple ? sf : system;
     // Supply complete styles: replacing a Material role with a bare TextStyle
     // loses its system family and retains Material tracking in other roles.
     final typography = TextTheme(
-      displayLarge: display.copyWith(fontSize: 57),
-      displayMedium: display.copyWith(fontSize: 45),
-      displaySmall: display.copyWith(fontSize: 36),
+      displayLarge: display.copyWith(
+        fontSize: 57,
+        letterSpacing: apple ? null : -1.2,
+      ),
+      displayMedium: display.copyWith(
+        fontSize: 45,
+        letterSpacing: apple ? null : -0.9,
+      ),
+      displaySmall: display.copyWith(
+        fontSize: 36,
+        letterSpacing: apple ? null : -0.7,
+      ),
       headlineLarge: display,
-      headlineMedium: display.copyWith(fontSize: 28, letterSpacing: 0.36),
-      headlineSmall: display.copyWith(fontSize: 22, letterSpacing: 0.35),
+      headlineMedium: display.copyWith(
+        fontSize: 28,
+        letterSpacing: track(0.36, -0.45),
+      ),
+      headlineSmall: display.copyWith(
+        fontSize: 22,
+        letterSpacing: track(0.35, -0.3),
+      ),
       titleLarge: display.copyWith(
         fontSize: 20,
         fontWeight: FontWeight.w600,
-        letterSpacing: 0.38,
+        letterSpacing: track(0.38, -0.2),
       ),
       titleMedium: text.copyWith(fontWeight: FontWeight.w500),
       titleSmall: text.copyWith(
         fontSize: 15,
         fontWeight: FontWeight.w600,
-        letterSpacing: -0.23,
+        letterSpacing: track(-0.23, 0),
       ),
       bodyLarge: text,
-      bodyMedium: text.copyWith(fontSize: 15, letterSpacing: -0.23),
+      bodyMedium: text.copyWith(fontSize: 15, letterSpacing: track(-0.23, 0)),
       bodySmall: text.copyWith(
         fontSize: 13,
-        letterSpacing: -0.08,
+        letterSpacing: track(-0.08, 0.05),
         color: secondary,
       ),
       labelLarge: text.copyWith(fontWeight: FontWeight.w600),
       labelMedium: text.copyWith(
         fontSize: 13,
         fontWeight: FontWeight.w500,
-        letterSpacing: -0.08,
+        letterSpacing: track(-0.08, 0.05),
       ),
       labelSmall: text.copyWith(
         fontSize: 11,
         fontWeight: FontWeight.w500,
-        letterSpacing: -0.24,
+        letterSpacing: track(-0.24, 0.1),
         color: secondary,
       ),
     );
@@ -285,18 +308,27 @@ class MornyeTheme extends ThemeExtension<MornyeTheme> {
       ],
     );
     final controlShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(tokens.radiusControl),
     );
-    // The outline of a glass card (see MornyeGlass): its radius and its rim.
-    final glassShape = RoundedRectangleBorder(
+    final cardShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(tokens.radiusCard),
+    );
+    // Every button is a capsule, the shape PrimaryButton already had, so a
+    // dialog's buttons and a page's buttons are the same family.
+    const buttonShape = StadiumBorder();
+    // A pop-up floats over a dimmed page: its shadow separates it. Only on
+    // black does it also need a faint rim, where a shadow cannot be seen.
+    final popupShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(28),
-      side: BorderSide(
-        color: dark
-            ? Colors.white.withValues(alpha: 0.16)
-            : Colors.black.withValues(alpha: 0.17),
-        width: 0.75,
-      ),
+      side: dark
+          ? BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 0.75)
+          : BorderSide.none,
     );
+    // A pop-up's own colour. White in light mode, so the grey text fields and
+    // cards inside it keep an edge.
+    final popupSurface = dark ? const Color(0xff2c2c2e) : Colors.white;
+    final neutralFill = foreground.withValues(alpha: dark ? 0.10 : 0.07);
+    final accentFill = accent.withValues(alpha: dark ? 0.24 : 0.14);
     return base.copyWith(
       textTheme: typography,
       primaryTextTheme: typography.apply(
@@ -319,11 +351,7 @@ class MornyeTheme extends ThemeExtension<MornyeTheme> {
         centerTitle: true,
         titleTextStyle: text.copyWith(fontWeight: FontWeight.w600),
       ),
-      cardTheme: CardThemeData(
-        color: grouped,
-        elevation: 0,
-        shape: controlShape,
-      ),
+      cardTheme: CardThemeData(color: grouped, elevation: 0, shape: cardShape),
       dividerTheme: DividerThemeData(
         color: scheme.outlineVariant,
         thickness: 0.5,
@@ -336,43 +364,104 @@ class MornyeTheme extends ThemeExtension<MornyeTheme> {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          shape: controlShape,
+          shape: buttonShape,
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
         ),
       ),
+      // The third kind of button: words alone, a size down from a filled
+      // button, so a link inside a card does not shout over the card.
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(shape: controlShape),
+        style: TextButton.styleFrom(
+          shape: buttonShape,
+          textStyle: text.copyWith(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: track(-0.23, 0),
+          ),
+        ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(shape: controlShape),
+        style: OutlinedButton.styleFrom(
+          shape: buttonShape,
+          side: BorderSide(color: scheme.outlineVariant),
+        ),
+      ),
+      // Choice chips are quiet pills: a neutral fill, and the accent as a
+      // tint when chosen. No outline and no tick, which only repeated what
+      // the colour already says.
+      chipTheme: ChipThemeData(
+        showCheckmark: false,
+        side: BorderSide.none,
+        shape: const StadiumBorder(),
+        // A solid neutral, not a tint: a chip is drawn on its own canvas, so
+        // a tint came out the same grey whatever was behind it, and on a
+        // dark sheet that grey was the sheet's.
+        color: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? accentFill
+              : scheme.surfaceContainerHighest,
+        ),
+        labelStyle: text.copyWith(
+          fontSize: 15,
+          letterSpacing: track(-0.23, 0),
+          color: WidgetStateColor.resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? secondary
+                : states.contains(WidgetState.selected)
+                ? accent
+                : foreground,
+          ),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: grouped,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(tokens.radiusControl),
           borderSide: BorderSide.none,
+        ),
+        // Which field has the keyboard is shown by the field, not only by
+        // its cursor.
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusControl),
+          borderSide: BorderSide(color: accent, width: 1.5),
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: grouped,
         surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        dragHandleColor: foreground.withValues(alpha: dark ? 0.2 : 0.15),
+        dragHandleSize: const Size(36, 5),
         constraints: const BoxConstraints(maxWidth: 640),
         shape: tokens.sheetShape,
       ),
-      // Pop-ups are made of the same glass as the cards: the same fill, the
-      // same rounded corners and the same thin rim.
       dialogTheme: DialogThemeData(
-        backgroundColor: scheme.surfaceContainerHigh,
+        backgroundColor: popupSurface,
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.black.withValues(alpha: dark ? 0.5 : 0.2),
         elevation: 6,
-        shape: glassShape,
+        shape: popupShape,
       ),
       datePickerTheme: DatePickerThemeData(
-        backgroundColor: scheme.surfaceContainerHigh,
+        backgroundColor: popupSurface,
         surfaceTintColor: Colors.transparent,
-        shape: glassShape,
+        shape: popupShape,
+      ),
+      // The floating button is the page's main action, so it is the same
+      // filled capsule as every other main action.
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: accent,
+        foregroundColor: scheme.onPrimary,
+        elevation: 2,
+        highlightElevation: 2,
+        shape: buttonShape,
+        extendedTextStyle: text.copyWith(fontWeight: FontWeight.w600),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: accent,
+        linearTrackColor: neutralFill,
+        circularTrackColor: Colors.transparent,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

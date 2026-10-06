@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/l10n/app_l10n.dart';
 import '../../models/category_model.dart';
 import '../../models/payment_method.dart';
 import '../../providers/app_settings_provider.dart';
@@ -17,7 +18,7 @@ import '../../widgets/common/primary_button.dart';
 Future<void> showTransactionFilterSheet(BuildContext context) {
   return showGlassSheet<void>(
     context: context,
-    title: 'Filter transactions',
+    title: context.t('Filter transactions', 'कारोबार फिल्टर'),
     builder: (_) => const _FilterForm(),
   );
 }
@@ -27,6 +28,14 @@ String transactionSortLabel(TransactionSort sort) => switch (sort) {
   TransactionSort.dateAsc => 'Oldest',
   TransactionSort.amountDesc => 'Highest',
   TransactionSort.amountAsc => 'Lowest',
+};
+
+/// [transactionSortLabel] in the app's language.
+String _sortLabel(BuildContext context, TransactionSort sort) => switch (sort) {
+  TransactionSort.dateDesc => context.t('Newest', 'नयाँ'),
+  TransactionSort.dateAsc => context.t('Oldest', 'पुरानो'),
+  TransactionSort.amountDesc => context.t('Highest', 'धेरै'),
+  TransactionSort.amountAsc => context.t('Lowest', 'थोरै'),
 };
 
 class _FilterForm extends StatefulWidget {
@@ -75,17 +84,32 @@ class _FilterFormState extends State<_FilterForm> {
     final max = maxText.isEmpty ? null : parseAmount(maxText);
     if ((minText.isNotEmpty && min == null) ||
         (maxText.isNotEmpty && max == null)) {
-      showMessage(context, 'Enter a valid amount');
+      showMessage(
+        context,
+        context.t('Enter a valid amount', 'मान्य रकम लेख्नुहोस्'),
+      );
       return;
     }
     if (min != null && max != null && min > max) {
-      showMessage(context, 'The smallest amount is more than the largest');
+      showMessage(
+        context,
+        context.t(
+          'The smallest amount is more than the largest',
+          'सानो रकम ठूलोभन्दा बढी छ',
+        ),
+      );
       return;
     }
     final from = _filter.from;
     final to = _filter.toExclusive;
     if (from != null && to != null && !from.isBefore(to)) {
-      showMessage(context, 'The first day is after the last day');
+      showMessage(
+        context,
+        context.t(
+          'The first day is after the last day',
+          'पहिलो दिन अन्तिम दिनभन्दा पछि छ',
+        ),
+      );
       return;
     }
     context.read<TransactionProvider>().applyFilter(
@@ -116,15 +140,15 @@ class _FilterFormState extends State<_FilterForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const FieldLabel('Category'),
+        FieldLabel(context.t('Category', 'श्रेणी')),
         DropdownButtonFormField<String?>(
           key: const ValueKey<String>('filter-category'),
           initialValue: categoryId,
           isExpanded: true,
           items: <DropdownMenuItem<String?>>[
-            const DropdownMenuItem<String?>(
+            DropdownMenuItem<String?>(
               value: null,
-              child: Text('All categories'),
+              child: Text(context.t('All categories', 'सबै श्रेणी')),
             ),
             for (final category in categories)
               DropdownMenuItem<String?>(
@@ -136,13 +160,13 @@ class _FilterFormState extends State<_FilterForm> {
             () => _filter = _filter.copyWith(categoryId: () => value),
           ),
         ),
-        const FieldLabel('Payment method'),
+        FieldLabel(context.t('Payment method', 'भुक्तानी विधि')),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: <Widget>[
             ChoiceChip(
-              label: const Text('Any'),
+              label: Text(context.t('Any', 'कुनै पनि')),
               selected: _filter.paymentMethod == null,
               onSelected: (_) => setState(
                 () => _filter = _filter.copyWith(paymentMethod: () => null),
@@ -158,13 +182,13 @@ class _FilterFormState extends State<_FilterForm> {
               ),
           ],
         ),
-        const FieldLabel('Dates'),
+        FieldLabel(context.t('Dates', 'मिति')),
         Row(
           children: <Widget>[
             Expanded(
               child: DateField(
                 value: _filter.from,
-                hint: 'From',
+                hint: context.t('From', 'देखि'),
                 allowClear: true,
                 onChanged: (date) => setState(
                   () => _filter = _filter.copyWith(from: () => date),
@@ -175,7 +199,7 @@ class _FilterFormState extends State<_FilterForm> {
             Expanded(
               child: DateField(
                 value: _toDay,
-                hint: 'To',
+                hint: context.t('To', 'सम्म'),
                 allowClear: true,
                 onChanged: (date) => setState(
                   () => _filter = _filter.copyWith(
@@ -188,7 +212,7 @@ class _FilterFormState extends State<_FilterForm> {
             ),
           ],
         ),
-        const FieldLabel('Amount'),
+        FieldLabel(context.t('Amount', 'रकम')),
         Row(
           children: <Widget>[
             Expanded(
@@ -198,7 +222,9 @@ class _FilterFormState extends State<_FilterForm> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(hintText: 'At least'),
+                decoration: InputDecoration(
+                  hintText: context.t('At least', 'कम्तीमा'),
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -209,26 +235,34 @@ class _FilterFormState extends State<_FilterForm> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(hintText: 'At most'),
+                decoration: InputDecoration(
+                  hintText: context.t('At most', 'बढीमा'),
+                ),
               ),
             ),
           ],
         ),
-        const FieldLabel('Order'),
+        FieldLabel(context.t('Order', 'क्रम')),
         OptionChips<TransactionSort>(
           options: TransactionSort.values,
           selected: _filter.sort,
-          labelOf: transactionSortLabel,
+          labelOf: (sort) => _sortLabel(context, sort),
           onSelected: (sort) =>
               setState(() => _filter = _filter.copyWith(sort: sort)),
         ),
         const SizedBox(height: 20),
         Row(
           children: <Widget>[
-            GlassButton(label: 'Clear', onPressed: _clear),
+            GlassButton(
+              label: context.t('Clear', 'हटाउनुहोस्'),
+              onPressed: _clear,
+            ),
             const SizedBox(width: 10),
             Expanded(
-              child: PrimaryButton(label: 'Show results', onPressed: _apply),
+              child: PrimaryButton(
+                label: context.t('Show results', 'नतिजा हेर्नुहोस्'),
+                onPressed: _apply,
+              ),
             ),
           ],
         ),

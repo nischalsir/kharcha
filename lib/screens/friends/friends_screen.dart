@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/friend_credit_model.dart';
@@ -11,6 +12,8 @@ import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
+import '../../widgets/common/grouped_list.dart';
+import '../../widgets/common/page_header.dart';
 import '../../widgets/common/primary_button.dart';
 import 'friend_detail_screen.dart';
 import 'split_bill_sheet.dart';
@@ -22,7 +25,7 @@ import '../../widgets/common/page_refresh.dart';
 Future<void> showAddFriendSheet(BuildContext context) {
   return showGlassSheet<void>(
     context: context,
-    title: 'Add Friend',
+    title: context.t('Add Friend', 'साथी थप्नुहोस्'),
     builder: (_) => const _FriendForm(),
   );
 }
@@ -50,35 +53,42 @@ class _FriendsScreenState extends State<FriendsScreen> {
     final friends = provider.friends;
     final glass = context.glass;
     final theme = Theme.of(context);
+    // As a page of its own it has a heading and a way back. As one side of
+    // the Ledger tab, the Ledger's own heading is above it with the button
+    // that adds a friend, so it has neither.
+    final standalone = !(ModalRoute.of(context)?.isFirst ?? true);
+    final split = HeaderAction(
+      key: const ValueKey<String>('friends-split'),
+      icon: Icons.call_split_rounded,
+      label: context.t('Split a bill', 'बिल बाँड्नुहोस्'),
+      prominent: false,
+      onPressed: () => showSplitBillSheet(context),
+    );
 
     return SafeArea(
       bottom: false,
       child: PageRefresh(
-        pageName: 'Friends',
-        pageNameNe: 'साथीहरू',
+        // Inside the Ledger tab, it is the Ledger that was refreshed.
+        pageName: standalone ? 'Friends' : 'Ledger',
+        pageNameNe: standalone ? 'साथीहरू' : 'उधारो',
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
           children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text('Friends', style: theme.textTheme.headlineMedium),
-                ),
-                IconButton(
-                  key: const ValueKey<String>('friends-split'),
-                  tooltip: 'Split a bill',
-                  onPressed: () => showSplitBillSheet(context),
-                  icon: const Icon(Icons.call_split_rounded, size: 26),
-                ),
-                IconButton(
-                  tooltip: 'Add friend',
-                  onPressed: () => showAddFriendSheet(context),
-                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 28),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+            if (standalone) ...<Widget>[
+              PageHeader(
+                title: context.t('Friends', 'साथीहरू'),
+                actions: <Widget>[
+                  HeaderAction(
+                    key: const ValueKey<String>('friends-add'),
+                    icon: Icons.person_add_alt_1_rounded,
+                    label: context.t('Add', 'थप्नुहोस्'),
+                    onPressed: () => showAddFriendSheet(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             GlassCard(
               child: Column(
                 children: <Widget>[
@@ -86,16 +96,16 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     children: <Widget>[
                       Expanded(
                         child: _Stat(
-                          label: 'They owe you',
+                          label: context.t('They owe you', 'पाउनुपर्ने'),
                           value: summary.othersOweYou,
                           color: glass.success,
                         ),
                       ),
-                      Container(width: 1, height: 36, color: glass.border),
+                      Container(width: 0.5, height: 36, color: glass.hairline),
                       const SizedBox(width: 16),
                       Expanded(
                         child: _Stat(
-                          label: 'You owe',
+                          label: context.t('You owe', 'तिर्नुपर्ने'),
                           value: summary.youOwe,
                           color: glass.danger,
                         ),
@@ -113,7 +123,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '${summary.overdueCount} overdue',
+                          context.t(
+                            '${summary.overdueCount} overdue',
+                            '${L10n.neNumber(summary.overdueCount)} को म्याद नाघ्यो',
+                          ),
                           style: theme.textTheme.labelMedium?.copyWith(
                             color: glass.warning,
                           ),
@@ -125,32 +138,44 @@ class _FriendsScreenState extends State<FriendsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _search,
-              onChanged: provider.setQuery,
-              decoration: const InputDecoration(
-                hintText: 'Search friends',
-                prefixIcon: Icon(Icons.search_rounded),
-              ),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: TextField(
+                    controller: _search,
+                    onChanged: provider.setQuery,
+                    decoration: InputDecoration(
+                      hintText: context.t('Search friends', 'साथी खोज्नुहोस्'),
+                      prefixIcon: const Icon(Icons.search_rounded),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            // Named, not just drawn: a forked arrow on its own says nothing.
+            Align(alignment: AlignmentDirectional.centerStart, child: split),
+            const SizedBox(height: 8),
             if (friends.isEmpty)
               SizedBox(
                 height: 320,
                 child: EmptyState(
                   icon: Icons.people_outline,
-                  title: 'No friends yet',
-                  message: 'Add a friend to track money you lend or borrow.',
-                  actionLabel: 'Add Friend',
+                  title: context.t('No friends yet', 'अहिलेसम्म साथी छैन'),
+                  message: context.t(
+                    'Add a friend to track money you lend or borrow.',
+                    'सापटी दिएको वा लिएको पैसाको हिसाब राख्न साथी थप्नुहोस्।',
+                  ),
+                  actionLabel: context.t('Add Friend', 'साथी थप्नुहोस्'),
                   onAction: () => showAddFriendSheet(context),
                 ),
               )
             else
-              for (final friend in friends)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _FriendTile(friend: friend),
-                ),
+              GroupedCard(
+                children: <Widget>[
+                  for (final friend in friends) _FriendRow(friend: friend),
+                ],
+              ),
           ],
         ),
       ),
@@ -192,8 +217,8 @@ class _Stat extends StatelessWidget {
   }
 }
 
-class _FriendTile extends StatelessWidget {
-  const _FriendTile({required this.friend});
+class _FriendRow extends StatelessWidget {
+  const _FriendRow({required this.friend});
 
   final Friend friend;
 
@@ -210,84 +235,35 @@ class _FriendTile extends StatelessWidget {
     final net = theyOwe - iOwe;
 
     String caption;
-    Color color;
+    Color? color;
     if (net > 0.005) {
-      caption = 'owes you';
+      caption = context.t('owes you', 'तपाईंलाई तिर्नुपर्ने');
       color = glass.success;
     } else if (net < -0.005) {
-      caption = 'you owe';
+      caption = context.t('you owe', 'तपाईंले तिर्नुपर्ने');
       color = glass.danger;
     } else {
-      caption = 'settled';
+      caption = context.t('settled', 'चुक्ता');
       color = glass.textSecondary;
     }
 
-    return GlassCard(
+    return GroupedRow(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute<void>(
           builder: (_) => FriendDetailScreen(friendId: friend.id),
         ),
       ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              friend.name.isEmpty
-                  ? '?'
-                  : friend.name.substring(0, 1).toUpperCase(),
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.primary,
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  friend.name,
-                  style: theme.textTheme.titleMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (friend.phone != null)
-                  Text(
-                    friend.phone!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: glass.textSecondary,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: <Widget>[
-              Text(
-                CurrencyFormatter.format(net.abs()),
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                caption,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: glass.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ],
+      leading: LeadingTile.initial(
+        color: theme.colorScheme.primary,
+        name: friend.name,
+      ),
+      title: Text(friend.name),
+      subtitle: friend.phone == null ? null : Text(friend.phone!),
+      trailing: TrailingAmount(
+        text: CurrencyFormatter.format(net.abs()),
+        color: color,
+        caption: caption,
       ),
     );
   }

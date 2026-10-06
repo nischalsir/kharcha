@@ -69,7 +69,9 @@ void main() {
     expect(tester.getCenter(find.byType(InkWell)).dx, 28);
   });
 
-  testWidgets('pop-ups are drawn like the glass cards', (tester) async {
+  testWidgets('pop-ups share one shape, with a rim only on black', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       app(
         Scaffold(
@@ -91,7 +93,12 @@ void main() {
         Theme.of(tester.element(find.text('Sure?'))).dialogTheme.shape!
             as RoundedRectangleBorder;
     expect(shape.borderRadius, BorderRadius.circular(28));
-    // The thin rim every glass card has.
-    expect(shape.side.width, 0.75);
+    // On a light page the dimmed background and the shadow set it apart; a
+    // card has no outline any more, and neither does a pop-up.
+    expect(shape.side, BorderSide.none);
+    // On black a shadow cannot be seen, so there it keeps a thin rim.
+    final dark = AppTheme.dark().dialogTheme.shape! as RoundedRectangleBorder;
+    expect(dark.borderRadius, BorderRadius.circular(28));
+    expect(dark.side.width, 0.75);
   });
 }

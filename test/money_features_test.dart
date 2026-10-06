@@ -35,6 +35,7 @@ import 'package:kharcha_app/services/home_widget_service.dart';
 import 'package:kharcha_app/services/nepali_date_service.dart';
 import 'package:kharcha_app/services/supabase_service.dart';
 import 'package:kharcha_app/services/sync_service.dart';
+import 'package:kharcha_app/widgets/common/grouped_list.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -885,7 +886,16 @@ void main() {
       );
       expect(find.text('Bank to eSewa'), findsOneWidget);
       expect(find.text('NPR 2,500.00'), findsOneWidget);
-      expect(find.textContaining('Transfer •'), findsOneWidget);
+      // The row says what it is. Its date is the day heading above it now,
+      // not a second copy on every row.
+      expect(
+        find.descendant(
+          of: find.byType(GroupedRow),
+          matching: find.text('Transfer'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Today'), findsOneWidget);
       // It is in neither total.
       expect(find.text('NPR 0.00'), findsNWidgets(2));
       expect(tester.takeException(), isNull);

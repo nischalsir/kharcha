@@ -97,7 +97,7 @@ class LoansScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        Container(width: 1, height: 36, color: glass.border),
+                        Container(width: 0.5, height: 36, color: glass.hairline),
                         const SizedBox(width: 16),
                         Expanded(
                           child: _Figure(
@@ -228,7 +228,7 @@ class _LoanCard extends StatelessWidget {
               child: Text(
                 loan.name,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -240,7 +240,7 @@ class _LoanCard extends StatelessWidget {
                 '${CurrencyFormatter.format(loan.emiAmount)} / महिना',
               ),
               style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

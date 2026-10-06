@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../widgets/common/grouped_list.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -106,50 +107,52 @@ class WalletsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                for (final wallet in wallets)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: GlassCard(
-                      key: ValueKey<String>('wallet-${wallet.method.code}'),
-                      onTap: () => _openBalance(context, wallet),
-                      child: Row(
-                        children: <Widget>[
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withValues(
-                                alpha: 0.14,
+                GroupedCard(
+                  dividerIndent: 68,
+                  children: <Widget>[
+                    for (final wallet in wallets)
+                      CardRow(
+                        key: ValueKey<String>('wallet-${wallet.method.code}'),
+                        onTap: () => _openBalance(context, wallet),
+                        child: Row(
+                          children: <Widget>[
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.14,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              borderRadius: BorderRadius.circular(12),
+                              child: Icon(
+                                walletIcon(wallet.method),
+                                color: theme.colorScheme.primary,
+                                size: 20,
+                              ),
                             ),
-                            child: Icon(
-                              walletIcon(wallet.method),
-                              color: theme.colorScheme.primary,
-                              size: 20,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                wallet.label,
+                                style: theme.textTheme.titleMedium,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              wallet.label,
-                              style: theme.textTheme.titleMedium,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            Text(
+                              CurrencyFormatter.format(wallet.balance),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: wallet.balance < 0 ? glass.danger : null,
+                              ),
                             ),
-                          ),
-                          Text(
-                            CurrencyFormatter.format(wallet.balance),
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: wallet.balance < 0 ? glass.danger : null,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
-                const SizedBox(height: 4),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 Center(
                   child: GlassButton(
                     label: context.t('Move money', 'पैसा सार्नुहोस्'),
@@ -170,7 +173,7 @@ class WalletsScreen extends StatelessWidget {
                   ),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: glass.textTertiary,
+                    color: glass.textSecondary,
                   ),
                 ),
               ],

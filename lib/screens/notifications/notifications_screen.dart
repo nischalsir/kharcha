@@ -111,7 +111,7 @@ class _NotificationsSheet extends StatelessWidget {
         text.toUpperCase(),
         style: theme.textTheme.labelSmall?.copyWith(
           color: glass.textTertiary,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           letterSpacing: 0.8,
         ),
       ),
@@ -337,7 +337,7 @@ class _NotificationTile extends StatelessWidget {
                 Text(
                   item.title,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: unread ? FontWeight.w800 : FontWeight.w500,
+                    fontWeight: unread ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),
                 if (item.body.isNotEmpty)

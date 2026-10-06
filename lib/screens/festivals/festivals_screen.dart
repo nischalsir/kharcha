@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../widgets/common/grouped_list.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/festival_provider.dart';
 import '../../services/device_locator.dart';
@@ -206,7 +207,7 @@ class _WeatherBadgeState extends State<_WeatherBadge> {
                   Text(
                     '${weather.temperatureC.round()}°C',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -312,7 +313,7 @@ class _MonthHeader extends StatelessWidget {
               Text(
                 dates.monthName(month, useDevanagari: false),
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -435,7 +436,7 @@ class _MonthListings extends StatelessWidget {
           Text(
             'In this month',
             style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 12),
@@ -459,7 +460,7 @@ class _MonthListings extends StatelessWidget {
         Text(
           'In this month',
           style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 4),
@@ -470,23 +471,26 @@ class _MonthListings extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        for (final entry in inMonth)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _MonthRow(
-              name: entry.title(devanagari: dates.devanagari),
-              subtitle: dates.formatBs(
-                BsDate(entry.bsYear, entry.bsMonth, entry.bsDay),
-                style: BsFormat.long,
+        GroupedCard(
+          dividerIndent: 70,
+          children: <Widget>[
+            for (final entry in inMonth)
+              _MonthRow(
+                name: entry.title(devanagari: dates.devanagari),
+                subtitle: dates.formatBs(
+                  BsDate(entry.bsYear, entry.bsMonth, entry.bsDay),
+                  style: BsFormat.long,
+                ),
+                tithi: entry.tithi,
+                icon: entry.iconData,
+                imagePath: entry.imagePath,
+                isHoliday: entry.isPublicHoliday,
+                onTap: () => onSelectDay(
+                  BsDate(entry.bsYear, entry.bsMonth, entry.bsDay),
+                ),
               ),
-              tithi: entry.tithi,
-              icon: entry.iconData,
-              imagePath: entry.imagePath,
-              isHoliday: entry.isPublicHoliday,
-              onTap: () =>
-                  onSelectDay(BsDate(entry.bsYear, entry.bsMonth, entry.bsDay)),
-            ),
-          ),
+          ],
+        ),
       ],
     );
   }
@@ -522,7 +526,7 @@ class _MonthRow extends StatelessWidget {
     final accent = isHoliday
         ? theme.colorScheme.error
         : theme.colorScheme.primary;
-    return GlassCard(
+    return CardRow(
       onTap: onTap,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
@@ -580,7 +584,7 @@ class _MonthRow extends StatelessWidget {
                 'Holiday',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onErrorContainer,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),

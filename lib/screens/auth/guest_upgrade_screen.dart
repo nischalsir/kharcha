@@ -197,6 +197,9 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
                       label: context.t('Password', 'पासवर्ड'),
                       prefixIcon: Icons.lock_outline_rounded,
                       suffixIcon: IconButton(
+                        tooltip: _obscure
+                            ? context.t('Show password', 'पासवर्ड देखाउनुहोस्')
+                            : context.t('Hide password', 'पासवर्ड लुकाउनुहोस्'),
                         onPressed: () => setState(() => _obscure = !_obscure),
                         icon: Icon(
                           _obscure
@@ -243,7 +246,7 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
                       ),
                 style: theme.textTheme.labelLarge?.copyWith(
                   color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),

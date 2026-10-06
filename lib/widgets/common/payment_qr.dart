@@ -11,6 +11,7 @@ import 'glass_back_button.dart';
 import 'glass_button.dart';
 import 'glass_card.dart';
 import 'receipt_field.dart';
+import 'skeleton_loader.dart';
 
 /// The payment QR of a shop or a friend, as a row on their page.
 ///
@@ -363,11 +364,7 @@ class _PaymentQrScreenState extends State<PaymentQrScreen> {
                           builder: (context, snapshot) {
                             if (snapshot.connectionState !=
                                 ConnectionState.done) {
-                              return const Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.4,
-                                ),
-                              );
+                              return const _QrLoading();
                             }
                             final url = snapshot.data;
                             if (url == null) {
@@ -383,11 +380,7 @@ class _PaymentQrScreenState extends State<PaymentQrScreen> {
                                   loadingBuilder: (context, child, progress) =>
                                       progress == null
                                       ? child
-                                      : const Center(
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.4,
-                                          ),
-                                        ),
+                                      : const _QrLoading(inset: 0),
                                   errorBuilder: (context, _, _) =>
                                       Center(child: _unavailable(context)),
                                 ),
@@ -425,6 +418,32 @@ class _PaymentQrScreenState extends State<PaymentQrScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The square a QR will fill, while it is on its way: its exact size and
+/// place, so the code appears in it instead of the panel jumping.
+class _QrLoading extends StatelessWidget {
+  const _QrLoading({this.inset = 12});
+
+  final double inset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.all(inset),
+      child: Skeleton(
+        label: context.t('Loading the QR', 'QR लोड हुँदैछ'),
+        // The panel is white whatever the theme, so the block is given a
+        // colour that shows on white rather than the theme's own.
+        child: const SkeletonLoader(
+          width: double.infinity,
+          height: double.infinity,
+          radius: 12,
+          color: Color(0x14000000),
         ),
       ),
     );

@@ -64,7 +64,7 @@ class AccountTransitionView extends StatelessWidget {
                       Text(
                         email,
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -75,7 +75,7 @@ class AccountTransitionView extends StatelessWidget {
                             ? context.t('Signing out…', 'साइन आउट हुँदैछ…')
                             : context.t('Signing in…', 'साइन इन हुँदैछ…'),
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     const SizedBox(height: 22),
@@ -131,7 +131,7 @@ class _TransitionAvatarState extends State<_TransitionAvatar> {
           email.isEmpty ? '?' : email[0].toUpperCase(),
           style: theme.textTheme.headlineMedium?.copyWith(
             color: theme.colorScheme.primary,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),

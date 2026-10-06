@@ -440,7 +440,7 @@ class _PageView extends StatelessWidget {
             context.t(page.title, page.titleNe),
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               letterSpacing: -0.3,
             ),
           ),
@@ -514,7 +514,7 @@ class _Visual extends StatelessWidget {
                 Text(
                   context.t(en, ne),
                   style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],

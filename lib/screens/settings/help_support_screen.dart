@@ -220,7 +220,7 @@ class HelpSupportScreen extends StatelessWidget {
               Text(
                 context.t('We are here to help', 'हामी मद्दतका लागि छौँ'),
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 4),
@@ -301,7 +301,7 @@ class HelpSupportScreen extends StatelessWidget {
                   'बैंक / eSewa स्टेटमेन्ट आयात',
                 ),
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 8),
@@ -310,7 +310,7 @@ class HelpSupportScreen extends StatelessWidget {
               Text(
                 context.t('Frequently asked', 'धेरै सोधिने प्रश्न'),
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 8),

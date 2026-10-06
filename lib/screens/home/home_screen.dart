@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../core/router/route_paths.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/motion.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../providers/ai_insight_provider.dart';
 import '../../providers/app_settings_provider.dart';
@@ -138,6 +139,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final data = dashboard.data;
 
     final userName = auth.profileName;
+    final birthDate = auth.profileBirthDate;
+    final now = DateTime.now();
+    final isBirthday =
+        birthDate != null &&
+        birthDate.month == now.month &&
+        birthDate.day == now.day;
     // The spending legend needs names, not the category row ids the dashboard
     // aggregates by.
     final categoryNames = <String, String>{
@@ -164,76 +171,78 @@ class _HomeScreenState extends State<HomeScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: <Widget>[
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               sliver: SliverToBoxAdapter(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
+                    // Read top to bottom: when it is, the greeting, and who
+                    // is being greeted. The date used to hang under the
+                    // icons on the other side, belonging to nothing.
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
+                          Text(
+                            dashboard.todayLabel(),
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: glass.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
                           TimedGreeting(style: theme.textTheme.headlineMedium),
-                          if (userName != null) ...<Widget>[
-                            const SizedBox(height: 2),
+                          if (userName != null)
                             Text(
                               userName,
                               style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
+                                color: glass.textSecondary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                          ],
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: <Widget>[
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            const SyncStatusButton(),
-                            IconButton(
-                              key: const ValueKey<String>('home-search'),
-                              tooltip: context.t('Search', 'खोज्नुहोस्'),
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () =>
-                                  Navigator.of(context)
-                                      .pushNamed(RoutePaths.search),
-                              icon: const Icon(Icons.search_rounded, size: 24),
-                            ),
-                            const NotificationBell(),
-                            const SizedBox(width: 4),
-                            _HeaderAvatar(url: _avatarUrl, name: userName),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          dashboard.todayLabel(),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: glass.textSecondary,
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const SyncStatusButton(),
+                          IconButton(
+                            key: const ValueKey<String>('home-search'),
+                            tooltip: context.t('Search', 'खोज्नुहोस्'),
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () =>
+                                Navigator.of(context)
+                                    .pushNamed(RoutePaths.search),
+                            icon: const Icon(Icons.search_rounded, size: 24),
                           ),
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
+                          const NotificationBell(),
+                          const SizedBox(width: 6),
+                          _HeaderAvatar(url: _avatarUrl, name: userName),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-              sliver: SliverToBoxAdapter(child: const AiBirthdayBanner()),
-            ),
+            // Only on the day itself. It used to keep its gap all year,
+            // leaving a hole between the greeting and the balance.
+            if (isBirthday)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                sliver: SliverToBoxAdapter(child: const AiBirthdayBanner()),
+              ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               sliver: SliverToBoxAdapter(
                 child: GlassCard(
-                  strong: true,
-                  glow: true,
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
@@ -253,12 +262,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      AnimatedNumber(
-                        value: data.totalBalance,
-                        style: theme.textTheme.displaySmall,
+                      const SizedBox(height: 4),
+                      // The one figure the page is for, and the largest
+                      // thing on it. Scales down rather than cutting off a
+                      // long balance.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: AnimatedNumber(
+                          value: data.totalBalance,
+                          style: theme.textTheme.displaySmall,
+                        ),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 16),
+                      Container(height: 0.5, color: glass.hairline),
+                      const SizedBox(height: 14),
                       Row(
                         children: <Widget>[
                           Expanded(
@@ -386,27 +404,13 @@ class _HeaderAvatar extends StatelessWidget {
         ? trimmed[0].toUpperCase()
         : null;
 
-    const double size = 48;
-    // The ring is painted over the picture rather than around it. As a
-    // border of the clipping box it pushed the picture inwards, leaving a
-    // square photo with its corners cut off instead of a filled circle.
+    const double size = 40;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[colorScheme.primary, colorScheme.secondary],
-        ),
-      ),
-      foregroundDecoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.35),
-          width: 2,
-        ),
+        color: colorScheme.primary,
       ),
       clipBehavior: Clip.antiAlias,
       child: url != null
@@ -429,12 +433,15 @@ class _HeaderAvatar extends StatelessWidget {
       child: initial != null
           ? Text(
               initial,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onPrimary,
               ),
             )
-          : const Icon(Icons.person_rounded, color: Colors.white, size: 24),
+          : Icon(
+              Icons.person_rounded,
+              color: theme.colorScheme.onPrimary,
+              size: 22,
+            ),
     );
   }
 }
@@ -481,13 +488,13 @@ class _BudgetSummaryCard extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: fraction),
-              duration: const Duration(milliseconds: 700),
-              curve: Curves.easeOutCubic,
+              tween: Tween<double>(begin: fraction, end: fraction),
+              duration: AppMotion.of(context, AppMotion.slow),
+              curve: AppMotion.standard,
               builder: (context, value, _) => LinearProgressIndicator(
                 value: value,
-                minHeight: 10,
-                backgroundColor: glass.surface,
+                minHeight: 8,
+                backgroundColor: glass.fill,
                 valueColor: AlwaysStoppedAnimation<Color>(color),
               ),
             ),
@@ -607,7 +614,8 @@ class _MiniStat extends StatelessWidget {
           child: Text(
             CurrencyFormatter.compact(value),
             style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
             ),
           ),
         ),

@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/motion.dart';
 import '../../core/utils/currency_formatter.dart';
 
+/// A figure that rolls to its new value when the value changes.
+///
+/// It shows the value it is given straight away. It used to count up from
+/// zero every time a page opened, which made a balance that had not changed
+/// look as if it had, and made the page wait to be read. Only a real change
+/// moves it now, and with reduced motion not even that.
 class AnimatedNumber extends StatelessWidget {
   const AnimatedNumber({
     super.key,
@@ -9,7 +16,7 @@ class AnimatedNumber extends StatelessWidget {
     this.formatter,
     this.style,
     this.textAlign,
-    this.duration = const Duration(milliseconds: 700),
+    this.duration = const Duration(milliseconds: 380),
   });
 
   final double value;
@@ -24,9 +31,11 @@ class AnimatedNumber extends StatelessWidget {
       fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
     );
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: value),
-      duration: duration,
-      curve: Curves.easeOutCubic,
+      // Begins where it ends: nothing to play until the value changes, and
+      // then it runs from the figure on screen to the new one.
+      tween: Tween<double>(begin: value, end: value),
+      duration: AppMotion.of(context, duration),
+      curve: AppMotion.standard,
       builder: (context, current, _) {
         final text = formatter != null
             ? formatter!(current)

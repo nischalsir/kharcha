@@ -168,7 +168,7 @@ class _DayCell extends StatelessWidget {
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: foreground,
                     fontWeight: isSelected || isToday || isHoliday
-                        ? FontWeight.w700
+                        ? FontWeight.w600
                         : FontWeight.w500,
                   ),
                 ),

@@ -92,7 +92,7 @@ class NetWorthScreen extends StatelessWidget {
         '${owed && amount > 0 ? '− ' : ''}'
         '${CurrencyFormatter.format(amount)}',
         style: theme.textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: owed && amount > 0 ? glass.danger : null,
         ),
       ),
@@ -110,7 +110,7 @@ class NetWorthScreen extends StatelessWidget {
                   title,
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: glass.textSecondary,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -118,7 +118,7 @@ class NetWorthScreen extends StatelessWidget {
                 CurrencyFormatter.format(total),
                 style: theme.textTheme.labelLarge?.copyWith(
                   color: glass.textSecondary,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -195,7 +195,7 @@ class NetWorthScreen extends StatelessWidget {
                           CurrencyFormatter.format(worth.total),
                           key: const ValueKey<String>('net-worth-total'),
                           style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             color: positive ? null : glass.danger,
                           ),
                         ),

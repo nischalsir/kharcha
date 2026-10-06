@@ -38,9 +38,17 @@ class GlassThemeCompat {
   Color get textTertiary => _dark
       ? const Color(0xff98989f).withValues(alpha: 0.5)
       : const Color(0xff6c6c70).withValues(alpha: 0.5);
-  Color get success => const Color(0xff30d158);
-  Color get warning => const Color(0xffff9f0a);
-  Color get danger => const Color(0xffff453a);
+  /// A hairline between rows that share a card.
+  Color get hairline => _scheme.onSurface.withValues(alpha: _dark ? 0.14 : 0.10);
+  // The bright system colours are made for a black page. As text on white or
+  // on a light grey card they are too pale to read (the green is 2:1), so
+  // light mode uses the darker of each pair, all above 4.5:1 on a card.
+  Color get success =>
+      _dark ? const Color(0xff30d158) : const Color(0xff1a7f37);
+  Color get warning =>
+      _dark ? const Color(0xffff9f0a) : const Color(0xffb25000);
+  // On a dark card the standard red is 4:1, so the lighter of that pair.
+  Color get danger => _dark ? const Color(0xffff6961) : const Color(0xffd70015);
   List<Color> get backgroundGradient => _dark
       ? const [Color(0xff000000), Color(0xff000000)]
       : const [Color(0xffffffff), Color(0xffffffff)];

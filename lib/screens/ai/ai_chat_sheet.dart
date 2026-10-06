@@ -175,7 +175,7 @@ class _AiChatSheetState extends State<AiChatSheet> {
                       child: Text(
                         'Ask Flamey about your money',
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -195,7 +195,7 @@ class _AiChatSheetState extends State<AiChatSheet> {
                           mood.label,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: mood.color(context),
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -214,6 +214,7 @@ class _AiChatSheetState extends State<AiChatSheet> {
             ),
           ),
           IconButton(
+            tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close_rounded),
           ),
@@ -343,6 +344,7 @@ class _AiChatSheetState extends State<AiChatSheet> {
           ),
           const SizedBox(width: 8),
           IconButton.filled(
+            tooltip: 'Send',
             onPressed: provider.chatSending
                 ? null
                 : () => _send(_controller.text),

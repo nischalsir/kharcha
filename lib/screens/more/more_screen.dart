@@ -13,6 +13,7 @@ import '../../services/app_images.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
+import '../../widgets/common/page_header.dart';
 import '../auth/guest_upgrade_screen.dart';
 
 /// Everything that does not have its own tab, in three groups:
@@ -146,7 +147,7 @@ class MoreScreen extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
         children: <Widget>[
-          Text(context.t('More', 'थप'), style: theme.textTheme.headlineMedium),
+          PageHeader(title: context.t('More', 'थप')),
           const SizedBox(height: 16),
           _GroupLabel(context.t('Profile', 'प्रोफाइल')),
           const _AccountCard(),
@@ -415,7 +416,7 @@ class _AccountCardState extends State<_AccountCard> {
                     Text(
                       title,
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -477,7 +478,7 @@ class _AccountAvatar extends StatelessWidget {
         letter,
         style: theme.textTheme.titleLarge?.copyWith(
           color: theme.colorScheme.primary,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -515,10 +516,12 @@ class _GroupLabel extends StatelessWidget {
       padding: const EdgeInsets.only(left: 6, bottom: 8),
       child: Text(
         label.toUpperCase(),
+        // Real text, so it gets a colour that can be read: the faint
+        // tertiary grey is for chevrons and other decoration.
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: context.glass.textTertiary,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.8,
+          color: context.glass.textSecondary,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.6,
         ),
       ),
     );
@@ -639,7 +642,7 @@ class _Row extends StatelessWidget {
                   badge!,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

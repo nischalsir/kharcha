@@ -223,7 +223,7 @@ class _TwoFactorAuthScreenState extends State<TwoFactorAuthScreen> {
                   child: Text(
                     context.t('Add an extra layer of security', 'सुरक्षाको थप तह थप्नुहोस्'),
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -273,7 +273,7 @@ class _TwoFactorAuthScreenState extends State<TwoFactorAuthScreen> {
       Text(
         context.t('Scan this QR code', 'यो QR कोड स्क्यान गर्नुहोस्'),
         style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
       ),
       const SizedBox(height: 6),
@@ -409,7 +409,7 @@ class _TwoFactorAuthScreenState extends State<TwoFactorAuthScreen> {
                   Text(
                     context.t('Two-factor is on', 'दुई-चरण सक्रिय छ'),
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 2),

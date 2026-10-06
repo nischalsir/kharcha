@@ -134,7 +134,7 @@ class _LockScreenState extends State<_LockScreen> {
                     key: const ValueKey<String>('app-lock-title'),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 6),

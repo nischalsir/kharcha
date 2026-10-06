@@ -329,10 +329,10 @@ void main() {
             find.descendant(of: action, matching: find.byType(Container)),
           );
           final decoration = tile.decoration! as BoxDecoration;
-          // One rounded shape with its own rim, in a colour that is not the
-          // page's: the white-on-white tile with four stray lines is gone.
+          // One rounded shape in a colour that is not the page's, which is
+          // its edge. Like the cards around it, it has no outline.
           expect(decoration.borderRadius, BorderRadius.circular(20));
-          expect(decoration.border, isNotNull);
+          expect(decoration.border, isNull);
           expect(
             decoration.color,
             isNot(theme.scaffoldBackgroundColor),
@@ -384,7 +384,7 @@ void main() {
   });
 
   group('the Ledger tab', () {
-    testWidgets('holds friends and shops, one switch apart', (tester) async {
+    testWidgets('holds shops and friends, one switch apart', (tester) async {
       tester.view.physicalSize = const Size(400, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -412,14 +412,23 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 600));
 
-      // Friends first.
-      expect(find.text('Sita Sharma').hitTestable(), findsOneWidget);
-      expect(find.text('Ram Kirana').hitTestable(), findsNothing);
-
-      await tester.tap(find.text('Pasal').first);
-      await tester.pump(const Duration(milliseconds: 600));
+      // The page is named, as Payments is.
+      expect(find.text('Ledger'), findsOneWidget);
+      // Shops first, on the left of the switch.
       expect(find.text('Ram Kirana').hitTestable(), findsOneWidget);
       expect(find.text('Sita Sharma').hitTestable(), findsNothing);
+      final switcher = find.byKey(const ValueKey<String>('ledger-switch'));
+      Finder segment(String label) =>
+          find.descendant(of: switcher, matching: find.text(label));
+      expect(
+        tester.getCenter(segment('Pasal')).dx,
+        lessThan(tester.getCenter(segment('Friends')).dx),
+      );
+
+      await tester.tap(segment('Friends'));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text('Sita Sharma').hitTestable(), findsOneWidget);
+      expect(find.text('Ram Kirana').hitTestable(), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 2));

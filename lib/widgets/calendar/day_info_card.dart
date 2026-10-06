@@ -137,7 +137,7 @@ class _Header extends StatelessWidget {
                     child: Text(
                       dates.formatBs(date, style: BsFormat.long),
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -282,7 +282,7 @@ class _EntryTile extends StatelessWidget {
                       child: Text(
                         entry.title(devanagari: devanagari),
                         style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -469,7 +469,7 @@ class _Pill extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall
-                ?.copyWith(color: foreground, fontWeight: FontWeight.w700),
+                ?.copyWith(color: foreground, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -522,7 +522,7 @@ class _TithiLine extends StatelessWidget {
                   : '${tithi.label()} • ${tithi.paksha()}',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: special ? accent : glass.textSecondary,
-                fontWeight: special ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: special ? FontWeight.w600 : FontWeight.w500,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

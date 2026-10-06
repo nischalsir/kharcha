@@ -53,7 +53,7 @@ class PasalSummaryCard extends StatelessWidget {
           Text(
             CurrencyFormatter.format(summary.totalOutstanding),
             style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
               color: glass.danger,
             ),
           ),

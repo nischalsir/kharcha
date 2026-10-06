@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../widgets/common/grouped_list.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
@@ -13,10 +14,12 @@ import '../../services/cache_service.dart';
 import '../../services/supabase_backup_service.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/common/account_required.dart';
+import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_back_button.dart';
+import '../../widgets/common/skeleton_loader.dart';
 
 /// Backup & restore screen with two transports:
 ///  * the app's Supabase Storage bucket (per-user cloud folder), and
@@ -41,6 +44,11 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
   bool _busy = false;
   bool _loadingCloud = false;
+
+  /// The last fetch of the list did not get through. Kept apart from "there
+  /// are none": an account with backups must not be told it has none
+  /// because the phone was offline.
+  bool _cloudFailed = false;
   List<CloudBackupFile> _cloudFiles = const <CloudBackupFile>[];
   String? _lastExportPath;
 
@@ -64,13 +72,28 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
   Future<void> _loadCloud() async {
     if (!_cloud.isConfigured) return;
-    setState(() => _loadingCloud = true);
+    setState(() {
+      _loadingCloud = true;
+      _cloudFailed = false;
+    });
     try {
       final files = await _cloud.listBackups();
       if (!mounted) return;
       setState(() => _cloudFiles = files);
-    } catch (error) {
-      if (mounted) showMessage(context, error.toString());
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _cloudFailed = true);
+      // With a list already on screen the failure has nowhere of its own to
+      // show, so it is said in passing and the list stays.
+      if (_cloudFiles.isNotEmpty) {
+        showMessage(
+          context,
+          context.t(
+            'Could not refresh the list. Check your connection.',
+            'सूची रिफ्रेस हुन सकेन। इन्टरनेट जाँच्नुहोस्।',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loadingCloud = false);
     }
@@ -349,21 +372,25 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                   ),
                 )
               else ...<Widget>[
-                _ActionCard(
-                  icon: Icons.cloud_upload_rounded,
-                  color: const Color(0xFF0A84FF),
-                  title: context.t(
-                    'Back up to cloud',
-                    'क्लाउडमा ब्याकअप गर्नुहोस्',
-                  ),
-                  subtitle: context.t(
-                    'Upload a fresh backup to your secure cloud storage',
-                    'तपाईंको cloud स्टोरेजमा नयाँ ब्याकअप अपलोड गर्नुहोस्',
-                  ),
-                  enabled: !_busy,
-                  onTap: _uploadCloud,
+                GroupedCard(
+                  children: <Widget>[
+                    _ActionCard(
+                      icon: Icons.cloud_upload_rounded,
+                      color: const Color(0xFF0A84FF),
+                      title: context.t(
+                        'Back up to cloud',
+                        'क्लाउडमा ब्याकअप गर्नुहोस्',
+                      ),
+                      subtitle: context.t(
+                        'Upload a fresh backup to your secure cloud storage',
+                        'तपाईंको cloud स्टोरेजमा नयाँ ब्याकअप अपलोड गर्नुहोस्',
+                      ),
+                      enabled: !_busy,
+                      onTap: _uploadCloud,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 18),
                 Row(
                   children: <Widget>[
                     Text(
@@ -373,7 +400,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                       ),
                     ),
                     const Spacer(),
-                    if (_loadingCloud)
+                    // Only while a list that is already shown is being
+                    // fetched again; the first fetch has placeholders.
+                    if (_loadingCloud && _cloudFiles.isNotEmpty)
                       const SizedBox(
                         width: 14,
                         height: 14,
@@ -382,7 +411,29 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                if (_cloudFiles.isEmpty && !_loadingCloud)
+                if (_cloudFiles.isEmpty && _loadingCloud)
+                  _BackupListSkeleton(
+                    label: context.t(
+                      'Loading your cloud backups',
+                      'क्लाउड ब्याकअप लोड हुँदैछ',
+                    ),
+                  )
+                else if (_cloudFiles.isEmpty && _cloudFailed)
+                  GlassCard(
+                    child: ErrorState(
+                      title: context.t(
+                        'Could not load your backups',
+                        'ब्याकअप लोड हुन सकेन',
+                      ),
+                      message: context.t(
+                        'Check your connection and try again.',
+                        'इन्टरनेट जाँचेर फेरि प्रयास गर्नुहोस्।',
+                      ),
+                      retryLabel: context.t('Try again', 'फेरि प्रयास'),
+                      onRetry: _loadCloud,
+                    ),
+                  )
+                else if (_cloudFiles.isEmpty)
                   GlassCard(
                     child: Text(
                       context.t(
@@ -395,44 +446,54 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                     ),
                   )
                 else
-                  for (final file in _cloudFiles)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _BackupTile(
-                        title: _formatDate(file.updatedAt),
-                        subtitle: _formatSize(file.size),
-                        icon: Icons.cloud_done_rounded,
-                        busy: _busy,
-                        onRestore: () => _restoreCloud(file),
-                        onDelete: () => _deleteCloud(file),
-                      ),
-                    ),
+                  GroupedCard(
+                    children: <Widget>[
+                      for (final file in _cloudFiles)
+                        _BackupTile(
+                          title: _formatDate(file.updatedAt),
+                          subtitle: _formatSize(file.size),
+                          icon: Icons.cloud_done_rounded,
+                          busy: _busy,
+                          onRestore: () => _restoreCloud(file),
+                          onDelete: () => _deleteCloud(file),
+                        ),
+                    ],
+                  ),
               ],
               const SizedBox(height: 26),
               _SectionLabel(context.t('Device file', 'यन्त्र फाइल')),
               const SizedBox(height: 8),
-              _ActionCard(
-                icon: Icons.upload_file_rounded,
-                color: const Color(0xFF30D158),
-                title: context.t('Export to file', 'फाइलमा निर्यात गर्नुहोस्'),
-                subtitle: context.t(
-                  'Save a .json file and share it anywhere',
-                  '.json फाइल सुरक्षित गरी जहाँ पनि साझा गर्नुहोस्',
-                ),
-                enabled: !_busy,
-                onTap: _exportFile,
-              ),
-              const SizedBox(height: 10),
-              _ActionCard(
-                icon: Icons.restore_rounded,
-                color: const Color(0xFFFF9F0A),
-                title: context.t('Import from file', 'फाइलबाट आयात गर्नुहोस्'),
-                subtitle: context.t(
-                  'Restore from a previously exported .json file',
-                  'पहिले निर्यात गरिएको .json फाइलबाट रिस्टोर गर्नुहोस्',
-                ),
-                enabled: !_busy,
-                onTap: _importFile,
+              GroupedCard(
+                children: <Widget>[
+                  _ActionCard(
+                    icon: Icons.upload_file_rounded,
+                    color: const Color(0xFF30D158),
+                    title: context.t(
+                      'Export to file',
+                      'फाइलमा निर्यात गर्नुहोस्',
+                    ),
+                    subtitle: context.t(
+                      'Save a .json file and share it anywhere',
+                      '.json फाइल सुरक्षित गरी जहाँ पनि साझा गर्नुहोस्',
+                    ),
+                    enabled: !_busy,
+                    onTap: _exportFile,
+                  ),
+                  _ActionCard(
+                    icon: Icons.restore_rounded,
+                    color: const Color(0xFFFF9F0A),
+                    title: context.t(
+                      'Import from file',
+                      'फाइलबाट आयात गर्नुहोस्',
+                    ),
+                    subtitle: context.t(
+                      'Restore from a previously exported .json file',
+                      'पहिले निर्यात गरिएको .json फाइलबाट रिस्टोर गर्नुहोस्',
+                    ),
+                    enabled: !_busy,
+                    onTap: _importFile,
+                  ),
+                ],
               ),
               if (_lastExportPath != null) ...<Widget>[
                 const SizedBox(height: 10),
@@ -532,8 +593,9 @@ class _ActionCard extends StatelessWidget {
     final glass = context.glass;
     return Opacity(
       opacity: enabled ? 1 : 0.5,
-      child: GlassCard(
+      child: CardRow(
         onTap: enabled ? onTap : null,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         child: Row(
           children: <Widget>[
             Container(
@@ -545,7 +607,7 @@ class _ActionCard extends StatelessWidget {
               ),
               child: Icon(icon, color: color, size: 22),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -589,13 +651,13 @@ class _BackupTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final glass = context.glass;
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    return CardRow(
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 6, 4, 6),
       child: Row(
         children: <Widget>[
           Container(
-            width: 38,
-            height: 38,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: const Color(0xFF30D158).withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(11),
@@ -619,13 +681,62 @@ class _BackupTile extends StatelessWidget {
           ),
           TextButton(
             onPressed: busy ? null : onRestore,
-            child: const Text('Restore'),
+            child: Text(context.t('Restore', 'रिस्टोर')),
           ),
           IconButton(
-            tooltip: 'Delete',
+            tooltip: context.t('Delete this backup', 'यो ब्याकअप मेट्नुहोस्'),
             onPressed: busy ? null : onDelete,
-            icon: Icon(Icons.delete_outline_rounded, color: glass.textTertiary),
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              color: glass.textSecondary,
+            ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The cloud list before its first answer: two rows the shape of
+/// [_BackupTile], so the list fills in where these were.
+class _BackupListSkeleton extends StatelessWidget {
+  const _BackupListSkeleton({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeleton(
+      label: label,
+      child: GroupedCard(
+        children: <Widget>[
+          for (var i = 0; i < 2; i++)
+            const Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(14, 6, 12, 6),
+              child: SizedBox(
+                height: 48,
+                child: Row(
+                  children: <Widget>[
+                    SkeletonLoader(width: 40, height: 40, radius: 11),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          SkeletonLoader(width: 150, height: 12),
+                          SizedBox(height: 8),
+                          SkeletonLoader(width: 60, height: 10),
+                        ],
+                      ),
+                    ),
+                    SkeletonLoader(width: 62, height: 14),
+                    SizedBox(width: 20),
+                    SkeletonLoader(width: 22, height: 22, radius: 6),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

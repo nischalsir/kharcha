@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'pressable_scale.dart';
 
+/// The one filled button on a page or sheet: the thing it is there to do.
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
     super.key,
@@ -25,12 +26,10 @@ class PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final base = color ?? theme.colorScheme.primary;
+    final onBase = color == null ? theme.colorScheme.onPrimary : Colors.white;
     final enabled = onPressed != null && !isLoading;
     final button = DecoratedBox(
-      decoration: BoxDecoration(
-        color: base,
-        borderRadius: BorderRadius.circular(28),
-      ),
+      decoration: ShapeDecoration(color: base, shape: const StadiumBorder()),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 50),
         child: Padding(
@@ -40,10 +39,10 @@ class PrimaryButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               if (isLoading)
-                const CupertinoActivityIndicator(color: Colors.white, radius: 9)
+                CupertinoActivityIndicator(color: onBase, radius: 9)
               else ...<Widget>[
                 if (icon != null) ...<Widget>[
-                  Icon(icon, size: 20, color: Colors.white),
+                  Icon(icon, size: 20, color: onBase),
                   const SizedBox(width: 8),
                 ],
                 // Flexible, so a long label (Nepali, large font sizes) wraps to
@@ -53,9 +52,7 @@ class PrimaryButton extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                    ),
+                    style: theme.textTheme.labelLarge?.copyWith(color: onBase),
                   ),
                 ),
               ],
@@ -66,7 +63,11 @@ class PrimaryButton extends StatelessWidget {
     );
     final content = Opacity(
       opacity: onPressed == null ? 0.4 : 1,
-      child: PressableScale(onTap: enabled ? onPressed : null, child: button),
+      // While it is working the label is gone, so it is said out loud.
+      child: Semantics(
+        label: isLoading ? label : null,
+        child: PressableScale(onTap: enabled ? onPressed : null, child: button),
+      ),
     );
     if (expanded) {
       return SizedBox(width: double.infinity, child: content);

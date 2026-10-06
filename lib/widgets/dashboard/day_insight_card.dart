@@ -178,7 +178,7 @@ class DayInsightCard extends StatelessWidget {
                         mood.label,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: mood.color(context),
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           fontSize: 11,
                         ),
                       ),
@@ -277,7 +277,7 @@ class _DayBadge extends StatelessWidget {
                   maxLines: 1,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: scheme.onSurface.withValues(alpha: 0.7),
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     fontSize: 8.5,
                     letterSpacing: 0.6,
                     height: 1.1,
@@ -288,7 +288,7 @@ class _DayBadge extends StatelessWidget {
                   '$day',
                   style: theme.textTheme.titleLarge?.copyWith(
                     color: scheme.primary,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     height: 1.0,
                   ),
                 ),
@@ -302,7 +302,7 @@ class _DayBadge extends StatelessWidget {
                       maxLines: 1,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: scheme.primary,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -349,7 +349,7 @@ class _CountdownPill extends StatelessWidget {
             label,
             style: theme.textTheme.labelSmall?.copyWith(
               color: color,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -434,7 +434,7 @@ class _InsightText extends StatelessWidget {
         Text(
           insight!.title,
           style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 3),

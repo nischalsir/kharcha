@@ -41,7 +41,7 @@ class AiBirthdayBanner extends StatelessWidget {
                   name == null ? 'Happy Birthday!' : 'Happy Birthday, $name!',
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: Colors.white,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),

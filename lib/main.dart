@@ -85,6 +85,7 @@ import 'widgets/common/app_bottom_nav.dart';
 import 'widgets/common/account_transition.dart';
 import 'widgets/common/app_lock_gate.dart';
 import 'widgets/common/glass_background.dart';
+import 'widgets/common/skeleton_loader.dart';
 import 'widgets/common/update_dialog.dart';
 
 import 'package:provider/single_child_widget.dart';
@@ -967,9 +968,11 @@ class _AuthWrapperState extends State<_AuthWrapper>
         // yet. Showing the shell now would build it from the previous
         // account's data.
         if (_readyUserId != authProvider.userId) {
+          // A session restored at launch: Home is certainly what comes next,
+          // so its outline is shown rather than a spinner on an empty page.
           return _signedOutSeen
               ? AccountTransitionView.signingIn(email: authProvider.userEmail)
-              : GlassBackground(child: const _BootLoading());
+              : const GlassBackground(child: HomeSkeleton());
         }
 
         // Someone entering as a guest on a phone where nobody has been

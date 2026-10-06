@@ -85,7 +85,7 @@ class _PasalCreditHistoryScreenState extends State<PasalCreditHistoryScreen> {
                       color: glass.danger,
                     ),
                   ),
-                  Container(width: 1, height: 50, color: glass.border),
+                  Container(width: 0.5, height: 50, color: glass.hairline),
                   const SizedBox(width: 16),
                   Expanded(
                     child: _Stat(
@@ -94,7 +94,7 @@ class _PasalCreditHistoryScreenState extends State<PasalCreditHistoryScreen> {
                       color: glass.success,
                     ),
                   ),
-                  Container(width: 1, height: 50, color: glass.border),
+                  Container(width: 0.5, height: 50, color: glass.hairline),
                   const SizedBox(width: 16),
                   Expanded(
                     child: _Stat(
@@ -153,7 +153,7 @@ class _Stat extends StatelessWidget {
           CurrencyFormatter.format(value),
           style: theme.textTheme.titleMedium?.copyWith(
             color: color,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -221,7 +221,7 @@ class _CreditTile extends StatelessWidget {
                     CurrencyFormatter.format(credit.totalAmount),
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: statusColor,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   Container(

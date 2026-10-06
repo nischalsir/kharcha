@@ -11,6 +11,7 @@ import '../../models/transaction_model.dart';
 import '../../providers/ai_insight_provider.dart';
 import '../../providers/recurring_payment_provider.dart';
 import '../../providers/transaction_provider.dart';
+import '../../repositories/transaction_repository.dart';
 import '../../services/nepali_date_service.dart';
 import '../../services/receipt_store.dart';
 import '../../widgets/common/empty_state.dart';
@@ -18,8 +19,12 @@ import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_button.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/glass_sheet.dart';
+import '../../widgets/common/grouped_list.dart';
+import '../../widgets/common/page_header.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/receipt_field.dart';
+import '../../widgets/common/segmented_switch.dart';
+import '../../widgets/common/skeleton_loader.dart';
 import '../../widgets/pasal/pasal_item_image.dart';
 import 'transaction_filter_sheet.dart';
 
@@ -79,7 +84,7 @@ void deleteTransactionWithUndo({
 Future<void> showAddRecurringPaymentSheet(BuildContext context) {
   return showGlassSheet<void>(
     context: context,
-    title: 'Add Recurring Payment',
+    title: context.t('Add Recurring Payment', 'आवर्ती भुक्तानी थप्नुहोस्'),
     builder: (_) => const _RecurringForm(),
   );
 }
@@ -119,7 +124,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     if (_tab == 0) {
       showGlassSheet<void>(
         context: context,
-        title: 'Add Transaction',
+        title: context.t('Add Transaction', 'कारोबार थप्नुहोस्'),
         builder: (_) => const _TransactionForm(),
       );
     } else {
@@ -129,7 +134,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return SafeArea(
       bottom: false,
       child: PageRefresh(
@@ -139,32 +143,34 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
           children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    'Payments',
-                    style: theme.textTheme.headlineMedium,
-                  ),
-                ),
-                IconButton(
+            PageHeader(
+              title: context.t('Payments', 'भुक्तानी'),
+              actions: <Widget>[
+                HeaderAction(
+                  key: const ValueKey<String>('payments-add'),
+                  icon: Icons.add_rounded,
+                  label: context.t('Add', 'थप्नुहोस्'),
                   onPressed: _add,
-                  icon: const Icon(Icons.add_circle_rounded, size: 30),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<int>(
-                segments: const <ButtonSegment<int>>[
-                  ButtonSegment<int>(value: 0, label: Text('Recent')),
-                  ButtonSegment<int>(value: 1, label: Text('Recurring')),
-                ],
-                selected: <int>{_tab},
-                onSelectionChanged: (value) =>
-                    setState(() => _tab = value.first),
-              ),
+            const SizedBox(height: 12),
+            SegmentedSwitch<int>(
+              key: const ValueKey<String>('payments-switch'),
+              segments: <SwitchSegment<int>>[
+                SwitchSegment<int>(
+                  value: 0,
+                  icon: Icons.receipt_long_rounded,
+                  label: context.t('Recent', 'हालैका'),
+                ),
+                SwitchSegment<int>(
+                  value: 1,
+                  icon: Icons.event_repeat_rounded,
+                  label: context.t('Recurring', 'आवर्ती'),
+                ),
+              ],
+              selected: _tab,
+              onChanged: (value) => setState(() => _tab = value),
             ),
             const SizedBox(height: 16),
             if (_tab == 0) ..._recent(context) else ..._recurring(context),
@@ -172,6 +178,42 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         ),
       ),
     );
+  }
+
+  /// The list cut into days, when it is in date order. Sorted by amount it
+  /// is one run, and each row says its own date instead.
+  List<_DaySection> _sections(
+    BuildContext context,
+    List<TransactionModel> items,
+    TransactionSort sort,
+  ) {
+    if (sort != TransactionSort.dateDesc && sort != TransactionSort.dateAsc) {
+      return <_DaySection>[_DaySection(null, items)];
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = DateTime(now.year, now.month, now.day - 1);
+    final sections = <_DaySection>[];
+    DateTime? current;
+    for (final item in items) {
+      final at = item.occurredAt;
+      final day = DateTime(at.year, at.month, at.day);
+      if (current == null || day != current) {
+        current = day;
+        sections.add(
+          _DaySection(
+            day == today
+                ? context.t('Today', 'आज')
+                : day == yesterday
+                ? context.t('Yesterday', 'हिजो')
+                : formatDate(day),
+            <TransactionModel>[],
+          ),
+        );
+      }
+      sections.last.items.add(item);
+    }
+    return sections;
   }
 
   List<Widget> _recent(BuildContext context) {
@@ -198,16 +240,16 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           children: <Widget>[
             Expanded(
               child: _Total(
-                label: 'Income',
+                label: context.t('Income', 'आम्दानी'),
                 value: provider.totalFor(TransactionType.income),
                 color: glass.success,
               ),
             ),
-            Container(width: 1, height: 36, color: glass.border),
+            Container(width: 0.5, height: 36, color: glass.hairline),
             const SizedBox(width: 16),
             Expanded(
               child: _Total(
-                label: 'Expense',
+                label: context.t('Expense', 'खर्च'),
                 value: provider.totalFor(TransactionType.expense),
                 color: glass.danger,
               ),
@@ -222,9 +264,12 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             child: TextField(
               controller: _search,
               onChanged: provider.setSearch,
-              decoration: const InputDecoration(
-                hintText: 'Search transactions',
-                prefixIcon: Icon(Icons.search_rounded),
+              decoration: InputDecoration(
+                hintText: context.t(
+                  'Search transactions',
+                  'कारोबार खोज्नुहोस्',
+                ),
+                prefixIcon: const Icon(Icons.search_rounded),
               ),
             ),
           ),
@@ -234,7 +279,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             label: Text('$filterCount'),
             child: IconButton.filledTonal(
               key: const ValueKey<String>('payments-filter'),
-              tooltip: 'Filter',
+              tooltip: context.t('Filter', 'फिल्टर'),
               onPressed: () => showTransactionFilterSheet(context),
               icon: const Icon(Icons.tune_rounded),
             ),
@@ -243,14 +288,14 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       ),
       const SizedBox(height: 12),
       SizedBox(
-        height: 36,
+        height: 40,
         child: ListView(
           scrollDirection: Axis.horizontal,
           children: <Widget>[
-            chip('All', null),
-            chip('Expense', TransactionType.expense),
-            chip('Income', TransactionType.income),
-            chip('Transfer', TransactionType.transfer),
+            chip(context.t('All', 'सबै'), null),
+            chip(context.t('Expense', 'खर्च'), TransactionType.expense),
+            chip(context.t('Income', 'आम्दानी'), TransactionType.income),
+            chip(context.t('Transfer', 'ट्रान्सफर'), TransactionType.transfer),
           ],
         ),
       ),
@@ -261,8 +306,12 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  '${provider.totalMatching} found with '
-                  '$filterCount filter${filterCount == 1 ? '' : 's'}',
+                  context.t(
+                    '${provider.totalMatching} found with '
+                        '$filterCount filter${filterCount == 1 ? '' : 's'}',
+                    '${L10n.neNumber(filterCount)} फिल्टरमा '
+                        '${L10n.neNumber(provider.totalMatching)} भेटियो',
+                  ),
                   style: Theme.of(context).textTheme.labelMedium
                       ?.copyWith(color: glass.textSecondary),
                 ),
@@ -273,20 +322,23 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                 ),
-                child: const Text('Clear filters'),
+                child: Text(context.t('Clear filters', 'फिल्टर हटाउनुहोस्')),
               ),
             ],
           ),
         ),
-      const SizedBox(height: 12),
+      const SizedBox(height: 16),
       if (items.isEmpty && provider.isFiltered)
         SizedBox(
           height: 300,
           child: EmptyState(
             icon: Icons.search_off_rounded,
-            title: 'Nothing matches',
-            message: 'No transaction fits this search and these filters.',
-            actionLabel: 'Clear filters',
+            title: context.t('Nothing matches', 'केही भेटिएन'),
+            message: context.t(
+              'No transaction fits this search and these filters.',
+              'यो खोज र फिल्टरसँग कुनै कारोबार मिलेन।',
+            ),
+            actionLabel: context.t('Clear filters', 'फिल्टर हटाउनुहोस्'),
             onAction: _clearFilters,
           ),
         )
@@ -295,22 +347,34 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           height: 300,
           child: EmptyState(
             icon: Icons.receipt_long_rounded,
-            title: 'No transactions',
-            message: 'Add your first income or expense.',
-            actionLabel: 'Add Transaction',
+            title: context.t('No transactions', 'कारोबार छैन'),
+            message: context.t(
+              'Add your first income or expense.',
+              'आफ्नो पहिलो आम्दानी वा खर्च थप्नुहोस्।',
+            ),
+            actionLabel: context.t('Add Transaction', 'कारोबार थप्नुहोस्'),
             onAction: _add,
           ),
         )
       else ...<Widget>[
-        for (final item in items)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _TransactionTile(item: item),
+        for (final section in _sections(
+          context,
+          items,
+          provider.filter.sort,
+        )) ...<Widget>[
+          if (section.label != null) GroupLabel(section.label!),
+          GroupedCard(
+            children: <Widget>[
+              for (final item in section.items)
+                _TransactionRow(item: item, showDate: section.label == null),
+            ],
           ),
+          const SizedBox(height: 18),
+        ],
         if (provider.hasMore)
           Center(
             child: GlassButton(
-              label: 'Load more',
+              label: context.t('Load more', 'थप हेर्नुहोस्'),
               onPressed: provider.loadMore,
             ),
           ),
@@ -331,9 +395,12 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           height: 360,
           child: EmptyState(
             icon: Icons.event_repeat_rounded,
-            title: 'No recurring payments',
-            message: 'Track rent, internet, EMI and other repeating bills.',
-            actionLabel: 'Add Recurring',
+            title: context.t('No recurring payments', 'आवर्ती भुक्तानी छैन'),
+            message: context.t(
+              'Track rent, internet, EMI and other repeating bills.',
+              'भाडा, इन्टरनेट, EMI र अरू दोहोरिने बिलको हिसाब राख्नुहोस्।',
+            ),
+            actionLabel: context.t('Add Recurring', 'आवर्ती थप्नुहोस्'),
             onAction: _add,
           ),
         ),
@@ -367,9 +434,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 Text(
                   CurrencyFormatter.format(monthlyOut),
                   key: const ValueKey<String>('recurring-monthly-out'),
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: theme.textTheme.headlineSmall,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -399,27 +464,42 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         ),
       if (dueCount > 0)
         Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: GlassCard(
-            child: Row(
-              children: <Widget>[
-                Icon(Icons.notifications_active_rounded, color: glass.warning),
-                const SizedBox(width: 10),
-                Text(
-                  '$dueCount payment${dueCount == 1 ? '' : 's'} due',
-                  style: theme.textTheme.titleSmall,
+          padding: const EdgeInsets.fromLTRB(6, 2, 6, 12),
+          child: Row(
+            children: <Widget>[
+              Icon(
+                Icons.notifications_active_rounded,
+                size: 18,
+                color: glass.warning,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.t(
+                    '$dueCount payment${dueCount == 1 ? '' : 's'} due',
+                    '${L10n.neNumber(dueCount)} भुक्तानी तिर्न बाँकी',
+                  ),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: glass.warning,
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      for (final item in items)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _RecurringTile(item: item),
-        ),
+      GroupedCard(
+        children: <Widget>[for (final item in items) _RecurringRow(item: item)],
+      ),
     ];
   }
+}
+
+/// A day's worth of the list. A null [label] is a run with no heading.
+class _DaySection {
+  _DaySection(this.label, this.items);
+
+  final String? label;
+  final List<TransactionModel> items;
 }
 
 class _Total extends StatelessWidget {
@@ -456,73 +536,49 @@ class _Total extends StatelessWidget {
   }
 }
 
-class _TransactionTile extends StatelessWidget {
-  const _TransactionTile({required this.item});
+class _TransactionRow extends StatelessWidget {
+  const _TransactionRow({required this.item, required this.showDate});
 
   final TransactionModel item;
+
+  /// False under a day heading, which already says the date.
+  final bool showDate;
 
   @override
   Widget build(BuildContext context) {
     final glass = context.glass;
-    final theme = Theme.of(context);
     final income = item.isIncome;
     final transfer = item.isTransfer;
     // A transfer is neither good nor bad news, so it gets no colour.
     final tint = transfer
         ? glass.textSecondary
         : (income ? glass.success : glass.danger);
-    final pending = item.status == TransactionStatus.pending
-        ? ' • Pending'
-        : '';
-    // The title of a transfer already names both wallets.
-    final method = transfer ? 'Transfer' : item.paymentMethod.label;
-    return GlassCard(
+    final details = <String>[
+      // The title of a transfer already names both wallets.
+      transfer ? context.t('Transfer', 'ट्रान्सफर') : item.paymentMethod.label,
+      if (showDate) formatDate(item.occurredAt),
+      if (item.status == TransactionStatus.pending)
+        context.t('Pending', 'बाँकी'),
+    ].join(' • ');
+    return GroupedRow(
       onTap: () => showGlassSheet<void>(
         context: context,
         title: item.title,
         builder: (_) => _TransactionActions(id: item.id),
       ),
-      child: Row(
+      leading: LeadingTile(
+        color: tint,
+        icon: transfer
+            ? Icons.swap_horiz_rounded
+            : (income
+                  ? Icons.arrow_downward_rounded
+                  : Icons.arrow_upward_rounded),
+      ),
+      title: Text(item.title),
+      subtitle: Text(details),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: tint.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              transfer
-                  ? Icons.swap_horiz_rounded
-                  : (income
-                        ? Icons.arrow_downward_rounded
-                        : Icons.arrow_upward_rounded),
-              color: tint,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  item.title,
-                  style: theme.textTheme.titleSmall,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  '$method • ${formatDate(item.occurredAt)}$pending',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: glass.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
           if (item.attachmentPath != null)
             Padding(
               padding: const EdgeInsets.only(right: 6),
@@ -530,15 +586,14 @@ class _TransactionTile extends StatelessWidget {
                 Icons.attach_file_rounded,
                 size: 16,
                 color: glass.textSecondary,
+                semanticLabel: context.t('Has a receipt', 'रसिद छ'),
               ),
             ),
-          Text(
-            '${transfer ? '' : (income ? '+' : '-')}'
-            '${CurrencyFormatter.format(item.amount)}',
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: transfer ? null : tint,
-              fontWeight: FontWeight.w700,
-            ),
+          TrailingAmount(
+            text:
+                '${transfer ? '' : (income ? '+' : '-')}'
+                '${CurrencyFormatter.format(item.amount)}',
+            color: transfer ? null : tint,
           ),
         ],
       ),
@@ -573,8 +628,11 @@ class _TransactionActionsState extends State<_TransactionActions> {
       setState(() => _uploading = false);
       showMessage(
         context,
-        'The receipt could not be uploaded. Check your connection and try '
-        'again.',
+        context.t(
+          'The receipt could not be uploaded. Check your connection and try '
+              'again.',
+          'रसिद अपलोड हुन सकेन। इन्टरनेट जाँचेर फेरि प्रयास गर्नुहोस्।',
+        ),
       );
       return;
     }
@@ -618,7 +676,23 @@ class _TransactionActionsState extends State<_TransactionActions> {
             ),
           ),
         const SizedBox(height: 16),
-        if (receipt != null)
+        // The picture being uploaded takes the place the saved one has, at
+        // the same size, so the sheet does not move when it arrives.
+        if (_uploading)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Center(
+              child: Skeleton(
+                label: context.t('Uploading the receipt', 'रसिद अपलोड हुँदैछ'),
+                child: const SkeletonLoader(
+                  width: 120,
+                  height: 120,
+                  radius: 14,
+                ),
+              ),
+            ),
+          )
+        else if (receipt != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Center(
@@ -644,39 +718,30 @@ class _TransactionActionsState extends State<_TransactionActions> {
               ),
             ),
           ),
-        if (_uploading)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 12),
-            child: Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.4),
-              ),
-            ),
-          )
-        else if (!item.isTransfer) ...<Widget>[
+        if (!_uploading && !item.isTransfer) ...<Widget>[
           if (receipt != null)
             ActionTile(
               icon: Icons.open_in_full_rounded,
-              label: 'View receipt',
+              label: context.t('View receipt', 'रसिद हेर्नुहोस्'),
               onTap: () => showReceipt(context, receipt),
             ),
           ActionTile(
             icon: Icons.add_a_photo_outlined,
-            label: receipt == null ? 'Add receipt' : 'Replace receipt',
+            label: receipt == null
+                ? context.t('Add receipt', 'रसिद थप्नुहोस्')
+                : context.t('Replace receipt', 'रसिद बदल्नुहोस्'),
             onTap: _attachReceipt,
           ),
           if (receipt != null)
             ActionTile(
               icon: Icons.hide_image_outlined,
-              label: 'Remove receipt',
+              label: context.t('Remove receipt', 'रसिद हटाउनुहोस्'),
               onTap: () => _removeReceipt(receipt),
             ),
         ],
         ActionTile(
           icon: Icons.copy_rounded,
-          label: 'Duplicate',
+          label: context.t('Duplicate', 'नक्कल बनाउनुहोस्'),
           onTap: () {
             Navigator.pop(context);
             provider.duplicate(id);
@@ -684,7 +749,7 @@ class _TransactionActionsState extends State<_TransactionActions> {
         ),
         ActionTile(
           icon: Icons.delete_outline_rounded,
-          label: 'Delete',
+          label: context.t('Delete', 'मेट्नुहोस्'),
           color: glass.danger,
           onTap: () {
             final messenger = ScaffoldMessenger.of(context);
@@ -787,16 +852,13 @@ class _TransactionFormState extends State<_TransactionForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        SegmentedButton<TransactionType>(
-          segments: <ButtonSegment<TransactionType>>[
+        SegmentedSwitch<TransactionType>(
+          segments: <SwitchSegment<TransactionType>>[
             for (final type in _formTypes)
-              ButtonSegment<TransactionType>(
-                value: type,
-                label: Text(type.label),
-              ),
+              SwitchSegment<TransactionType>(value: type, label: type.label),
           ],
-          selected: <TransactionType>{_type},
-          onSelectionChanged: (value) => setState(() => _type = value.first),
+          selected: _type,
+          onChanged: (value) => setState(() => _type = value),
         ),
         const FieldLabel('Title'),
         TextField(
@@ -844,8 +906,8 @@ class _TransactionFormState extends State<_TransactionForm> {
   }
 }
 
-class _RecurringTile extends StatelessWidget {
-  const _RecurringTile({required this.item});
+class _RecurringRow extends StatelessWidget {
+  const _RecurringRow({required this.item});
 
   final RecurringPayment item;
 
@@ -862,79 +924,35 @@ class _RecurringTile extends StatelessWidget {
     String badge = '';
     Color badgeColor = glass.textSecondary;
     if (!item.isActive) {
-      badge = 'Paused';
+      badge = context.t('Paused', 'रोकिएको');
     } else if (due) {
-      badge = 'Due';
+      badge = context.t('Due', 'तिर्ने बेला');
       badgeColor = glass.danger;
     }
 
-    return GlassCard(
+    return GroupedRow(
       onTap: () => showGlassSheet<void>(
         context: context,
         title: item.title,
         builder: (_) => _RecurringActions(id: item.id),
       ),
-      child: Row(
+      leading: LeadingTile(
+        color: theme.colorScheme.primary,
+        icon: Icons.event_repeat_rounded,
+      ),
+      title: Text(item.title),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              Icons.event_repeat_rounded,
-              color: theme.colorScheme.primary,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  item.title,
-                  style: theme.textTheme.titleSmall,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  '${item.frequency.label} • ${formatDate(item.nextDate)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: glass.textSecondary,
-                  ),
-                ),
-                Text(
-                  bsText,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: glass.textTertiary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: <Widget>[
-              Text(
-                '${income ? '+' : '-'}${CurrencyFormatter.format(item.amount)}',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: income ? glass.success : null,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (badge.isNotEmpty)
-                Text(
-                  badge,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: badgeColor,
-                  ),
-                ),
-            ],
-          ),
+          Text('${item.frequency.label} • ${formatDate(item.nextDate)}'),
+          Text(bsText, style: theme.textTheme.labelSmall),
         ],
+      ),
+      trailing: TrailingAmount(
+        text: '${income ? '+' : '-'}${CurrencyFormatter.format(item.amount)}',
+        color: income ? glass.success : null,
+        caption: badge,
+        captionColor: badgeColor,
       ),
     );
   }
@@ -1095,16 +1113,13 @@ class _RecurringFormState extends State<_RecurringForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        SegmentedButton<TransactionType>(
-          segments: <ButtonSegment<TransactionType>>[
+        SegmentedSwitch<TransactionType>(
+          segments: <SwitchSegment<TransactionType>>[
             for (final type in _formTypes)
-              ButtonSegment<TransactionType>(
-                value: type,
-                label: Text(type.label),
-              ),
+              SwitchSegment<TransactionType>(value: type, label: type.label),
           ],
-          selected: <TransactionType>{_type},
-          onSelectionChanged: (value) => setState(() => _type = value.first),
+          selected: _type,
+          onChanged: (value) => setState(() => _type = value),
         ),
         const FieldLabel('Title'),
         TextField(

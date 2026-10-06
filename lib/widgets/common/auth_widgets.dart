@@ -67,7 +67,7 @@ Future<BiometricAccount?> chooseBiometricAccount(
                 child: Text(
                   'Choose an account',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -140,7 +140,7 @@ class _AccountAvatar extends StatelessWidget {
           initial,
           style: theme.textTheme.titleMedium?.copyWith(
             color: theme.colorScheme.primary,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -287,7 +287,7 @@ class AuthBrand extends StatelessWidget {
         Text(
           title,
           style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
           ),
         ),
@@ -602,7 +602,7 @@ class AuthGhostButton extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: color,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

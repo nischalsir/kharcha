@@ -483,7 +483,7 @@ class _Slide extends StatelessWidget {
               Text(
                 context.t(step.title, step.titleNe),
                 style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 8),

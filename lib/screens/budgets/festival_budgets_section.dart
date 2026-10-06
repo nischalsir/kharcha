@@ -50,7 +50,7 @@ class FestivalBudgetsSection extends StatelessWidget {
               child: Text(
                 context.t('Festivals', 'चाडपर्व'),
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -187,7 +187,7 @@ class _FestivalProgress extends StatelessWidget {
               child: Text(
                 name,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -203,7 +203,7 @@ class _FestivalProgress extends StatelessWidget {
                 '${item.percent}%',
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: color,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),

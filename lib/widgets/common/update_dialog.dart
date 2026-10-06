@@ -136,7 +136,7 @@ class _UpdateDialog extends StatelessWidget {
             Text(
               context.t('Update available', 'अपडेट उपलब्ध छ'),
               style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
               textAlign: TextAlign.center,
             ),

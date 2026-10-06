@@ -427,7 +427,7 @@ class _AddPasalCreditScreenState extends State<AddPasalCreditScreen> {
                     Text(
                       CurrencyFormatter.format(_total),
                       style: Theme.of(context).textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                          ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),

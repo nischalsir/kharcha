@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'mornye_chrome.dart';
+import '../../theme/app_tokens.dart';
 
 Future<T?> showGlassSheet<T>({
   required BuildContext context,
@@ -19,26 +19,48 @@ Future<T?> showGlassSheet<T>({
   );
 }
 
+/// The app's bottom sheet: a solid surface with a grabber, a centred title
+/// and the content, which scrolls when it is taller than the screen.
+///
+/// The page behind is dimmed, which is what sets a sheet apart. It used to be
+/// wrapped in a blur as well, behind a body that was opaque anyway.
 class GlassSheet extends StatelessWidget {
   const GlassSheet({super.key, required this.child, this.title});
 
   final Widget child;
   final String? title;
 
+  /// The theme as it applies on a sheet, one per theme.
+  static final Expando<ThemeData> _onSheet = Expando<ThemeData>();
+
+  /// A sheet is the grouped grey that cards and text fields are made of on a
+  /// page. On a sheet both step to the next surface up, so a field typed
+  /// into and a row tapped on can be seen for what they are.
+  static ThemeData onSheet(ThemeData theme) => _onSheet[theme] ??= () {
+    final dark = theme.brightness == Brightness.dark;
+    final raised = dark ? const Color(0xff2c2c2e) : Colors.white;
+    return theme.copyWith(
+      colorScheme: theme.colorScheme.copyWith(surfaceContainerHigh: raised),
+      inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+        fillColor: raised,
+      ),
+    );
+  }();
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final dark = scheme.brightness == Brightness.dark;
-    final background = dark ? Colors.black : const Color(0xfff2f2f7);
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: MornyeGlass.navigation(
-        blurEnabled: true,
-        radius: 32,
-        child: Material(
-          color: background,
+      child: Material(
+        color: scheme.surfaceContainerLow,
+        shape: context.tokens.sheetShape,
+        clipBehavior: Clip.antiAlias,
+        child: Theme(
+          data: onSheet(theme),
           child: SafeArea(
             top: false,
             child: Padding(
@@ -61,10 +83,15 @@ class GlassSheet extends StatelessWidget {
                   ),
                   if (title != null) ...<Widget>[
                     const SizedBox(height: 14),
-                    Text(
-                      title!,
-                      style: theme.textTheme.titleMedium,
-                      textAlign: TextAlign.center,
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        title!,
+                        style: theme.textTheme.labelLarge,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 16),

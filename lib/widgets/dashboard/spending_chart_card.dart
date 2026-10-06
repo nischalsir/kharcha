@@ -106,7 +106,7 @@ class SpendingChartCard extends StatelessWidget {
                       _shareLabel(context, incomeShare),
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: shareColor,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -216,7 +216,7 @@ class _LegendRow extends StatelessWidget {
           Text(
             CurrencyFormatter.compact(amount),
             style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../widgets/common/grouped_list.dart';
+import '../../widgets/common/segmented_switch.dart';
+import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/friend_credit_model.dart';
@@ -107,14 +110,16 @@ class FriendDetailScreen extends StatelessWidget {
         title: Text(friend.name),
         actions: <Widget>[
           IconButton(
+            tooltip: context.t('Add credit', 'उधारो थप्नुहोस्'),
             onPressed: () => showGlassSheet<void>(
               context: context,
-              title: 'Add Credit',
+              title: context.t('Add Credit', 'उधारो थप्नुहोस्'),
               builder: (_) => _CreditForm(friendId: friendId),
             ),
             icon: const Icon(Icons.add_circle_rounded),
           ),
           IconButton(
+            tooltip: context.t('Delete friend', 'साथी हटाउनुहोस्'),
             onPressed: () => _confirmDelete(context),
             icon: Icon(Icons.delete_outline_rounded, color: glass.danger),
           ),
@@ -140,7 +145,7 @@ class FriendDetailScreen extends StatelessWidget {
                           color: glass.success,
                         ),
                       ),
-                      Container(width: 1, height: 36, color: glass.border),
+                      Container(width: 0.5, height: 36, color: glass.hairline),
                       const SizedBox(width: 16),
                       Expanded(
                         child: _Amount(
@@ -215,11 +220,13 @@ class FriendDetailScreen extends StatelessWidget {
                 ),
               )
             else
-              for (final credit in credits)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _CreditTile(credit: credit, now: now),
-                ),
+              GroupedCard(
+                dividerIndent: 68,
+                children: <Widget>[
+                  for (final credit in credits)
+                    _CreditTile(credit: credit, now: now),
+                ],
+              ),
           ],
         ),
       ),
@@ -283,7 +290,7 @@ class _CreditTile extends StatelessWidget {
         ? credit.direction.label
         : '${credit.direction.label} • due ${formatDate(credit.dueDate!)}';
 
-    return GlassCard(
+    return CardRow(
       onTap: () => showGlassSheet<void>(
         context: context,
         title: credit.title,
@@ -332,7 +339,7 @@ class _CreditTile extends StatelessWidget {
               Text(
                 CurrencyFormatter.format(credit.remainingAmount),
                 style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               Text(
@@ -424,46 +431,48 @@ class _CreditSheet extends StatelessWidget {
           ),
         if (payments.isNotEmpty) ...<Widget>[
           const FieldLabel('Payments'),
-          for (final payment in payments)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: GlassCard(
-                strong: true,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                child: Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            CurrencyFormatter.format(payment.amount),
-                            style: theme.textTheme.titleSmall,
-                          ),
-                          Text(
-                            formatDate(payment.paidAt),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: glass.textSecondary,
+          GroupedCard(
+            dividerIndent: 14,
+            children: <Widget>[
+              for (final payment in payments)
+                CardRow(
+                  padding: const EdgeInsetsDirectional.fromSTEB(14, 2, 4, 2),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              CurrencyFormatter.format(payment.amount),
+                              style: theme.textTheme.titleSmall,
                             ),
-                          ),
-                        ],
+                            Text(
+                              formatDate(payment.paidAt),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: glass.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () => provider.deletePayment(payment.id),
-                      icon: Icon(
-                        Icons.delete_outline_rounded,
-                        color: glass.danger,
-                        size: 20,
+                      IconButton(
+                        tooltip: context.t(
+                          'Delete this payment',
+                          'यो भुक्तानी हटाउनुहोस्',
+                        ),
+                        onPressed: () => provider.deletePayment(payment.id),
+                        icon: Icon(
+                          Icons.delete_outline_rounded,
+                          color: glass.danger,
+                          size: 20,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ),
+            ],
+          ),
         ],
         const SizedBox(height: 8),
         ActionTile(
@@ -542,20 +551,19 @@ class _CreditFormState extends State<_CreditForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        SegmentedButton<FriendCreditDirection>(
-          segments: const <ButtonSegment<FriendCreditDirection>>[
-            ButtonSegment<FriendCreditDirection>(
+        SegmentedSwitch<FriendCreditDirection>(
+          segments: <SwitchSegment<FriendCreditDirection>>[
+            SwitchSegment<FriendCreditDirection>(
               value: FriendCreditDirection.theyOwe,
-              label: Text('They owe me'),
+              label: context.t('They owe me', 'मलाई तिर्नुपर्ने'),
             ),
-            ButtonSegment<FriendCreditDirection>(
+            SwitchSegment<FriendCreditDirection>(
               value: FriendCreditDirection.iOwe,
-              label: Text('I owe'),
+              label: context.t('I owe', 'मैले तिर्नुपर्ने'),
             ),
           ],
-          selected: <FriendCreditDirection>{_direction},
-          onSelectionChanged: (value) =>
-              setState(() => _direction = value.first),
+          selected: _direction,
+          onChanged: (value) => setState(() => _direction = value),
         ),
         const FieldLabel('Title'),
         TextField(

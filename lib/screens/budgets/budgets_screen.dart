@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../widgets/common/segmented_switch.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/budget_math.dart';
@@ -102,7 +103,7 @@ class BudgetsScreen extends StatelessWidget {
                           provider.monthLabel,
                           textAlign: TextAlign.center,
                           style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -186,7 +187,7 @@ class BudgetsScreen extends StatelessWidget {
                     Text(
                       context.t('By category', 'श्रेणी अनुसार'),
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -315,7 +316,7 @@ class _BudgetProgress extends StatelessWidget {
                     (prominent
                             ? theme.textTheme.titleLarge
                             : theme.textTheme.titleMedium)
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                        ?.copyWith(fontWeight: FontWeight.w600),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -430,7 +431,7 @@ class _Chip extends StatelessWidget {
       child: Text(
         text,
         style: Theme.of(context).textTheme.labelMedium
-            ?.copyWith(color: color, fontWeight: FontWeight.w700),
+            ?.copyWith(color: color, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -588,20 +589,19 @@ class _BudgetFormState extends State<_BudgetForm> {
           ),
           const SizedBox(height: 16),
           FieldLabel(context.t('Period', 'अवधि')),
-          SegmentedButton<BudgetPeriod>(
-            segments: <ButtonSegment<BudgetPeriod>>[
-              ButtonSegment<BudgetPeriod>(
+          SegmentedSwitch<BudgetPeriod>(
+            segments: <SwitchSegment<BudgetPeriod>>[
+              SwitchSegment<BudgetPeriod>(
                 value: BudgetPeriod.monthly,
-                label: Text(context.t('This month', 'यो महिना')),
+                label: context.t('This month', 'यो महिना'),
               ),
-              ButtonSegment<BudgetPeriod>(
+              SwitchSegment<BudgetPeriod>(
                 value: BudgetPeriod.weekly,
-                label: Text(context.t('This week', 'यो हप्ता')),
+                label: context.t('This week', 'यो हप्ता'),
               ),
             ],
-            selected: <BudgetPeriod>{_period},
-            onSelectionChanged: (value) =>
-                setState(() => _period = value.first),
+            selected: _period,
+            onChanged: (value) => setState(() => _period = value),
           ),
         ],
         const SizedBox(height: 20),

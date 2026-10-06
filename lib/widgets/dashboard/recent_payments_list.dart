@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/transaction_model.dart';
 import '../common/empty_state.dart';
 import '../common/glass_card.dart';
+import '../common/grouped_list.dart';
 
 class RecentPaymentsList extends StatelessWidget {
   const RecentPaymentsList({super.key, required this.items});
@@ -14,24 +16,20 @@ class RecentPaymentsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const GlassCard(
+      return GlassCard(
         child: EmptyState(
           icon: Icons.receipt_long_outlined,
-          title: 'No payments yet',
-          message: 'Add your first expense or income to see it here.',
+          title: context.t('No payments yet', 'अहिलेसम्म भुक्तानी छैन'),
+          message: context.t(
+            'Add your first expense or income to see it here.',
+            'यहाँ देखिन आफ्नो पहिलो खर्च वा आम्दानी थप्नुहोस्।',
+          ),
         ),
       );
     }
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        children: <Widget>[
-          for (var i = 0; i < items.length; i++) ...<Widget>[
-            _TransactionRow(item: items[i]),
-            if (i != items.length - 1) const Divider(height: 1, indent: 56),
-          ],
-        ],
-      ),
+    return GroupedCard(
+      dividerIndent: 62,
+      children: <Widget>[for (final item in items) _TransactionRow(item: item)],
     );
   }
 }
@@ -52,15 +50,15 @@ class _TransactionRow extends StatelessWidget {
         ? glass.textSecondary
         : (isIncome ? glass.success : glass.danger);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: <Widget>[
           Container(
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(12),
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(11),
             ),
             child: Icon(
               isTransfer
@@ -84,7 +82,7 @@ class _TransactionRow extends StatelessWidget {
             '${CurrencyFormatter.format(item.amount)}',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: isTransfer ? null : color,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

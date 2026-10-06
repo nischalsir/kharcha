@@ -499,7 +499,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     context.t('Sign in', 'साइन इन'),
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),

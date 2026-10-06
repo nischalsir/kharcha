@@ -82,7 +82,7 @@ class _RecurringRow extends StatelessWidget {
           Text(
             CurrencyFormatter.format(item.amount),
             style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

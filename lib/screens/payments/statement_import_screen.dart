@@ -20,6 +20,7 @@ import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_background.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/primary_button.dart';
+import '../../widgets/common/skeleton_loader.dart';
 import 'statement_guide_screen.dart';
 import '../../widgets/common/glass_back_button.dart';
 
@@ -500,35 +501,44 @@ class _StatementImportScreenState extends State<StatementImportScreen> {
           ),
           textAlign: TextAlign.center,
           style: theme.textTheme.labelSmall?.copyWith(
-            color: glass.textTertiary,
+            color: glass.textSecondary,
             height: 1.4,
           ),
         ),
         const SizedBox(height: 14),
-        GlassCard(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(
-                Icons.ios_share_rounded,
-                size: 20,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  context.t(
-                    'Quicker: in your bank app or Files, tap Share on the '
-                        'statement and choose Kharcha. It opens right here.',
-                    'छिटो तरिका: बैंक एप वा Files मा स्टेटमेन्टको Share '
-                        'थिचेर Kharcha छान्नुहोस्। यहीँ खुल्छ।',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+        // While the file is being read, the tip gives way to the outline of
+        // the rows that are about to be listed for review.
+        if (_busy)
+          SkeletonList(
+            count: 2,
+            leading: false,
+            label: context.t('Reading the statement', 'स्टेटमेन्ट पढ्दै'),
+          )
+        else
+          GlassCard(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(
+                  Icons.ios_share_rounded,
+                  size: 20,
+                  color: theme.colorScheme.primary,
                 ),
-              ),
-            ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    context.t(
+                      'Quicker: in your bank app or Files, tap Share on the '
+                          'statement and choose Kharcha. It opens right here.',
+                      'छिटो तरिका: बैंक एप वा Files मा स्टेटमेन्टको Share '
+                          'थिचेर Kharcha छान्नुहोस्। यहीँ खुल्छ।',
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
         const SizedBox(height: 4),
         Align(
           alignment: Alignment.centerLeft,
@@ -600,7 +610,7 @@ class _FailureCard extends StatelessWidget {
                       Text(
                         fileName!,
                         style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -741,7 +751,7 @@ class _SummaryCard extends StatelessWidget {
             value,
             style: theme.textTheme.titleSmall?.copyWith(
               color: color,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -900,7 +910,7 @@ class _NothingNewCard extends StatelessWidget {
                 Text(
                   context.t('Nothing new to import', 'आयात गर्न नयाँ केही छैन'),
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -961,7 +971,7 @@ class _SkippedCard extends StatelessWidget {
                 '${rows.length} पङ्क्ति पढ्न सकिएन',
               ),
               style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
             subtitle: Text(
@@ -996,7 +1006,7 @@ class _SkippedCard extends StatelessWidget {
                               )
                             : row.reason,
                         style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       if (row.text.isNotEmpty)
@@ -1094,7 +1104,7 @@ class _SelectAllRow extends StatelessWidget {
               child: Text(
                 context.t('Select all', 'सबै छान्नुहोस्'),
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -1222,7 +1232,7 @@ class _EntryRow extends StatelessWidget {
               '${entry.isIncome ? '+' : '-'}${entry.amount.toStringAsFixed(2)}',
               style: theme.textTheme.titleSmall?.copyWith(
                 color: entry.alreadyImported ? glass.textSecondary : color,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

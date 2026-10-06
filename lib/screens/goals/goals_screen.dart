@@ -241,7 +241,7 @@ class _GoalProgress extends StatelessWidget {
               child: Text(
                 goal.name,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -257,7 +257,7 @@ class _GoalProgress extends StatelessWidget {
                 '${goal.percent}%',
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: color,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),

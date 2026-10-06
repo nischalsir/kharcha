@@ -58,7 +58,7 @@ Future<bool> requireAccount(
                           'यसका लागि खाता चाहिन्छ',
                         ),
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -149,7 +149,7 @@ class AccountRequiredView extends StatelessWidget {
                         title,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 8),

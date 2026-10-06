@@ -15,9 +15,11 @@ import '../../services/nepali_date_service.dart';
 import '../../services/report_exporter.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/form_helpers.dart';
+import '../../widgets/common/glass_button.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/grouped_list.dart';
+import '../../widgets/common/page_header.dart';
 import '../../widgets/common/page_refresh.dart';
-import '../../widgets/common/glass_back_button.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key, this.lastMonth = false});
@@ -120,12 +122,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
-  static const List<String> _tabs = <String>[
-    'Overview',
-    'Categories',
-    'Trends',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -201,6 +197,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final provider = context.watch<ReportProvider>();
     final theme = Theme.of(context);
     final glass = context.glass;
+    final tabs = <String>[
+      context.t('Overview', 'सारांश'),
+      context.t('Categories', 'श्रेणीहरू'),
+      context.t('Trends', 'प्रवृत्ति'),
+    ];
 
     return SafeArea(
       bottom: false,
@@ -211,14 +212,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
           children: <Widget>[
-            Row(
-              children: <Widget>[
-                const PageBack(),
-                Expanded(
-                  child: Text('Reports', style: theme.textTheme.headlineMedium),
-                ),
-              ],
-            ),
+            PageHeader(title: context.t('Reports', 'प्रतिवेदन')),
             const SizedBox(height: 12),
             // The trends tab is a run of months, not one of them.
             if (_tab != 2) ...<Widget>[
@@ -230,11 +224,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: <Widget>[
-                  for (var i = 0; i < _tabs.length; i++)
+                  for (var i = 0; i < tabs.length; i++)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
-                        label: Text(_tabs[i]),
+                        label: Text(tabs[i]),
                         selected: _tab == i,
                         onSelected: (_) => setState(() => _tab = i),
                       ),
@@ -263,86 +257,93 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final net = summary.savings;
 
     return <Widget>[
+      // One card for the month: what is left, and under it what came in and
+      // what went out. It was two cards saying one thing between them.
       GlassCard(
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: _StatCard(
-                label: 'Income',
-                value: CurrencyFormatter.format(income),
-                color: glass.success,
-                icon: Icons.arrow_downward_rounded,
-              ),
-            ),
-            Container(width: 1, height: 60, color: glass.border),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _StatCard(
-                label: 'Expense',
-                value: CurrencyFormatter.format(expense),
-                color: glass.danger,
-                icon: Icons.arrow_upward_rounded,
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 16),
-      GlassCard(
+        padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              'Net Balance',
-              style: theme.textTheme.titleMedium?.copyWith(
+              context.t('Net Balance', 'खुद बचत'),
+              style: theme.textTheme.labelMedium?.copyWith(
                 color: glass.textSecondary,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              CurrencyFormatter.format(net),
-              style: theme.textTheme.headlineMedium?.copyWith(
-                color: net >= 0 ? glass.success : glass.danger,
-                fontWeight: FontWeight.w700,
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                CurrencyFormatter.format(net),
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  color: net >= 0 ? glass.success : glass.danger,
+                  fontFeatures: const <FontFeature>[
+                    FontFeature.tabularFigures(),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
-              net >= 0 ? 'You are saving!' : 'Spending exceeds income',
+              net >= 0
+                  ? context.t('You are saving!', 'तपाईं बचत गर्दै हुनुहुन्छ!')
+                  : context.t(
+                      'Spending exceeds income',
+                      'खर्च आम्दानीभन्दा बढी छ',
+                    ),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: net >= 0 ? glass.success : glass.danger,
+                color: glass.textSecondary,
               ),
+            ),
+            const SizedBox(height: 16),
+            Container(height: 0.5, color: glass.hairline),
+            const SizedBox(height: 14),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: _StatCard(
+                    label: context.t('Income', 'आम्दानी'),
+                    value: CurrencyFormatter.format(income),
+                    color: glass.success,
+                    icon: Icons.arrow_downward_rounded,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _StatCard(
+                    label: context.t('Expense', 'खर्च'),
+                    value: CurrencyFormatter.format(expense),
+                    color: glass.danger,
+                    icon: Icons.arrow_upward_rounded,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
       const SizedBox(height: 24),
-      Text('Quick Actions', style: theme.textTheme.titleMedium),
-      const SizedBox(height: 12),
+      GroupLabel(context.t('Export this report', 'यो प्रतिवेदन निर्यात')),
       Row(
         children: <Widget>[
           Expanded(
-            child: GlassCard(
+            child: GlassButton(
               key: const ValueKey<String>('export-pdf'),
-              onTap: () => _export(_ExportFormat.pdf),
-              child: _ActionTile(
-                icon: Icons.picture_as_pdf_rounded,
-                color: const Color(0xFFFF453A),
-                title: 'Export PDF',
-                busy: _exporting == _ExportFormat.pdf,
-              ),
+              icon: Icons.picture_as_pdf_rounded,
+              label: context.t('Export PDF', 'PDF निर्यात'),
+              isLoading: _exporting == _ExportFormat.pdf,
+              onPressed: () => _export(_ExportFormat.pdf),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: GlassCard(
+            child: GlassButton(
               key: const ValueKey<String>('export-csv'),
-              onTap: () => _export(_ExportFormat.csv),
-              child: _ActionTile(
-                icon: Icons.table_chart_rounded,
-                color: const Color(0xFF30D158),
-                title: 'Export CSV',
-                busy: _exporting == _ExportFormat.csv,
-              ),
+              icon: Icons.table_chart_rounded,
+              label: context.t('Export CSV', 'CSV निर्यात'),
+              isLoading: _exporting == _ExportFormat.csv,
+              onPressed: () => _export(_ExportFormat.csv),
             ),
           ),
         ],
@@ -363,63 +364,40 @@ class _ReportsScreenState extends State<ReportsScreen> {
           height: 300,
           child: EmptyState(
             icon: Icons.category_rounded,
-            title: 'No category data',
-            message: 'Add transactions with categories to see breakdown.',
+            title: context.t('No category data', 'श्रेणीको विवरण छैन'),
+            message: context.t(
+              'Add transactions with categories to see breakdown.',
+              'विवरण हेर्न श्रेणीसहित कारोबार थप्नुहोस्।',
+            ),
           ),
         ),
       ];
     }
 
     return <Widget>[
-      for (final item in categories)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: GlassCard(
-            child: Row(
-              children: <Widget>[
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Color(item.color).withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    _iconFromString(item.icon),
-                    color: Color(item.color),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(item.name, style: theme.textTheme.titleSmall),
-                      Text(
-                        item.type == TransactionType.expense
-                            ? 'Spent'
-                            : 'Earned',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: glass.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  CurrencyFormatter.format(item.amount),
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: item.type == TransactionType.expense
-                        ? glass.danger
-                        : glass.success,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+      GroupedCard(
+        children: <Widget>[
+          for (final item in categories)
+            GroupedRow(
+              leading: LeadingTile(
+                color: Color(item.color),
+                icon: _iconFromString(item.icon),
+              ),
+              title: Text(item.name),
+              subtitle: Text(
+                item.type == TransactionType.expense
+                    ? context.t('Spent', 'खर्च भयो')
+                    : context.t('Earned', 'आम्दानी भयो'),
+              ),
+              trailing: TrailingAmount(
+                text: CurrencyFormatter.format(item.amount),
+                color: item.type == TransactionType.expense
+                    ? glass.danger
+                    : glass.success,
+              ),
             ),
-          ),
-        ),
+        ],
+      ),
     ];
   }
 
@@ -436,46 +414,36 @@ class _ReportsScreenState extends State<ReportsScreen> {
           height: 300,
           child: EmptyState(
             icon: Icons.trending_up_rounded,
-            title: 'Not enough data',
-            message: 'Add more transactions over time to see trends.',
+            title: context.t('Not enough data', 'पर्याप्त विवरण छैन'),
+            message: context.t(
+              'Add more transactions over time to see trends.',
+              'प्रवृत्ति हेर्न समयसँगै थप कारोबार थप्नुहोस्।',
+            ),
           ),
         ),
       ];
     }
 
     return <Widget>[
-      for (final item in monthly)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: GlassCard(
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(item.month, style: theme.textTheme.titleSmall),
-                      Text(
-                        'Income: ${CurrencyFormatter.format(item.income)}  •  Expense: ${CurrencyFormatter.format(item.expense)}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: glass.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  CurrencyFormatter.format(item.net),
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: item.net >= 0 ? glass.success : glass.danger,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+      GroupedCard(
+        dividerIndent: 14,
+        children: <Widget>[
+          for (final item in monthly)
+            GroupedRow(
+              title: Text(item.month),
+              subtitle: Text(
+                '${context.t('Income', 'आम्दानी')}: '
+                '${CurrencyFormatter.format(item.income)}  •  '
+                '${context.t('Expense', 'खर्च')}: '
+                '${CurrencyFormatter.format(item.expense)}',
+              ),
+              trailing: TrailingAmount(
+                text: CurrencyFormatter.format(item.net),
+                color: item.net >= 0 ? glass.success : glass.danger,
+              ),
             ),
-          ),
-        ),
+        ],
+      ),
     ];
   }
 
@@ -532,20 +500,28 @@ class _StatCard extends StatelessWidget {
       children: <Widget>[
         Row(
           children: <Widget>[
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(color: color),
+            Icon(icon, color: color, size: 14),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                style: theme.textTheme.labelSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+            ),
           ),
         ),
       ],
@@ -671,50 +647,6 @@ class _ExportSheetState extends State<_ExportSheet> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.icon,
-    required this.color,
-    required this.title,
-    this.busy = false,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String title;
-
-  /// True while the file is being written.
-  final bool busy;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      children: <Widget>[
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: busy
-              ? Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    color: color,
-                  ),
-                )
-              : Icon(icon, color: color, size: 24),
-        ),
-        const SizedBox(height: 10),
-        Text(title, style: theme.textTheme.titleSmall),
-      ],
     );
   }
 }

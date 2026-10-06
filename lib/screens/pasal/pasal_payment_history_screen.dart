@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../widgets/common/grouped_list.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/pasal_payment_model.dart';
@@ -83,7 +84,7 @@ class _PasalPaymentHistoryScreenState extends State<PasalPaymentHistoryScreen> {
                       color: glass.danger,
                     ),
                   ),
-                  Container(width: 1, height: 50, color: glass.border),
+                  Container(width: 0.5, height: 50, color: glass.hairline),
                   const SizedBox(width: 16),
                   Expanded(
                     child: _Stat(
@@ -92,7 +93,7 @@ class _PasalPaymentHistoryScreenState extends State<PasalPaymentHistoryScreen> {
                       color: glass.success,
                     ),
                   ),
-                  Container(width: 1, height: 50, color: glass.border),
+                  Container(width: 0.5, height: 50, color: glass.hairline),
                   const SizedBox(width: 16),
                   Expanded(
                     child: _Stat(
@@ -115,11 +116,13 @@ class _PasalPaymentHistoryScreenState extends State<PasalPaymentHistoryScreen> {
                 ),
               )
             else
-              for (final payment in payments)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _PaymentTile(payment: payment),
-                ),
+              GroupedCard(
+                dividerIndent: 68,
+                children: <Widget>[
+                  for (final payment in payments)
+                    _PaymentTile(payment: payment),
+                ],
+              ),
           ],
         ),
       ),
@@ -150,7 +153,7 @@ class _Stat extends StatelessWidget {
           CurrencyFormatter.format(value),
           style: theme.textTheme.titleMedium?.copyWith(
             color: color,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -168,7 +171,7 @@ class _PaymentTile extends StatelessWidget {
     final theme = Theme.of(context);
     final glass = context.glass;
 
-    return GlassCard(
+    return CardRow(
       child: Row(
         children: <Widget>[
           Container(
@@ -202,7 +205,7 @@ class _PaymentTile extends StatelessWidget {
                 CurrencyFormatter.format(payment.amount),
                 style: theme.textTheme.titleSmall?.copyWith(
                   color: glass.success,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               Text(

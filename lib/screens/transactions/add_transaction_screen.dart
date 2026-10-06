@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../widgets/common/segmented_switch.dart';
 import '../../core/utils/id_generator.dart';
 import '../../models/category_model.dart';
 import '../../models/payment_method.dart';
@@ -234,16 +235,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: <Widget>[
-              SegmentedButton<TransactionType>(
-                segments: <ButtonSegment<TransactionType>>[
+              SegmentedSwitch<TransactionType>(
+                segments: <SwitchSegment<TransactionType>>[
                   for (final type in _formTypes)
-                    ButtonSegment<TransactionType>(
+                    SwitchSegment<TransactionType>(
                       value: type,
-                      label: Text(type.label),
+                      label: type.label,
                     ),
                 ],
-                selected: <TransactionType>{_type},
-                onSelectionChanged: (value) => _onTypeChanged(value.first),
+                selected: _type,
+                onChanged: _onTypeChanged,
               ),
               const FieldLabel('Title'),
               TextFormField(

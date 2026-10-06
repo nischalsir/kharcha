@@ -415,7 +415,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         context.t('Forgot password?', 'पासवर्ड बिर्सनुभयो?'),
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -526,7 +526,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     context.t('Create account', 'खाता बनाउनुहोस्'),
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -558,7 +558,7 @@ class _FieldLabel extends StatelessWidget {
             text,
             maxLines: 1,
             style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 12),
@@ -775,6 +775,9 @@ class _ResetPasswordCodeDialogState extends State<ResetPasswordCodeDialog> {
                 decoration: InputDecoration(
                   labelText: context.t('New password', 'नयाँ पासवर्ड'),
                   suffixIcon: IconButton(
+                    tooltip: _obscurePassword
+                        ? context.t('Show password', 'पासवर्ड देखाउनुहोस्')
+                        : context.t('Hide password', 'पासवर्ड लुकाउनुहोस्'),
                     icon: Icon(
                       _obscurePassword
                           ? Icons.visibility_off_rounded

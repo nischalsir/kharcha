@@ -124,7 +124,7 @@ class _RecordPasalPaymentScreenState extends State<RecordPasalPaymentScreen> {
                     Text(
                       CurrencyFormatter.format(_remaining),
                       style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                          ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),

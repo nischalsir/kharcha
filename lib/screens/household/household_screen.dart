@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../widgets/common/grouped_list.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -133,7 +134,7 @@ class HouseholdScreen extends StatelessWidget {
                 provider.monthLabel,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -214,47 +215,49 @@ class HouseholdScreen extends StatelessWidget {
           ),
         )
       else
-        for (final entry in entries)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: GlassCard(
-              key: ValueKey<String>('household-entry-${entry.id}'),
-              onTap: () => _openEntry(context, existing: entry),
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          entry.title,
-                          style: theme.textTheme.titleSmall,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          '${provider.nameOf(entry.paidBy) ?? context.t('Former member', 'पुराना सदस्य')}'
-                          ' • ${formatDate(entry.occurredAt)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: glass.textSecondary,
+        GroupedCard(
+          dividerIndent: 16,
+          children: <Widget>[
+            for (final entry in entries)
+              CardRow(
+                key: ValueKey<String>('household-entry-${entry.id}'),
+                onTap: () => _openEntry(context, existing: entry),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            entry.title,
+                            style: theme.textTheme.titleSmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                          Text(
+                            '${provider.nameOf(entry.paidBy) ?? context.t('Former member', 'पुराना सदस्य')}'
+                            ' • ${formatDate(entry.occurredAt)}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: glass.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    CurrencyFormatter.format(entry.amount),
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(width: 8),
+                    Text(
+                      CurrencyFormatter.format(entry.amount),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ),
+          ],
+        ),
     ];
   }
 }

@@ -29,10 +29,12 @@ class QuickActionsRow extends StatelessWidget {
         Icons.add_circle_outline,
         () => Navigator.of(context).pushNamed(RoutePaths.addIncome),
       ),
+      // A bill that comes back (rent, internet), not a one-off payment:
+      // named for that, so it is not taken for a second "Add Expense".
       _QuickAction(
         const ValueKey<String>('quick-add-payment'),
-        context.t('Add Payment', 'भुक्तानी थप्नुहोस्'),
-        Icons.payments_outlined,
+        context.t('Recurring Bill', 'दोहोरिने बिल'),
+        Icons.event_repeat_rounded,
         () => showAddRecurringPaymentSheet(context),
       ),
       _QuickAction(
@@ -67,27 +69,19 @@ class _QuickAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final dark = scheme.brightness == Brightness.dark;
     return PressableScale(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          // The same fill and rim as the cards around it, drawn as one
-          // rounded shape. (A square border under a rounded clip left only
-          // four stray lines, and a white fill vanished on the white page.)
+          // The same flat fill as the cards around it, and like them no
+          // outline: the grey on the white page is its edge.
           Container(
             width: 56,
             height: 56,
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: dark
-                    ? Colors.white.withValues(alpha: 0.16)
-                    : Colors.black.withValues(alpha: 0.17),
-                width: 0.75,
-              ),
             ),
             child: Icon(icon, color: scheme.primary),
           ),

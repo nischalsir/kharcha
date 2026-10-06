@@ -8,8 +8,10 @@ import 'package:kharcha_app/services/biometric_service.dart';
 import 'package:kharcha_app/services/nepali_date_service.dart';
 import 'package:provider/provider.dart';
 
-const Color _red = Color(0xffff453a);
-const Color _green = Color(0xff30d158);
+// The light theme's own red and green: the darker of each pair, which can be
+// read on a white page. (The bright ones are the dark theme's.)
+const Color _red = Color(0xffd70015);
+const Color _green = Color(0xff1a7f37);
 
 Future<void> _pump(WidgetTester tester) async {
   tester.view.physicalSize = const Size(480, 2000);
