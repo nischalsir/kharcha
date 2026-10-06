@@ -233,8 +233,8 @@ class MoreScreen extends StatelessWidget {
                 color: const Color(0xFF64D2FF),
                 title: context.t('Import', 'आयात'),
                 subtitle: context.t(
-                  'A statement file, or pasted payment messages',
-                  'स्टेटमेन्ट फाइल, वा टाँसिएका भुक्तानी सन्देश',
+                  'A statement file or pasted messages',
+                  'स्टेटमेन्ट फाइल वा टाँसिएका सन्देश',
                 ),
                 onTap: () => _chooseImport(context),
               ),
