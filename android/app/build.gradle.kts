@@ -48,6 +48,9 @@ android {
         // choose it and crash for want of the engine, so the same list
         // decides which folders are packed at all. Without the flag (the app
         // bundle, a debug run) Flutter names every processor it builds for.
+        //
+        // Flutter's own plugin has already filled this list with all three
+        // by the time this runs, so it is replaced, not added to.
         (project.findProperty("target-platform") as String?)?.let { platforms ->
             val abis = platforms.split(',').mapNotNull { platform ->
                 when (platform.trim()) {
@@ -57,7 +60,12 @@ android {
                     else -> null
                 }
             }
-            if (abis.isNotEmpty()) ndk { abiFilters += abis }
+            if (abis.isNotEmpty()) {
+                ndk {
+                    abiFilters.clear()
+                    abiFilters.addAll(abis)
+                }
+            }
         }
     }
 
