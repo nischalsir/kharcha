@@ -24,21 +24,18 @@ class WhatsNew {
   /// lines. Replace the list with each release; do not add to it.
   static const List<(String, String)> items = <(String, String)>[
     (
-      'Friends and Pasal share one Ledger tab',
-      'साथी र पसल अब एउटै उधारो ट्याबमा',
+      'A cleaner look, in light and dark',
+      'उज्यालो र अँध्यारो दुवैमा सफा नयाँ रूप',
     ),
-    ('Undo a deleted transaction', 'मेटिएको कारोबार फिर्ता ल्याउनुहोस्'),
+    ('Payments are grouped by day', 'भुक्तानी अब दिनअनुसार समूहमा'),
+    ('A new switch on Ledger and Payments', 'उधारो र भुक्तानीमा नयाँ स्विच'),
     (
-      'Budget forecast, and reports for any past month',
-      'बजेटको अनुमान, र जुनसुकै अघिल्लो महिनाको प्रतिवेदन',
-    ),
-    (
-      'Delete your account yourself, in Settings',
-      'सेटिङबाटै आफ्नो खाता आफैँ मेटाउनुहोस्',
+      'Faster lists, statement imports and restores',
+      'सूची, स्टेटमेन्ट आयात र रिस्टोर अझ छिटो',
     ),
     (
-      'Updates now download in your browser',
-      'अपडेट अब ब्राउजरमा डाउनलोड हुन्छ',
+      'Sync on a new phone no longer misses rows',
+      'नयाँ फोनमा सिङ्क गर्दा अब कुनै पङ्क्ति छुट्दैन',
     ),
   ];
 
@@ -136,7 +133,7 @@ class _WhatsNewDialog extends StatelessWidget {
                   '${AppInfo.displayVersion} मा के नयाँ छ',
                 ),
                 style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
                 textAlign: TextAlign.center,
               ),
