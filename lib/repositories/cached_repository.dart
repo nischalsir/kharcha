@@ -2,21 +2,13 @@ import '../models/sync_models.dart';
 import '../services/cache_service.dart';
 import '../services/sync_service.dart';
 
+/// The live rows of a table as [T]s. See [CacheService.typed]: the table is
+/// turned into objects once per change, however often this is called.
 List<T> readTyped<T>(
   CacheService cache,
   SyncEntity entity,
   T Function(Map<String, dynamic> json) parse,
-) {
-  final result = <T>[];
-  for (final row in cache.rows(entity)) {
-    try {
-      result.add(parse(row));
-    } catch (_) {
-      continue;
-    }
-  }
-  return result;
-}
+) => cache.typed<T>(entity, parse);
 
 abstract class CachedRepository<T> {
   CachedRepository(this.cache, this.sync);

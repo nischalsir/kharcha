@@ -33,6 +33,48 @@ class CacheService {
 
   Stream<Set<SyncEntity>> get changes => _changes.stream;
 
+  // How many times each table has been changed since the app started. It
+  // goes up at the moment the table is changed, before anything is awaited,
+  // so nothing can read the new rows under the old number.
+  final Map<SyncEntity, int> _revisions = <SyncEntity, int>{};
+
+  int _revision(SyncEntity entity) => _revisions[entity] ?? 0;
+
+  void _touch(SyncEntity entity) => _revisions[entity] = _revision(entity) + 1;
+
+  // Each table's rows as the objects the app works with, kept from the last
+  // time they were asked for.
+  final Map<(SyncEntity, Type), _Parsed> _parsed =
+      <(SyncEntity, Type), _Parsed>{};
+
+  /// The live rows of a table, each turned into a [T] by [parse].
+  ///
+  /// Turning a table into objects is the costly part of a read, and the
+  /// pages ask for the same table over and over: a list of forty friends
+  /// asked for every credit twice per friend. So the objects are made once
+  /// and handed out until the table next changes. Each caller gets a list
+  /// of its own, free to sort or filter; the objects in it are shared, which
+  /// is safe because none of them can be changed after it is made.
+  ///
+  /// A row that cannot be parsed is left out, as it always was.
+  List<T> typed<T>(SyncEntity entity, T Function(Map<String, dynamic>) parse) {
+    final revision = _revision(entity);
+    final kept = _parsed[(entity, T)];
+    if (kept != null && kept.revision == revision && kept.parse == parse) {
+      return List<T>.of(kept.items as List<T>);
+    }
+    final items = <T>[];
+    for (final row in rows(entity)) {
+      try {
+        items.add(parse(row));
+      } catch (_) {
+        continue;
+      }
+    }
+    _parsed[(entity, T)] = _Parsed(revision, parse, items);
+    return List<T>.of(items);
+  }
+
   int get dataVersion => _version;
 
   void _loadState() {
@@ -91,10 +133,16 @@ class CacheService {
     if (!_changes.isClosed) _changes.add(entities);
   }
 
+  /// How many times a whole table has been read out, since the app started.
+  /// A count to measure with: the lists on a page should cost a handful of
+  /// these, not one for every row they show.
+  int tableScans = 0;
+
   List<Map<String, dynamic>> rows(
     SyncEntity entity, {
     bool includeDeleted = false,
   }) {
+    tableScans++;
     return _table(entity).values
         .where((row) => includeDeleted || row['deleted_at'] == null)
         .toList();
@@ -116,6 +164,7 @@ class CacheService {
   Future<void> discard(SyncEntity entity, String id) async {
     final removedOp = _pending.remove('${entity.table}:$id') != null;
     final removedRow = _table(entity).remove(id) != null;
+    if (removedRow) _touch(entity);
     if (removedOp) await _persistPending();
     if (removedRow) {
       await _persistRows(entity);
@@ -150,6 +199,7 @@ class CacheService {
     table
       ..clear()
       ..addAll(next);
+    _touch(entity);
     await _persistRows(entity);
     _emit(<SyncEntity>{entity});
   }
@@ -159,12 +209,14 @@ class CacheService {
     _pending.removeWhere((_, op) => op.entity == entity);
     await _persistPending();
     _table(entity).clear();
+    _touch(entity);
     await _persistRows(entity);
     _emit(<SyncEntity>{entity});
   }
 
   Future<void> putRow(SyncEntity entity, Map<String, dynamic> row) async {
     _table(entity)[entity.recordId(row)] = Map<String, dynamic>.from(row);
+    _touch(entity);
     await _persistRows(entity);
     _emit(<SyncEntity>{entity});
   }
@@ -178,12 +230,14 @@ class CacheService {
     for (final row in rows) {
       table[entity.recordId(row)] = Map<String, dynamic>.from(row);
     }
+    _touch(entity);
     await _persistRows(entity);
     _emit(<SyncEntity>{entity});
   }
 
   Future<void> removeRow(SyncEntity entity, String id) async {
     if (_table(entity).remove(id) == null) return;
+    _touch(entity);
     await _persistRows(entity);
     _emit(<SyncEntity>{entity});
   }
@@ -220,6 +274,7 @@ class CacheService {
       changed = true;
     }
     if (!changed) return;
+    _touch(entity);
     await _persistRows(entity);
     _emit(<SyncEntity>{entity});
   }
@@ -269,6 +324,7 @@ class CacheService {
     final local = _table(op.entity)[op.recordId];
     if (local != null && local['deleted_at'] != null) {
       _table(op.entity).remove(op.recordId);
+      _touch(op.entity);
       await _persistRows(op.entity);
       _emit(<SyncEntity>{op.entity});
     }
@@ -369,6 +425,7 @@ class CacheService {
     } else {
       _pending.clear();
     }
+    SyncEntity.values.forEach(_touch);
     _emit(SyncEntity.values.toSet());
 
     for (final entity in SyncEntity.values) {
@@ -393,4 +450,13 @@ class CacheService {
   Future<void> dispose() async {
     await _changes.close();
   }
+}
+
+/// One table's rows as objects, and which state of the table they are of.
+class _Parsed {
+  const _Parsed(this.revision, this.parse, this.items);
+
+  final int revision;
+  final Function parse;
+  final List<Object?> items;
 }
