@@ -40,6 +40,25 @@ android {
 
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // `flutter build apk --target-platform android-arm,android-arm64`
+        // (see tool/release.ps1) leaves the app's own code out for other
+        // processors, but the plugins' small native libraries would still be
+        // packed for them. A device that found that half-empty folder would
+        // choose it and crash for want of the engine, so the same list
+        // decides which folders are packed at all. Without the flag (the app
+        // bundle, a debug run) Flutter names every processor it builds for.
+        (project.findProperty("target-platform") as String?)?.let { platforms ->
+            val abis = platforms.split(',').mapNotNull { platform ->
+                when (platform.trim()) {
+                    "android-arm" -> "armeabi-v7a"
+                    "android-arm64" -> "arm64-v8a"
+                    "android-x64" -> "x86_64"
+                    else -> null
+                }
+            }
+            if (abis.isNotEmpty()) ndk { abiFilters += abis }
+        }
     }
 
     signingConfigs {
