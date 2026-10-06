@@ -91,22 +91,37 @@ class SupabaseService {
     }
   }
 
+  /// One page of a table's rows that changed after [cursor], oldest change
+  /// first.
+  ///
+  /// The order is the server's time for the row and then the row's id. The
+  /// time alone is not enough: rows uploaded together share it, and with
+  /// nothing to tell them apart a page could end in the middle of them and
+  /// the next page, asking for "later than that time", would skip the rest.
+  ///
+  /// With [afterId], the page is instead the rows stamped exactly [cursor]
+  /// whose id comes after it: the rest of a group a page ended inside.
   Future<List<Map<String, dynamic>>> pullChanges(
     SyncEntity entity, {
     String? cursor,
+    String? afterId,
     int pageSize = 500,
   }) async {
     final client = _requireClient();
     final uid = userId;
+    // Every table but the one-row settings table is keyed by an id.
+    final keyed = entity.conflictColumn == 'id';
     try {
       final base = client.from(entity.table).select();
       // Explicit user_id filter for defense-in-depth; RLS also enforces this.
       final withUser = uid == null ? base : base.eq('user_id', uid);
       final filtered = cursor == null
           ? withUser
+          : afterId != null && keyed
+          ? withUser.eq('server_updated_at', cursor).gt('id', afterId)
           : withUser.gt('server_updated_at', cursor);
-      final rows = await filtered
-          .order('server_updated_at', ascending: true)
+      final byTime = filtered.order('server_updated_at', ascending: true);
+      final rows = await (keyed ? byTime.order('id', ascending: true) : byTime)
           .limit(pageSize);
       return rows;
     } catch (error) {

@@ -97,6 +97,7 @@ class _FakeRemote extends SupabaseService {
   Future<List<Map<String, dynamic>>> pullChanges(
     SyncEntity entity, {
     String? cursor,
+    String? afterId,
     int pageSize = 500,
   }) async {
     if (entity == SyncEntity.values.first) pulls++;
@@ -108,7 +109,11 @@ class _FakeRemote extends SupabaseService {
             .where(
               (row) =>
                   cursor == null ||
-                  (row['server_updated_at'] as String).compareTo(cursor) > 0,
+                  // Every row here has a server time of its own, so there
+                  // is never a rest-of-a-group to send.
+                  (afterId == null &&
+                      (row['server_updated_at'] as String).compareTo(cursor) >
+                          0),
             )
             .toList()
           ..sort(

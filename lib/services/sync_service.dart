@@ -28,10 +28,13 @@ class SyncService extends ChangeNotifier {
     Connectivity? connectivity,
     this.syncInterval = const Duration(minutes: 5),
     this.resumeInterval = const Duration(minutes: 1),
+    this.pullPageSize = 500,
   }) : _connectivity = connectivity ?? Connectivity();
 
   static const int _batchSize = 100;
-  static const int _pageSize = 500;
+
+  /// How many rows of a table are fetched from the server at a time.
+  final int pullPageSize;
   static const int _maxAttempts = 5;
 
   final CacheService _cache;
@@ -499,25 +502,57 @@ class SyncService extends ChangeNotifier {
         await _cache.replaceRows(entity, rows);
         continue;
       }
-      var cursor = _cache.cursor(entity);
+      // Where the last fetch got to: the newest server time seen and, only
+      // while a page ended in the middle of rows sharing that time, the id
+      // reached among them. Kept after every page, so a sync that is cut
+      // off carries on from the same place.
+      var (at, afterId) = _readCursor(_cache.cursor(entity));
+      final keyed = entity.conflictColumn == 'id';
       while (true) {
+        // Finishing off rows of one server time, or asking for later ones.
+        final finishing = afterId != null;
         final rows = await _remote.pullChanges(
           entity,
-          cursor: cursor,
-          pageSize: _pageSize,
+          cursor: at,
+          afterId: afterId,
+          pageSize: pullPageSize,
         );
         // The cache changed hands while this page was on its way: these rows
         // belong to whoever was signed in before.
         if (account != _account) return;
-        if (rows.isEmpty) break;
-        await _cache.mergeRemoteRows(entity, rows);
-        final last = rows.last['server_updated_at'];
-        if (last is! String) break;
-        cursor = last;
-        await _cache.setCursor(entity, last);
-        if (rows.length < _pageSize) break;
+        if (rows.isNotEmpty) {
+          await _cache.mergeRemoteRows(entity, rows);
+          final last = rows.last['server_updated_at'];
+          if (last is! String) break;
+          at = last;
+        }
+        // A full page may have stopped part-way through rows that share one
+        // server time. Asking next for "later than that time" would skip
+        // the rest of them, so the next page asks for those first.
+        final full = rows.length >= pullPageSize;
+        final lastId = rows.isEmpty ? null : rows.last['id'];
+        afterId = full && keyed && lastId is String ? lastId : null;
+        if (at != null) {
+          await _cache.setCursor(
+            entity,
+            afterId == null ? at : '$at$_cursorSeparator$afterId',
+          );
+        }
+        if (!full && !finishing) break;
       }
     }
+  }
+
+  /// Parts a stored cursor into its server time and, when it has one, the id
+  /// reached among the rows of that time. A cursor from an earlier version
+  /// of the app is the time alone.
+  static const String _cursorSeparator = '|';
+
+  (String?, String?) _readCursor(String? stored) {
+    if (stored == null) return (null, null);
+    final cut = stored.indexOf(_cursorSeparator);
+    if (cut < 0) return (stored, null);
+    return (stored.substring(0, cut), stored.substring(cut + 1));
   }
 
   void _refreshCounts() {
