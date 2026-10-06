@@ -3,6 +3,8 @@ class AppConstants {
 
   static const String appName = 'Kharcha';
   static const String defaultCurrency = 'NPR';
-  static const int pageSize = 30;
+
+  /// How many rows of a long list are shown before "Load more".
+  static const int pageSize = 20;
   static const double moneyEpsilon = 0.005;
 }

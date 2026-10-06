@@ -36,22 +36,51 @@ class TransactionProvider extends ChangeNotifier with CacheAware {
   TransactionFilter get filter => _filter;
   String? get errorMessage => _errorMessage;
 
-  List<TransactionModel> get visible {
-    final matched = _repository.query(_filter);
-    if (_visibleCount >= matched.length) return matched;
-    return matched.sublist(0, _visibleCount);
+  // Everything that matches the filter, in order. Worked out once and kept
+  // until the filter or the data changes: one build of the page asks for
+  // the rows, the count, whether there are more, and two totals, and each
+  // of those used to read, filter and sort every transaction again.
+  List<TransactionModel>? _matched;
+  TransactionFilter? _matchedFilter;
+  int _matchedVersion = -1;
+  Map<TransactionType, double>? _totals;
+
+  List<TransactionModel> get _matching {
+    final version = _cache.dataVersion;
+    final kept = _matched;
+    if (kept != null &&
+        identical(_matchedFilter, _filter) &&
+        _matchedVersion == version) {
+      return kept;
+    }
+    final fresh = _repository.query(_filter);
+    _matched = fresh;
+    _matchedFilter = _filter;
+    _matchedVersion = version;
+    _totals = null;
+    return fresh;
   }
 
-  int get totalMatching => _repository.query(_filter).length;
+  /// The pages turned so far: the first [_visibleCount] rows of the list.
+  List<TransactionModel> get visible =>
+      _matching.take(_visibleCount).toList(growable: false);
+
+  int get totalMatching => _matching.length;
 
   bool get hasMore => _visibleCount < totalMatching;
 
+  /// The sum of every match of [type], not only of the rows on screen.
   double totalFor(TransactionType type) {
-    var total = 0.0;
-    for (final item in _repository.query(_filter)) {
-      if (item.type == type) total += item.amount;
+    final matching = _matching;
+    var totals = _totals;
+    if (totals == null) {
+      totals = <TransactionType, double>{};
+      for (final item in matching) {
+        totals[item.type] = (totals[item.type] ?? 0) + item.amount;
+      }
+      _totals = totals;
     }
-    return total;
+    return totals[type] ?? 0;
   }
 
   @override

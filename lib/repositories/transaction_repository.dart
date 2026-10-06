@@ -101,9 +101,17 @@ class TransactionRepository extends CachedRepository<TransactionModel> {
   @override
   Map<String, dynamic> serialize(TransactionModel item) => item.toJson();
 
+  /// Newest first. Two rows of the same moment fall back to their ids, which
+  /// no two rows share, so the order is the same every time it is asked for.
+  /// Without that the sort was free to swap them between one read and the
+  /// next, and a row on the edge of a page could show twice or not at all.
+  static int _newestFirst(TransactionModel a, TransactionModel b) {
+    final byDate = b.occurredAt.compareTo(a.occurredAt);
+    return byDate != 0 ? byDate : a.id.compareTo(b.id);
+  }
+
   List<TransactionModel> all() {
-    final list = readAll()
-      ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+    final list = readAll()..sort(_newestFirst);
     return list;
   }
 
@@ -120,13 +128,22 @@ class TransactionRepository extends CachedRepository<TransactionModel> {
     final list = readAll().where(filter.matches).toList();
     switch (filter.sort) {
       case TransactionSort.dateDesc:
-        list.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+        list.sort(_newestFirst);
       case TransactionSort.dateAsc:
-        list.sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
+        list.sort((a, b) {
+          final byDate = a.occurredAt.compareTo(b.occurredAt);
+          return byDate != 0 ? byDate : a.id.compareTo(b.id);
+        });
       case TransactionSort.amountDesc:
-        list.sort((a, b) => b.amount.compareTo(a.amount));
+        list.sort((a, b) {
+          final byAmount = b.amount.compareTo(a.amount);
+          return byAmount != 0 ? byAmount : _newestFirst(a, b);
+        });
       case TransactionSort.amountAsc:
-        list.sort((a, b) => a.amount.compareTo(b.amount));
+        list.sort((a, b) {
+          final byAmount = a.amount.compareTo(b.amount);
+          return byAmount != 0 ? byAmount : _newestFirst(a, b);
+        });
     }
     if (offset >= list.length) return <TransactionModel>[];
     final end = limit == null
