@@ -125,49 +125,6 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
-        // What this build was configured with, for features that can only be
-        // offered when the configuration is there.
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            APP_CONFIG_CHANNEL,
-        ).setMethodCallHandler { call, result ->
-            when (call.method) {
-                // The Google web client id, which the Google Services plugin
-                // generates as a string resource from google-services.json
-                // only when the Firebase project has such a client. Looked
-                // up by name: referring to R.string directly would not
-                // compile when it is absent.
-                "googleWebClientId" -> {
-                    @Suppress("DiscouragedApi")
-                    val id = resources.getIdentifier(
-                        "default_web_client_id",
-                        "string",
-                        packageName,
-                    )
-                    result.success(if (id == 0) null else getString(id))
-                }
-
-                else -> result.notImplemented()
-            }
-        }
-
-        // An update the app downloaded, handed to Android's installer.
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            APP_UPDATE_CHANNEL,
-        ).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "install" -> {
-                    val path = call.argument<String>("path")
-                    result.success(
-                        if (path == null) "missing" else AppUpdates.install(this, path),
-                    )
-                }
-
-                else -> result.notImplemented()
-            }
-        }
-
         // A sentence heard by the phone's speech recogniser.
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -327,10 +284,6 @@ class MainActivity : FlutterFragmentActivity() {
             "com.nischalpandey.kharcha/notification_settings"
         const val INCOMING_FILE_CHANNEL =
             "com.nischalpandey.kharcha/incoming_file"
-        const val APP_CONFIG_CHANNEL =
-            "com.nischalpandey.kharcha/app_config"
-        const val APP_UPDATE_CHANNEL =
-            "com.nischalpandey.kharcha/app_update"
         const val CONTACTS_CHANNEL =
             "com.nischalpandey.kharcha/contacts"
         const val HOME_WIDGET_CHANNEL =

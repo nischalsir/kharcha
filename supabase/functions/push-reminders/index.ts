@@ -26,7 +26,9 @@ import {
 } from "../_shared/reminder_plan.ts";
 
 const MAX_USERS_PER_RUN = 200;
-const TRANSACTION_WINDOW_DAYS = 40;
+// Two whole Bikram Sambat months (up to 32 days each) and a day to spare:
+// the monthly report compares the month just ended with the one before.
+const TRANSACTION_WINDOW_DAYS = 66;
 const SENT_KEY_WINDOW_DAYS = 120;
 
 const supabase = createClient(
@@ -197,7 +199,7 @@ async function deliver(
 ): Promise<number> {
   const { data: tokenRows } = await db
     .from("push_tokens")
-    .select("token")
+    .select("token, app_version")
     .eq("user_id", userId);
   const spec = PUSH_TYPES[push.category];
   const data: Record<string, string> = {
@@ -210,9 +212,14 @@ async function deliver(
 
   const dead: string[] = [];
   let sent = 0;
-  for (const { token } of (tokenRows ?? []) as Array<{ token: string }>) {
+  for (
+    const device of (tokenRows ?? []) as Array<
+      { token: string; app_version: string | null }
+    >
+  ) {
     const result = await sendMessage({
-      token,
+      token: device.token,
+      appVersion: device.app_version,
       data,
       android: {
         // Every reminder ends in a visible notification, so high priority is

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,15 +10,20 @@ import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/update_provider.dart';
 import '../../services/app_images.dart';
+import '../../widgets/common/form_helpers.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/glass_sheet.dart';
 import '../auth/guest_upgrade_screen.dart';
 
 /// Everything that does not have its own tab, in three groups:
 ///
-///   * **Plan & track** - budgets, savings goals, wallets, reports and the
-///     calendar: looking at money;
-///   * **Tools** - importing a statement and the calculator: doing something;
+///   * **Plan & track** - net worth (which leads to wallets and loans),
+///     budgets, savings goals, reports and the calendar: looking at money;
+///   * **Tools** - importing and the bill maker: doing something;
 ///   * **App** - settings, backup, help and about: the app itself.
+///
+/// Nothing here repeats what is one tap away elsewhere: search is on Home's
+/// heading and the calculator in Home's quick actions.
 ///
 /// The account is at the top under **Profile**, with its picture, and
 /// logging out at the bottom, apart from the rest. Each group is one card of rows rather than a card per item, so the
@@ -85,6 +92,41 @@ class MoreScreen extends StatelessWidget {
     navigator.popUntil((route) => route.isFirst);
   }
 
+  /// The two ways in: a statement file, or payment messages pasted from the
+  /// phone's messages app. One row on the page, and the choice is made here.
+  Future<void> _chooseImport(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    final route = await showGlassSheet<String>(
+      context: context,
+      title: context.t('Import', 'आयात'),
+      builder: (sheetContext) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          ActionTile(
+            key: const ValueKey<String>('import-statement'),
+            icon: Icons.upload_file_rounded,
+            label: sheetContext.t(
+              'A statement file (bank, eSewa, Khalti)',
+              'स्टेटमेन्ट फाइल (बैंक, eSewa, Khalti)',
+            ),
+            onTap: () =>
+                Navigator.pop(sheetContext, RoutePaths.statementImport),
+          ),
+          ActionTile(
+            key: const ValueKey<String>('import-messages'),
+            icon: Icons.sms_rounded,
+            label: sheetContext.t(
+              'Payment messages (paste them in)',
+              'भुक्तानीका सन्देश (टाँस्नुहोस्)',
+            ),
+            onTap: () => Navigator.pop(sheetContext, RoutePaths.smsImport),
+          ),
+        ],
+      ),
+    );
+    if (route != null) unawaited(navigator.pushNamed(route));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -117,9 +159,11 @@ class MoreScreen extends StatelessWidget {
                 icon: Icons.trending_up_rounded,
                 color: const Color(0xFF0A84FF),
                 title: context.t('Net worth', 'कुल सम्पत्ति'),
+                // Wallets and loans are opened from that page, where their
+                // totals are, instead of having rows of their own here.
                 subtitle: context.t(
-                  'What you have, less what you owe',
-                  'तपाईंसँग भएको, तिर्नुपर्ने घटाएर',
+                  'Wallets, loans and what you owe, on one page',
+                  'वालेट, ऋण र तिर्नुपर्ने, एउटै पृष्ठमा',
                 ),
                 onTap: () => open(RoutePaths.netWorth),
               ),
@@ -144,28 +188,6 @@ class MoreScreen extends StatelessWidget {
                   'पैसा छुट्याउनुहोस् र हिसाब राख्नुहोस्',
                 ),
                 onTap: () => open(RoutePaths.goals),
-              ),
-              _Row(
-                key: const ValueKey<String>('more-wallets'),
-                icon: Icons.account_balance_rounded,
-                color: const Color(0xFF64D2FF),
-                title: context.t('Wallets', 'वालेटहरू'),
-                subtitle: context.t(
-                  'Cash, bank, eSewa and Khalti balances',
-                  'नगद, बैंक, eSewa र Khalti को ब्यालेन्स',
-                ),
-                onTap: () => open(RoutePaths.wallets),
-              ),
-              _Row(
-                key: const ValueKey<String>('more-loans'),
-                icon: Icons.request_quote_rounded,
-                color: const Color(0xFFFF9F0A),
-                title: context.t('Loans & EMI', 'ऋण र किस्ता'),
-                subtitle: context.t(
-                  'Instalments, interest and what is left',
-                  'किस्ता, ब्याज र तिर्न बाँकी',
-                ),
-                onTap: () => open(RoutePaths.loans),
               ),
               _Row(
                 key: const ValueKey<String>('more-household'),
@@ -209,31 +231,12 @@ class MoreScreen extends StatelessWidget {
                 key: const ValueKey<String>('more-import'),
                 icon: Icons.receipt_long_rounded,
                 color: const Color(0xFF64D2FF),
-                title: context.t('Import statement', 'स्टेटमेन्ट आयात'),
+                title: context.t('Import', 'आयात'),
                 subtitle: context.t(
-                  'Bank, eSewa and Khalti files',
-                  'बैंक, eSewa र Khalti का फाइल',
+                  'A statement file, or pasted payment messages',
+                  'स्टेटमेन्ट फाइल, वा टाँसिएका भुक्तानी सन्देश',
                 ),
-                onTap: () => open(RoutePaths.statementImport),
-              ),
-              _Row(
-                key: const ValueKey<String>('more-sms'),
-                icon: Icons.sms_rounded,
-                color: const Color(0xFF30D158),
-                title: context.t('Import from SMS', 'SMS बाट आयात'),
-                subtitle: context.t(
-                  'Bank and wallet payment alerts',
-                  'बैंक र वालेटका भुक्तानी सन्देश',
-                ),
-                onTap: () => open(RoutePaths.smsImport),
-              ),
-              _Row(
-                key: const ValueKey<String>('more-calculator'),
-                icon: Icons.calculate_rounded,
-                color: const Color(0xFFBF5AF2),
-                title: context.t('Calculator', 'क्याल्कुलेटर'),
-                subtitle: context.t('Quick calculations', 'द्रुत हिसाबकिताब'),
-                onTap: () => open(RoutePaths.calculator),
+                onTap: () => _chooseImport(context),
               ),
               _Row(
                 key: const ValueKey<String>('more-bill-maker'),
@@ -252,17 +255,6 @@ class MoreScreen extends StatelessWidget {
             label: context.t('App', 'एप'),
             rows: <_Row>[
               _Row(
-                key: const ValueKey<String>('more-search'),
-                icon: Icons.search_rounded,
-                color: const Color(0xFF64D2FF),
-                title: context.t('Search', 'खोज्नुहोस्'),
-                subtitle: context.t(
-                  'Transactions, friends, shops, loans, goals',
-                  'कारोबार, साथी, पसल, ऋण, लक्ष्य',
-                ),
-                onTap: () => open(RoutePaths.search),
-              ),
-              _Row(
                 key: const ValueKey<String>('more-settings'),
                 icon: Icons.settings_rounded,
                 color: const Color(0xFF8E8E93),
@@ -279,8 +271,8 @@ class MoreScreen extends StatelessWidget {
                 color: const Color(0xFF5E5CE6),
                 title: context.t('Backup & restore', 'ब्याकअप र रिस्टोर'),
                 subtitle: context.t(
-                  'Cloud, Google Drive or a file',
-                  'क्लाउड, Google Drive वा फाइल',
+                  'To your account, or to a file',
+                  'तपाईंको खातामा, वा फाइलमा',
                 ),
                 onTap: () => open(RoutePaths.backup),
               ),

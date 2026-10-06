@@ -71,7 +71,12 @@ if (-not $SkipBuild) {
     Write-Host "release: building $target ..."
     # Run in a child shell: Gradle writes a harmless Java warning to stderr,
     # which would otherwise be treated as a failure here.
-    & powershell -NoProfile -ExecutionPolicy Bypass -File 'tool\run.ps1' build $target | Out-Host
+    #
+    # Phones are ARM. Leaving the x86_64 code (emulators) out of the APK
+    # takes about a quarter off the download; the bundle keeps all three,
+    # for a store to split by device.
+    $only = if ($target -eq 'apk') { @('--target-platform', 'android-arm,android-arm64') } else { @() }
+    & powershell -NoProfile -ExecutionPolicy Bypass -File 'tool\run.ps1' build $target @only | Out-Host
   }
   foreach ($file in @($apk, $aab)) {
     if (-not (Test-Path $file) -or (Get-Item $file).LastWriteTime -lt $started) {

@@ -66,11 +66,13 @@ UpdateService _releases(String tag) => UpdateService(
         'assets': <Map<String, String>>[
           <String, String>{
             'name': 'kharcha-$tag.apk',
-            'browser_download_url': 'https://example.com/kharcha-$tag.apk',
+            'browser_download_url':
+                'https://github.com/nischalsir/kharcha/releases/download/$tag/kharcha-$tag.apk',
           },
           <String, String>{
             'name': 'kharcha-$tag.aab',
-            'browser_download_url': 'https://example.com/kharcha-$tag.aab',
+            'browser_download_url':
+                'https://github.com/nischalsir/kharcha/releases/download/$tag/kharcha-$tag.aab',
           },
         ],
       }),
@@ -242,7 +244,10 @@ void main() {
         await updates.checkOnLaunch();
         expect(updates.status, UpdateStatus.available, reason: installed);
         expect(updates.latestVersion, '2.0.0');
-        expect(updates.updateUrl, 'https://example.com/kharcha-v2.0.0.apk');
+        expect(
+          updates.updateUrl,
+          'https://github.com/nischalsir/kharcha/releases/download/v2.0.0/kharcha-v2.0.0.apk',
+        );
         expect(updates.shouldRemind, isTrue);
         expect(updates.takePrompt(), isTrue);
       }
@@ -748,6 +753,11 @@ void main() {
       expect(find.text('Permissions & Notifications'), findsOneWidget);
       expect(find.text('Security'), findsOneWidget);
       expect(find.text('App Permissions'), findsNothing);
+      // Nobody is signed in here, so there is no account to delete.
+      expect(
+        find.byKey(const ValueKey<String>('delete-account')),
+        findsNothing,
+      );
 
       // Every one of those rows ends in a switch, and the switches stand in
       // one column down both cards.
@@ -855,14 +865,6 @@ void main() {
       addTearDown(tester.view.reset);
       SharedPreferences.setMockInitialValues(<String, Object>{});
       FlutterSecureStorage.setMockInitialValues(<String, String>{});
-      // Even on a build that carries a Google client id.
-      const config = MethodChannel('com.nischalpandey.kharcha/app_config');
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(config, (call) async => 'web-client-id');
-      addTearDown(
-        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(config, null),
-      );
       await tester.pumpWidget(
         MultiProvider(
           providers: [

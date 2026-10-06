@@ -57,6 +57,14 @@ enum PushCategory {
     importance: PushImportance.low,
   ),
 
+  /// On the first day of a month: what the month that just ended came to.
+  monthlyReport(
+    id: 'monthly_report',
+    defaultEnabled: true,
+    channel: PushChannel.insights,
+    importance: PushImportance.defaultImportance,
+  ),
+
   /// A pasal reaching the end of its month.
   pasalMonthEnd(
     id: 'pasal_month_end',

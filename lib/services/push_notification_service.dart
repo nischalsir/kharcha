@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show MethodChannel, MissingPluginException;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
 
 import '../core/errors/app_failure.dart';
 import '../models/push_category.dart';
@@ -94,9 +95,11 @@ enum PushPermission {
 /// import Firebase, so the dependency cannot leak into the UI and the whole
 /// surface is testable with a fake.
 ///
-/// Notification payloads are always delivered as FCM **data** messages, so the
-/// same rendering path handles foreground, background and terminated delivery.
-/// See `PushMessage` for the wire contract.
+/// Every notification carries all of itself in the FCM **data** payload, which
+/// is what this app reads (see `PushMessage` for the wire contract). From
+/// v2.3 the server also gives Android the title and body to draw, so one
+/// arrives on a closed app without this app having to start: see
+/// [drawnByAndroid].
 class PushNotificationService {
   PushNotificationService({this.tokenStore, this.onTap});
 
@@ -390,6 +393,17 @@ class PushNotificationService {
   static PushMessage? parseRemoteMessage(RemoteMessage remote) =>
       PushMessage.fromData(remote.data);
 
+  /// Whether Android has already drawn [remote] itself, which it does for a
+  /// message that carries a `notification` block while the app is in the
+  /// background or closed.
+  ///
+  /// That is how a notification still arrives once the app has been swiped
+  /// away: many phones will not let a closed app start to draw one itself.
+  /// Drawing it here too would show it twice. With the app open Android
+  /// draws nothing, and the foreground handler does.
+  static bool drawnByAndroid(RemoteMessage remote) =>
+      remote.notification != null;
+
   static Importance _importanceFor(PushImportance importance) {
     switch (importance) {
       case PushImportance.low:
@@ -512,6 +526,7 @@ class PushNotificationService {
         android: AndroidInitializationSettings('ic_notification'),
       ),
     );
+    final picture = await _fetchPicture(message.imageUrl);
     await local.show(
       id: id,
       title: message.title,
@@ -529,7 +544,17 @@ class PushNotificationService {
           // Tapping must survive the process being killed between the
           // notification appearing and being tapped, so the payload travels
           // in the notification itself.
-          styleInformation: BigTextStyleInformation(message.body),
+          largeIcon: picture,
+          styleInformation: picture == null
+              ? BigTextStyleInformation(message.body)
+              : BigPictureStyleInformation(
+                  picture,
+                  contentTitle: message.title,
+                  summaryText: message.body,
+                  // The small copy beside the text gives way to the full
+                  // picture once the notification is opened out.
+                  hideExpandedLargeIcon: true,
+                ),
         ),
       ),
       payload: jsonEncode({
@@ -539,6 +564,33 @@ class PushNotificationService {
         ...message.data,
       }),
     );
+  }
+}
+
+/// Android will not draw a notification picture bigger than this.
+const int _maxPictureBytes = 1024 * 1024;
+
+/// Fetches the picture a notification carries, or null when it has none or it
+/// cannot be had in time.
+///
+/// Never throws and never waits long: the text is the notification, and a
+/// slow or missing picture must not hold it back or lose it.
+Future<ByteArrayAndroidBitmap?> _fetchPicture(String? url) async {
+  if (url == null) return null;
+  try {
+    final response = await http
+        .get(Uri.parse(url))
+        .timeout(const Duration(seconds: 8));
+    final bytes = response.bodyBytes;
+    if (response.statusCode != 200 ||
+        bytes.isEmpty ||
+        bytes.length > _maxPictureBytes) {
+      return null;
+    }
+    return ByteArrayAndroidBitmap(bytes);
+  } catch (error) {
+    debugPrint('Push: picture fetch failed ($error)');
+    return null;
   }
 }
 
@@ -557,6 +609,11 @@ Future<void> kharchaFirebaseMessagingBackgroundHandler(RemoteMessage message) as
   if (parsed == null) return;
   try {
     await Firebase.initializeApp();
+    if (PushNotificationService.drawnByAndroid(message)) {
+      // Already in the shade. Only kept for the Notifications page.
+      await NotificationInbox.record(parsed);
+      return;
+    }
     // Negative ids keep background notifications from colliding with the
     // foreground counter in the main isolate. Each one gets its own id, or a
     // second push would silently replace the first in the shade.

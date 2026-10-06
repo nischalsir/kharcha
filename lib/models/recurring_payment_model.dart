@@ -66,6 +66,18 @@ class RecurringPayment {
   final DateTime updatedAt;
   final DateTime? deletedAt;
 
+  /// What this comes to in an average month, whatever it repeats by: a
+  /// weekly bill is paid a little more than four times a month, a yearly one
+  /// is a twelfth of itself.
+  double get monthlyAmount => switch (frequency) {
+    RecurringFrequency.daily => amount * 365 / 12,
+    RecurringFrequency.weekly => amount * 52 / 12,
+    RecurringFrequency.monthly => amount,
+    RecurringFrequency.yearly => amount / 12,
+    RecurringFrequency.custom =>
+      amount * 365 / 12 / math.max(1, intervalDays ?? 1),
+  };
+
   bool isDue(DateTime now) {
     if (!isActive) return false;
     final today = DateTime(now.year, now.month, now.day);

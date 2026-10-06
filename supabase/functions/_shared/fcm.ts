@@ -8,6 +8,8 @@
 //
 // Scope requested is the narrowest that can send: `https://www.googleapis.com/auth/firebase.messaging`.
 
+import { resolveChannel } from './push_types.ts';
+
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const FCM_ENDPOINT = 'https://fcm.googleapis.com/v1';
 const SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
@@ -143,19 +145,103 @@ async function getAccessToken(account: ServiceAccount): Promise<string> {
 export type FcmMessage = {
   token?: string;
   topic?: string;
+  /**
+   * The app version the device behind `token` last reported, when known. It
+   * decides which of the two shapes below the message takes; it is never sent.
+   */
+  appVersion?: string | null;
   data: Record<string, string>;
   android?: {
     priority?: 'normal' | 'high';
     ttl?: string;
     collapseKey?: string;
-    // No `notification` field on purpose. Any `android.notification` block
-    // makes FCM treat the push as a notification message: Android then draws
-    // it itself while the app is in the background (blank, because the title
-    // and body travel in `data`) on top of the copy the app renders, and the
-    // app's own channel, icon and tap routing are bypassed. Kharcha sends
-    // data-only messages and the app picks the channel from `category`.
   };
 };
+
+/**
+ * The first app version that leaves a message Android has already drawn
+ * alone. Older versions draw every message themselves from `data`.
+ */
+const SYSTEM_DRAWN_FROM = [2, 3, 0];
+
+/**
+ * Whether a device on [appVersion] should be sent a message Android draws
+ * itself (a `notification` block beside the `data`).
+ *
+ * A data-only message is only seen if the phone lets the app start in the
+ * background and run long enough to draw it. Many phones do not once the app
+ * has been swiped away, so nothing arrived until it was opened again. A
+ * message with a `notification` block is drawn by Android without the app
+ * having to do anything, which is how every other app's notifications
+ * arrive.
+ *
+ * Only for versions that know about it: an older app would draw its own copy
+ * as well and show everything twice. No reported version means an older app.
+ */
+export function systemDrawn(appVersion: string | null | undefined): boolean {
+  if (typeof appVersion !== 'string') return false;
+  const parts = appVersion.trim().replace(/^v/i, '').split(/[.+-]/);
+  for (let i = 0; i < SYSTEM_DRAWN_FROM.length; i++) {
+    const part = Number.parseInt(parts[i] ?? '0', 10);
+    if (!Number.isFinite(part)) return false;
+    if (part !== SYSTEM_DRAWN_FROM[i]) return part > SYSTEM_DRAWN_FROM[i];
+  }
+  return true;
+}
+
+/**
+ * The `message` object FCM is sent for [message].
+ *
+ * Always carries the whole notification in `data`, which is what the app
+ * reads: to draw it while it is open, to open the right page on a tap, and to
+ * keep it on its Notifications page. For a device that can take it (see
+ * [systemDrawn]) the title and body are also given to Android to draw, in the
+ * channel the category belongs to; `collapseKey` becomes its tag, so a newer
+ * one replaces the older one in the shade as well as in the queue.
+ */
+export function buildFcmBody(message: FcmMessage): Record<string, unknown> {
+  const { token, topic, appVersion, ...rest } = message;
+  const target = token ? { token } : { topic };
+  const title = rest.data.title;
+  const body = rest.data.body;
+  if (!token || !systemDrawn(appVersion) || !title || !body) {
+    return { ...target, ...rest };
+  }
+  const tag = rest.android?.collapseKey;
+  const image = pictureUrl(rest.data.image);
+  return {
+    ...target,
+    ...rest,
+    notification: { title, body },
+    android: {
+      ...rest.android,
+      notification: {
+        channelId: resolveChannel(rest.data.category ?? ''),
+        ...(tag ? { tag } : {}),
+        // Android fetches and draws the picture itself. It stays in `data` as
+        // well, which is where the app reads it to draw the same picture when
+        // it is the one drawing.
+        ...(image ? { image } : {}),
+      },
+    },
+  };
+}
+
+/**
+ * The picture a notification carries (`data.image`), or undefined when there
+ * is none or it is not a link a phone will fetch. Android only loads a
+ * notification picture over https.
+ */
+export function pictureUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > 500) return undefined;
+  try {
+    return new URL(trimmed).protocol === 'https:' ? trimmed : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export type SendResult =
   | { ok: true; name: string }
@@ -190,15 +276,6 @@ export async function sendMessage(message: FcmMessage): Promise<SendResult> {
 
   try {
     const accessToken = await getAccessToken(account);
-    const target = message.token ? { token: message.token } : { topic: message.topic };
-
-    // FCM v1 nests the payload under `message`. Spreading `...message` after
-    // `target` would overwrite that key with the flat payload and send a
-    // malformed body that fails with UNSPECIFIED_ERROR, so the target is
-    // destructured out and reassembled explicitly.
-    const { token, topic, ...rest } = message;
-    void token;
-    void topic;
 
     const response = await fetch(
       `${FCM_ENDPOINT}/projects/${account.project_id}/messages:send`,
@@ -208,7 +285,8 @@ export async function sendMessage(message: FcmMessage): Promise<SendResult> {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: { ...target, ...rest } }),
+        // FCM v1 nests the payload under `message`.
+        body: JSON.stringify({ message: buildFcmBody(message) }),
       },
     );
 

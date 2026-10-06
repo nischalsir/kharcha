@@ -196,14 +196,13 @@ async function sendToUser(
 ): Promise<{ sent: number; pruned: number }> {
   const { data: tokenRows } = await supabase
     .from("push_tokens")
-    .select("id, token")
+    .select("id, token, app_version")
     .eq("user_id", userId);
 
-  const tokens = ((tokenRows ?? []) as Array<{ id: string; token: string }>)
-    .map(
-      (row) => row.token,
-    );
-  if (tokens.length === 0) return { sent: 0, pruned: 0 };
+  const devices = (tokenRows ?? []) as Array<
+    { id: string; token: string; app_version: string | null }
+  >;
+  if (devices.length === 0) return { sent: 0, pruned: 0 };
 
   const dead: string[] = [];
   let sent = 0;
@@ -211,9 +210,10 @@ async function sendToUser(
   // Sequential on purpose: a burst of parallel sends from one isolate trips
   // FCM's per-project quota, and a single user rarely has more than a handful
   // of devices.
-  for (const token of tokens) {
+  for (const device of devices) {
     const result = await sendMessage({
-      token,
+      token: device.token,
+      appVersion: device.app_version,
       data: {
         category: AI_PUSH_CATEGORY,
         title: message.title,

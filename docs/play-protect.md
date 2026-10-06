@@ -63,9 +63,49 @@ v2.2 removes it:
 while the app is distributed as an APK. Only an app on Google Play, with the
 SMS use declared and approved there, can hold it.
 
-If a block is still shown after v2.2, the next thing to look at is
-`REQUEST_INSTALL_PACKAGES` (see below): without it "Update" would open the
-download in the browser instead of installing from inside the app.
+## v2.3: no install permission either
+
+`REQUEST_INSTALL_PACKAGES` is the other permission Play Protect counts
+against an app installed from a file. Up to v2.2 the app used it to hand an
+update it had downloaded to Android's installer. v2.3 removes it, with the
+code that used it (`AppUpdates.kt`, the `app_update` channel, the file
+provider and `app_updater.dart`):
+
+- "Download update" opens the release's APK in the browser. The browser
+  downloads it and the user opens the file; the browser, not Kharcha, is what
+  Android asks about installing from.
+- The app picks the APK made for the phone's processor when a release has
+  one, otherwise the one for every phone (`UpdateService.pickApk`).
+- `test/v2_3_features_test.dart` fails if the permission comes back.
+
+After v2.3 the app asks for nothing Play Protect singles out: internet,
+notifications, vibration, biometrics and approximate location.
+
+## Register as a developer (do this before 2027)
+
+Google is bringing in developer verification for Android: on certified
+phones, an app installed from a file will have to come from a developer who
+has registered the app's package name and signing key. It began on
+30 September 2026 in Brazil, Indonesia, Singapore and Thailand and is due
+everywhere else during 2027. An unregistered app will then be refused at
+install time, whatever its permissions.
+
+What to do, once, from a computer:
+
+1. Open <https://developer.android.com/developer-verification> and choose
+   the Android Developer Console (the one for apps distributed outside Google
+   Play). Students and hobbyists get a free account with a limit on how many
+   devices can install; a full account is a one-time USD 25 (it needs a
+   card).
+2. Verify your identity as it asks.
+3. Register the app: package name `com.nischalpandey.kharcha` and the signing
+   certificate's SHA-256 fingerprint (it is in the table below). Proving
+   ownership means uploading an APK signed with the release key; use the
+   latest `kharcha-vX.apk` from GitHub Releases.
+4. Keep signing every release with the same key (`android/app/kharcha-release.jks`).
+   A copy of it and its passwords is in `C:\Users\nisch\Kharcha-keys`; put
+   that folder on a USB drive as well. Without the key the registration, and
+   every installed copy of the app, is stranded.
 
 ## What changed
 
@@ -100,8 +140,9 @@ Checked on the built release APK with `aapt2` and `apksigner`:
 - **Components** no accessibility service, device admin or notification
   listener. Up to v1.0.21 the app did not request `REQUEST_INSTALL_PACKAGES`
   and "Update" opened the download in the browser.
-- **From v1.1** the app downloads its own update and hands it to Android's
-  installer, which needs `REQUEST_INSTALL_PACKAGES`. Android still asks the
+- **From v1.1 to v2.2** the app downloaded its own update and handed it to
+  Android's installer, which needs `REQUEST_INSTALL_PACKAGES` (removed in
+  v2.3, see above). Android still asks the
   user to confirm each install and to allow Kharcha as a source the first
   time, and only accepts an APK signed with the same key. This permission is
   one Play Protect looks at for apps installed from outside Google Play; if

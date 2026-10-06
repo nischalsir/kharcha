@@ -455,6 +455,7 @@ class _BudgetSummaryCard extends StatelessWidget {
         : data.budgetFraction >= 0.8
         ? glass.warning
         : glass.success;
+    final projected = data.projectedSpend;
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -499,6 +500,36 @@ class _BudgetSummaryCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
+          if (projected != null) ...<Widget>[
+            const SizedBox(height: 4),
+            Text(
+              projected > data.monthlyBudget
+                  ? context.t(
+                      'On pace for ${CurrencyFormatter.format(projected)} '
+                          'this month, '
+                          '${CurrencyFormatter.format(projected - data.monthlyBudget)} '
+                          'over',
+                      'यही गतिमा यो महिना '
+                          '${CurrencyFormatter.format(projected)}, '
+                          '${CurrencyFormatter.format(projected - data.monthlyBudget)} '
+                          'बढी',
+                    )
+                  : context.t(
+                      'On pace for ${CurrencyFormatter.format(projected)} '
+                          'this month',
+                      'यही गतिमा यो महिना '
+                          '${CurrencyFormatter.format(projected)}',
+                    ),
+              key: const ValueKey<String>('budget-forecast'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: projected > data.monthlyBudget
+                    ? glass.warning
+                    : glass.textSecondary,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ],
       ),
     );

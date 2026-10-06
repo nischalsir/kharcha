@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/id_generator.dart';
@@ -30,6 +31,48 @@ const List<TransactionType> _formTypes = <TransactionType>[
   TransactionType.expense,
   TransactionType.income,
 ];
+
+/// Deletes [item] and offers, for a few seconds, to take that back.
+///
+/// Deleting only marks the row, so Undo puts it back exactly as it was. The
+/// receipt picture is different: once removed from storage it is gone, so it
+/// is only removed when the offer has passed without being taken.
+///
+/// [messenger] is taken before the sheet that asked for this is closed; its
+/// own context does not outlive it.
+void deleteTransactionWithUndo({
+  required ScaffoldMessengerState messenger,
+  required TransactionProvider provider,
+  required TransactionModel item,
+  required String deletedLabel,
+  required String undoLabel,
+  ReceiptStore receipts = const ReceiptStore(),
+}) {
+  provider.delete(item.id);
+  messenger.hideCurrentSnackBar();
+  messenger
+      .showSnackBar(
+        SnackBar(
+          key: const ValueKey<String>('transaction-deleted'),
+          duration: const Duration(seconds: 6),
+          // Goes away on its own: an Undo left on screen for good would hold
+          // on to the receipt for good too.
+          persist: false,
+          content: Text(deletedLabel),
+          action: SnackBarAction(
+            label: undoLabel,
+            onPressed: () => provider.restore(item),
+          ),
+        ),
+      )
+      .closed
+      .then((reason) {
+        final receipt = item.attachmentPath;
+        if (reason != SnackBarClosedReason.action && receipt != null) {
+          receipts.remove(receipt);
+        }
+      });
+}
 
 /// Opens the recurring-payment (bill) form. Shared with the dashboard's
 /// "Add Payment" action, which is why it lives outside the screen.
@@ -296,7 +339,64 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         ),
       ];
     }
+    // What the repeating bills come to in a month, so the list answers "how
+    // much of my month is already spoken for". Paused ones are left out.
+    final active = items.where((item) => item.isActive).toList();
+    final monthlyOut = active
+        .where((item) => item.type == TransactionType.expense)
+        .fold<double>(0, (sum, item) => sum + item.monthlyAmount);
+    final monthlyIn = active
+        .where((item) => item.type == TransactionType.income)
+        .fold<double>(0, (sum, item) => sum + item.monthlyAmount);
     return <Widget>[
+      if (monthlyOut > 0 || monthlyIn > 0)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: GlassCard(
+            key: const ValueKey<String>('recurring-monthly-total'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  context.t('Every month, about', 'हरेक महिना, लगभग'),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: glass.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  CurrencyFormatter.format(monthlyOut),
+                  key: const ValueKey<String>('recurring-monthly-out'),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  monthlyIn > 0
+                      ? context.t(
+                          'goes out, and '
+                              '${CurrencyFormatter.format(monthlyIn)} comes '
+                              'in. Weekly and yearly ones are averaged.',
+                          'जान्छ, र ${CurrencyFormatter.format(monthlyIn)} '
+                              'आउँछ। साप्ताहिक र वार्षिकको औसत लिइएको छ।',
+                        )
+                      : context.t(
+                          'goes out on these. Weekly and yearly ones are '
+                              'averaged over a month.',
+                          'यिनमा जान्छ। साप्ताहिक र वार्षिकको महिनाको औसत '
+                              'लिइएको छ।',
+                        ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: glass.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       if (dueCount > 0)
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -587,10 +687,20 @@ class _TransactionActionsState extends State<_TransactionActions> {
           label: 'Delete',
           color: glass.danger,
           onTap: () {
+            final messenger = ScaffoldMessenger.of(context);
+            final deleted = context.t(
+              'Deleted “${item.title}”',
+              '“${item.title}” मेटियो',
+            );
+            final undo = context.t('Undo', 'फिर्ता');
             Navigator.pop(context);
-            provider.delete(id);
-            // The picture goes with the transaction it was taken for.
-            if (receipt != null) const ReceiptStore().remove(receipt);
+            deleteTransactionWithUndo(
+              messenger: messenger,
+              provider: provider,
+              item: item,
+              deletedLabel: deleted,
+              undoLabel: undo,
+            );
           },
         ),
       ],

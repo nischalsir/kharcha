@@ -35,6 +35,8 @@ class DashboardData {
     required this.friendTheyOwe,
     required this.pasalOutstanding,
     required this.pasalCount,
+    this.monthDay = 0,
+    this.monthDays = 0,
     required this.upcomingRecurring,
   });
 
@@ -55,7 +57,20 @@ class DashboardData {
   final int pasalCount;
   final List<RecurringPayment> upcomingRecurring;
 
+  /// Which day of the month today is, and how many days the month has, in
+  /// the calendar the app is set to. Zero when not worked out.
+  final int monthDay;
+  final int monthDays;
+
   double get budgetRemaining => monthlyBudget - budgetSpent;
+
+  /// Where the month's spending ends if every remaining day goes like the
+  /// days so far. Null in the first few days, when it would be a wild guess,
+  /// and on the last day, when it is simply what was spent.
+  double? get projectedSpend =>
+      monthDay < 5 || monthDay >= monthDays || budgetSpent <= 0
+      ? null
+      : budgetSpent / monthDay * monthDays;
 
   double get budgetFraction =>
       monthlyBudget <= 0 ? 0 : budgetSpent / monthlyBudget;
@@ -194,6 +209,9 @@ class DashboardProvider extends ChangeNotifier with CacheAware {
       friendTheyOwe: theyOwe,
       pasalOutstanding: pasalOutstanding,
       pasalCount: balances.length,
+      monthDay: dayStart.difference(range.start).inHours ~/ 24 + 1,
+      monthDays: (range.endExclusive.difference(range.start).inHours / 24)
+          .round(),
       upcomingRecurring: _recurring.upcoming(withinDays: 14),
     );
   }

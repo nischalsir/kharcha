@@ -8,13 +8,15 @@ import '../models/push_category.dart';
 /// contract: the Edge Function validates incoming messages against it and this
 /// class is the Dart side of the same contract.
 ///
-/// Every Kharcha notification is a **data** message, never a `notification`
-/// payload. That is deliberate:
-///  - the app then renders it itself, so the foreground, background and
-///    terminated cases all go through one code path and always use Kharcha's
-///    channels, accent and icon;
-///  - a `notification` payload would be drawn by the OS, bypassing that, and
-///    would double up with the Dart-rendered foreground copy.
+/// Every Kharcha notification carries all of itself in the **data** payload:
+/// that is what is parsed here, whether the app draws it (while it is open),
+/// routes a tap on it, or keeps it for the Notifications page.
+///
+/// Up to v2.2 that was all there was, and the app drew every notification
+/// itself. A closed app often is not allowed to start to do that, so from
+/// v2.3 the server also sends the title and body as a `notification` block,
+/// which Android draws on its own; see
+/// `PushNotificationService.drawnByAndroid`.
 class PushMessage {
   const PushMessage({
     required this.category,
@@ -35,6 +37,7 @@ class PushMessage {
   /// Recognised keys:
   ///  - `route`: a `RoutePaths` value to open on tap
   ///  - `route_args`: JSON-encoded single argument for the route, if it needs one
+  ///  - `image`: https link to a picture shown with the notification
   final Map<String, String> data;
 
   PushCategory? get resolvedCategory => PushCategory.byId(category);
@@ -48,6 +51,18 @@ class PushMessage {
   String? get route {
     final value = data['route'];
     if (value == null || value.isEmpty) return null;
+    return value;
+  }
+
+  /// The picture to show with the notification, or null when it has none.
+  ///
+  /// Only an https link counts: it is fetched in the background on arrival,
+  /// and Android refuses plain http there.
+  String? get imageUrl {
+    final value = data['image']?.trim();
+    if (value == null || value.isEmpty) return null;
+    final uri = Uri.tryParse(value);
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return null;
     return value;
   }
 

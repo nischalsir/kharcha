@@ -42,3 +42,8 @@ verify_jwt = true
 # the gateway. Every other path re-validates the caller's admin email itself.
 [functions.admin-push]
 verify_jwt = false
+
+# Deletes the caller's own account. Only ever acts as the signed-in user, so
+# the platform check stays on, and the function checks the same token again.
+[functions.delete-account]
+verify_jwt = true

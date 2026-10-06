@@ -24,22 +24,22 @@ class WhatsNew {
   /// lines. Replace the list with each release; do not add to it.
   static const List<(String, String)> items = <(String, String)>[
     (
-      'Bill maker: rent, water and electricity bills as a PDF',
-      'बिल बनाउने: भाडा, पानी र बिजुलीको बिल PDF मा',
+      'Friends and Pasal share one Ledger tab',
+      'साथी र पसल अब एउटै उधारो ट्याबमा',
+    ),
+    ('Undo a deleted transaction', 'मेटिएको कारोबार फिर्ता ल्याउनुहोस्'),
+    (
+      'Budget forecast, and reports for any past month',
+      'बजेटको अनुमान, र जुनसुकै अघिल्लो महिनाको प्रतिवेदन',
     ),
     (
-      'Payment QR: save a shop’s or a friend’s QR and open it to pay',
-      'भुक्तानी QR: पसल वा साथीको QR राख्नुहोस्, तिर्दा खोल्नुहोस्',
+      'Delete your account yourself, in Settings',
+      'सेटिङबाटै आफ्नो खाता आफैँ मेटाउनुहोस्',
     ),
     (
-      'Dark mode fixed on the pages that turned white',
-      'सेतो देखिने पृष्ठहरूमा डार्क मोड ठीक गरियो',
+      'Updates now download in your browser',
+      'अपडेट अब ब्राउजरमा डाउनलोड हुन्छ',
     ),
-    (
-      'No SMS permission any more: paste messages to import them',
-      'अब SMS अनुमति चाहिँदैन: आयात गर्न सन्देश टाँस्नुहोस्',
-    ),
-    ('Sync now, straight from Settings', 'सेटिङबाटै अहिले सिङ्क गर्नुहोस्'),
   ];
 
   /// Whether this version's changes have not been shown on this phone yet.

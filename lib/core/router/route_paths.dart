@@ -66,7 +66,7 @@ class RoutePaths {
   /// Settings → About Kharcha: version, update status and what's new.
   static const String about = '/settings/about';
 
-  /// Backup & restore: cloud, Google Drive and backup files.
+  /// Backup & restore: cloud and backup files.
   static const String backup = '/settings/backup';
 
   /// Help & Support: guides and answers.
@@ -122,6 +122,7 @@ class RoutePaths {
     help,
     search,
     netWorth,
+    billMaker,
     addExpense,
     addIncome,
   };

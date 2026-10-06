@@ -643,6 +643,76 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Deletes the signed-in account for good: the account itself, everything
+  /// synced for it and every picture kept for it. There is no way back.
+  ///
+  /// The server only ever deletes the account this request is signed in as.
+  /// Whoever calls this has already asked for the password again (see
+  /// Settings), so a phone left unlocked is not enough to do it.
+  ///
+  /// Throws when it could not be done, in which case nothing that cannot be
+  /// tried again has been removed and the user is still signed in.
+  Future<void> deleteAccount() async {
+    if (isGuest || _user == null) {
+      throw const AppFailure(
+        FailureKind.invalidData,
+        'There is no account to delete.',
+      );
+    }
+    if (_signingOut) return;
+    _signingOut = true;
+    _setLoading(true);
+    _clearError();
+    try {
+      final client = _requireClient();
+      // The profile picture may be kept outside the account's own folder,
+      // where the server's sweep does not reach. Best effort.
+      try {
+        await removeAvatar();
+      } catch (_) {}
+      final response = await client.functions.invoke(
+        'delete-account',
+        body: const <String, String>{'confirm': 'DELETE'},
+      );
+      final data = response.data;
+      if (response.status != 200 || data is! Map || data['deleted'] != true) {
+        throw const AppFailure(
+          FailureKind.syncFailed,
+          'The account could not be deleted. Check your connection and try '
+          'again.',
+        );
+      }
+      // What a sign-out tidies up on this phone (the inbox, the push token).
+      await _runSignOutCleanups();
+      try {
+        // The account is gone, so there is no session left to end on the
+        // server; only this phone's copy of it.
+        await client.auth.signOut(scope: SignOutScope.local);
+      } catch (_) {}
+      _session = null;
+      _user = null;
+      _forgetTrust();
+      _refreshMfaState();
+      notifyListeners();
+    } on AppFailure catch (failure) {
+      _failure = failure;
+      notifyListeners();
+      rethrow;
+    } catch (error) {
+      _failure = const AppFailure(
+        FailureKind.syncFailed,
+        'The account could not be deleted. Check your connection and try '
+        'again.',
+      );
+      debugPrint('Auth: deleting the account failed ($error)');
+      notifyListeners();
+      throw _failure!;
+    } finally {
+      _signingOut = false;
+      _setLoading(false);
+    }
+  }
+
   Future<void> resetPassword(String email) async {
     _setLoading(true);
     _clearError();

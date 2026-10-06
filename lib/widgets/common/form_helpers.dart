@@ -245,9 +245,13 @@ class ActionTile extends StatelessWidget {
           children: <Widget>[
             Icon(icon, color: tint, size: 22),
             const SizedBox(width: 12),
-            Text(
-              label,
-              style: theme.textTheme.titleSmall?.copyWith(color: tint),
+            // Flexible: a long label wraps on a narrow phone instead of
+            // running off the tile.
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.titleSmall?.copyWith(color: tint),
+              ),
             ),
           ],
         ),

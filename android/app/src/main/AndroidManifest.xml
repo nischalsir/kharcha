@@ -7,16 +7,13 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     <!--
-        Lets the app hand an update it downloaded to Android's installer.
-        Android still asks the user to confirm every install, and to allow
-        Kharcha as a source the first time.
-    -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!--
         No SMS permission, on purpose. Payment alerts are imported by pasting
         them (More > Import from SMS). READ_SMS on an app installed from a
         file is what Google Play Protect blocks as a likely scam app; see
         docs/play-protect.md before ever adding it back.
+
+        No REQUEST_INSTALL_PACKAGES either, for the same reason: an update is
+        downloaded by the browser, which hands it to Android's installer.
     -->
     <!--
         Approximate only, and only for the weather on the Calendar page. Asked
@@ -100,20 +97,6 @@
                 <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
             </intent-filter>
         </activity>
-        <!--
-            Lends Android's installer the update the app downloaded. Not
-            exported: access is granted to the installer for that one file,
-            for that one install.
-        -->
-        <provider
-            android:name=".UpdateFileProvider"
-            android:authorities="${applicationId}.updates"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/update_paths" />
-        </provider>
         <!--
             The home-screen widgets: today's spending, this month, and quick
             actions. Exported because it is the launcher, another app, that

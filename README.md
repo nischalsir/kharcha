@@ -80,9 +80,9 @@ Budget alerts, upcoming bills, friend debts, overdue payments, the pasal month e
 - **Every row is yours alone.** Row-level security on every table; the database itself refuses to show your data to anyone else. Accounts sharing one phone are kept apart too.
 - **No secrets in the app.** AI, Firebase and Cloudinary keys live only in server functions. Uploads are signed per user on the server.
 - **Fingerprint sign-in**, authenticator-app 2FA, and password reset with a code sent to your email.
-- **Backups** to the cloud, to a file you can keep or share, or to your own Google Drive (Drive needs a one-time setup, see [`docs/google-drive-setup.md`](docs/google-drive-setup.md)).
+- **Backups** to the cloud, or to a file you can keep or share anywhere.
 - **Guest mode.** Explore without an account, then *Save your data* turns the guest into a real account without losing an entry. It needs anonymous sign-ins switched on in the backend; the app tells you when it is off.
-- **Updates from inside the app.** Kharcha checks GitHub Releases, downloads the new version itself with its progress shown, and hands it to Android's installer for you to confirm.
+- **Updates.** Kharcha checks GitHub Releases and tells you when a new version is out; *Download update* opens it in your browser, and you open the file to install it. The app asks Android for no permission to install anything itself.
 
 ---
 
@@ -145,7 +145,7 @@ android/         share-sheet and "Open with" handling for statements
 supabase/
   functions/     Edge Functions + shared modules + Deno tests
   migrations/    incremental SQL: schema changes, RLS, cron jobs
-docs/            Google Drive setup, Play Protect notes, integration audit
+docs/            Play Protect notes, integration audit
 test/            Flutter tests
 tool/            run, build and release scripts, festival image fetcher
 ```

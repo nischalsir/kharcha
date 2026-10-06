@@ -15,6 +15,8 @@
 //   pasal_month_end        reminder hour on the second-to-last day of the BS
 //                          month, for pasals with an unpaid balance
 //   weekly_summary         reminder hour on Sunday (the Nepali week start)
+//   monthly_report         reminder hour on the first day of a BS month: what
+//                          the month that just ended came to
 //   daily_summary          summary hour (default 21)
 import {
   addDays,
@@ -32,7 +34,8 @@ export type ReminderCategory =
   | "overdue_reminders"
   | "pasal_month_end"
   | "daily_summary"
-  | "weekly_summary";
+  | "weekly_summary"
+  | "monthly_report";
 
 /** Mirrors `defaultEnabled` in lib/models/push_category.dart. */
 export const REMINDER_DEFAULTS: Record<ReminderCategory, boolean> = {
@@ -43,6 +46,7 @@ export const REMINDER_DEFAULTS: Record<ReminderCategory, boolean> = {
   pasal_month_end: true,
   daily_summary: false,
   weekly_summary: false,
+  monthly_report: true,
 };
 
 export const DEFAULT_REMINDER_HOUR = 9;
@@ -587,6 +591,62 @@ function weeklySummary(input: ReminderInput): PlannedPush[] {
   }];
 }
 
+/**
+ * On the first day of a Bikram Sambat month: what the month that just ended
+ * came to, against the one before it. Says nothing when nothing was written
+ * down that month; there is no report to give.
+ */
+function monthlyReport(input: ReminderInput): PlannedPush[] {
+  const bs = toBs(input.local.date);
+  if (!bs || bs.day !== 1) return [];
+  const back = (year: number, month: number) =>
+    month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+  const last = back(bs.year, bs.month);
+  const key = `monthly:${last.year}-${last.month}`;
+  if (input.sentKeys.has(key)) return [];
+  const range = bsMonthRange(last.year, last.month);
+  if (!range) return [];
+  const month = totals(input, range.start, range.end);
+  if (month.count === 0) return [];
+
+  const name = BS_MONTH_NAMES[last.month - 1];
+  const money = (value: number) => formatMoney(value, input.currency);
+  let body = `In ${name} you spent ${money(month.spent)}`;
+  if (month.earned > 0) {
+    const saved = month.earned - month.spent;
+    body += ` and earned ${money(month.earned)}`;
+    body += saved >= 0
+      ? `, so ${money(saved)} was saved`
+      : `, ${money(-saved)} more than came in`;
+  }
+  body += ".";
+  const earlier = back(last.year, last.month);
+  const earlierRange = bsMonthRange(earlier.year, earlier.month);
+  const before = earlierRange
+    ? totals(input, earlierRange.start, earlierRange.end)
+    : null;
+  if (before && before.spent > 0) {
+    const change = Math.round(
+      ((month.spent - before.spent) / before.spent) * 100,
+    );
+    if (change !== 0) {
+      body += ` That is ${Math.abs(change)}% ${
+        change > 0 ? "more" : "less"
+      } than ${BS_MONTH_NAMES[earlier.month - 1]}.`;
+    }
+  }
+  if (month.top) body += ` Most went to ${month.top}.`;
+  return [{
+    category: "monthly_report",
+    keys: [key],
+    title: `📅 Your ${name} report`,
+    body: clip(body),
+    route: "/reports",
+    // Opens Reports on the month the report is about.
+    routeArgs: JSON.stringify("last-month"),
+  }];
+}
+
 // --------------------------------------------------------------------- plan
 
 /** Hours at which anything at all could be due, so the worker can skip
@@ -625,6 +685,7 @@ export function planReminders(input: ReminderInput): PlannedPush[] {
     if (on("pasal_month_end")) out.push(...pasalMonthEnd(input));
     const sunday = new Date(`${local.date}T00:00:00Z`).getUTCDay() === 0;
     if (sunday && on("weekly_summary")) out.push(...weeklySummary(input));
+    if (on("monthly_report")) out.push(...monthlyReport(input));
   }
   if (local.hour === summaryHour && on("daily_summary")) {
     out.push(...dailySummary(input));

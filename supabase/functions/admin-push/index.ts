@@ -42,7 +42,7 @@ import {
   serverError,
   unauthorized,
 } from "../_shared/auth.ts";
-import { sendMessage, readServiceAccount } from "../_shared/fcm.ts";
+import { pictureUrl, readServiceAccount, sendMessage } from "../_shared/fcm.ts";
 import { PUSH_TYPES, resolveChannel } from "../_shared/push_types.ts";
 
 const supabase = createClient(
@@ -64,6 +64,13 @@ const DISPATCH_BATCH = 20;
 // How far ahead a send may be queued. A year is generous for a budget alert and
 // still bounds the table.
 const MAX_SCHEDULE_AHEAD_MS = 366 * 24 * 60 * 60 * 1000;
+// Public bucket for the picture a notification can carry. Public because the
+// phone fetches it with no credential; only this function can add to it.
+const PICTURE_BUCKET = "push-pictures";
+const PICTURE_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+};
 
 type Action =
   | "directory"
@@ -72,6 +79,7 @@ type Action =
   | "schedule"
   | "scheduled"
   | "cancel"
+  | "picture"
   | "dispatch";
 
 /**
@@ -142,6 +150,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (action === "schedule") return json(await createSchedule(body, admin));
     if (action === "scheduled") return json(await listSchedules());
     if (action === "cancel") return json(await cancelSchedule(body));
+    if (action === "picture") return json(await createPictureUpload(body));
     return badRequest("Unknown action");
   } catch (error) {
     if (error instanceof BadRequestError) return badRequest(error.message);
@@ -374,6 +383,15 @@ type SendRequest = {
   audience: "broadcast" | "users";
   userIds: string[];
   data: Record<string, string>;
+  /**
+   * Deliver to users who switched this category off in Settings.
+   *
+   * Off unless the operator asks for it per send. Some categories are off by
+   * default in the app (daily and weekly summary), so without an override the
+   * console could never send those types to anyone who has not gone into
+   * Settings and switched them on.
+   */
+  ignoreOptOut: boolean;
 };
 
 async function performSend(
@@ -416,13 +434,23 @@ function parseSendRequest(body: Record<string, unknown>): SendRequest {
     throw new BadRequestError("A targeted send needs at least one user id");
   }
 
+  // Refused rather than dropped: a picture that silently goes missing is only
+  // found out after the notification has reached everyone without it.
+  const data = sanitizeData(body.data);
+  if (data.image !== undefined && !pictureUrl(data.image)) {
+    throw new BadRequestError("The picture must be an https link");
+  }
+
   return {
     category,
     title,
     body: messageBody,
     audience,
     userIds,
-    data: sanitizeData(body.data),
+    data,
+    // Strictly `true`: a missing or malformed flag must never read as consent to
+    // override somebody's setting.
+    ignoreOptOut: body.ignore_opt_out === true,
   };
 }
 
@@ -438,7 +466,8 @@ async function deliver(
   request: SendRequest,
   adminEmail: string,
 ): Promise<Record<string, unknown>> {
-  const { category, title, body: messageBody, audience, data } = request;
+  const { category, title, body: messageBody, audience, data, ignoreOptOut } =
+    request;
   const spec = PUSH_TYPES[category];
   const channelId = resolveChannel(category);
 
@@ -456,6 +485,7 @@ async function deliver(
   const { recipients, optedOut } = await loadRecipients(
     userIds,
     spec.prefKey,
+    ignoreOptOut,
   );
   if (recipients.length === 0) {
     throw new BadRequestError(
@@ -474,6 +504,7 @@ async function deliver(
     const chunkResults = await sendInBatches(chunk, async (entry) => {
       const result = await sendMessage({
         token: entry.token,
+        appVersion: entry.appVersion,
         data: { ...data, title, body: messageBody, category },
         android: { priority: spec.priority, ttl: spec.ttl },
       });
@@ -534,11 +565,47 @@ async function deliver(
     started_at: startedAt,
   });
 
-  if (failed > 0 && dead.length > 0) {
-    console.warn(`[admin-push] ${failed} failures, pruned ${dead.length} tokens`);
+  // The code is logged because `admin_push_log` only stores counts: without it a
+  // send that fails for a reason other than a dead token leaves nothing behind
+  // to say why.
+  if (failed > 0) {
+    console.warn(
+      `[admin-push] ${failed} failures (first: ${firstError}), pruned ${dead.length} tokens`,
+    );
   }
 
   return summary;
+}
+
+// ------------------------------------------------------------------ pictures
+
+/**
+ * Gives the console somewhere to put a picture, and the link it will have.
+ *
+ * The console uploads straight to storage with the one-time token returned
+ * here, so the picture never passes through this function (whose request body
+ * is capped far below the size of a photo). The name is random and chosen
+ * here, so an upload can neither replace an earlier picture nor pick its path.
+ */
+async function createPictureUpload(
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const extension = PICTURE_TYPES[String(body.content_type ?? "image/jpeg")];
+  if (!extension) {
+    throw new BadRequestError("A picture must be a JPEG or a PNG");
+  }
+  const path = `${crypto.randomUUID()}.${extension}`;
+  const bucket = supabase.storage.from(PICTURE_BUCKET);
+  const { data, error } = await bucket.createSignedUploadUrl(path);
+  if (error || !data?.token) {
+    throw new Error("Could not prepare the picture upload");
+  }
+  return {
+    bucket: PICTURE_BUCKET,
+    path,
+    token: data.token,
+    url: bucket.getPublicUrl(path).data.publicUrl,
+  };
 }
 
 // ---------------------------------------------------------------- scheduling
@@ -588,6 +655,7 @@ async function createSchedule(
       audience: request.audience,
       user_ids: request.audience === "users" ? request.userIds : [],
       payload_data: request.data,
+      ignore_opt_out: request.ignoreOptOut,
       send_at: new Date(sendAt).toISOString(),
       timezone,
       status: "pending",
@@ -656,7 +724,9 @@ async function cancelSchedule(
 async function dispatchDue(): Promise<Record<string, unknown>> {
   const { data: due, error } = await supabase
     .from("admin_scheduled_sends")
-    .select("id, admin_email, category, title, body, audience, user_ids, payload_data")
+    .select(
+      "id, admin_email, category, title, body, audience, user_ids, payload_data, ignore_opt_out",
+    )
     .eq("status", "pending")
     .lte("send_at", new Date().toISOString())
     .order("send_at", { ascending: true })
@@ -676,6 +746,7 @@ async function dispatchDue(): Promise<Record<string, unknown>> {
       audience?: unknown;
       user_ids?: unknown;
       payload_data?: unknown;
+      ignore_opt_out?: unknown;
     };
     const id = typeof row.id === "string" ? row.id : "";
     if (!id) continue;
@@ -699,6 +770,7 @@ async function dispatchDue(): Promise<Record<string, unknown>> {
         audience: row.audience,
         user_ids: row.user_ids,
         data: row.payload_data,
+        ignore_opt_out: row.ignore_opt_out,
       });
       const summary = await deliver(
         request,
@@ -742,14 +814,23 @@ async function allReachableUserIds(): Promise<string[]> {
  * who turned a category off in Settings did so for a reason, and an admin
  * broadcast that ignores it is exactly the kind of thing that gets the app
  * uninstalled.
+ *
+ * `ignoreOptOut` is the operator's explicit, per-send override of that. With it
+ * set nobody is dropped and `optedOut` is 0, since nobody was skipped.
  */
 async function loadRecipients(
   userIds: string[],
   prefKey: string,
-): Promise<{ recipients: { userId: string; token: string }[]; optedOut: number }> {
+  ignoreOptOut = false,
+): Promise<
+  {
+    recipients: { userId: string; token: string; appVersion: string | null }[];
+    optedOut: number;
+  }
+> {
   const { data: tokenRows, error } = await supabase
     .from("push_tokens")
-    .select("user_id, token")
+    .select("user_id, token, app_version")
     .in("user_id", userIds);
   if (error) throw new Error("Could not read push tokens");
 
@@ -759,14 +840,18 @@ async function loadRecipients(
     .in("user_id", userIds);
 
   const optedOut = new Set<string>();
-  for (const row of settings ?? []) {
+  for (const row of ignoreOptOut ? [] : settings ?? []) {
     const id = (row as { user_id?: unknown }).user_id;
     const raw = (row as { notifications?: unknown }).notifications;
     if (typeof id !== "string" || !raw || typeof raw !== "object") continue;
     if ((raw as Record<string, unknown>)[prefKey] === false) optedOut.add(id);
   }
 
-  const recipients: { userId: string; token: string }[] = [];
+  const recipients: {
+    userId: string;
+    token: string;
+    appVersion: string | null;
+  }[] = [];
   // Users who actually had a token row but opted out. Counting users rather than
   // subtracting token rows from requested ids is what makes the number mean
   // something: a user with three devices would otherwise inflate the opt-out
@@ -781,7 +866,12 @@ async function loadRecipients(
       continue;
     }
     if (typeof token !== "string" || token.trim().length === 0) continue;
-    recipients.push({ userId: id, token: token.trim() });
+    const version = (row as { app_version?: unknown }).app_version;
+    recipients.push({
+      userId: id,
+      token: token.trim(),
+      appVersion: typeof version === "string" ? version : null,
+    });
   }
   return { recipients, optedOut: optedOutWithTokens.size };
 }

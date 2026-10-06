@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/app_info.dart';
 import '../core/errors/app_failure.dart';
 import '../models/push_message.dart';
 import '../services/push_notification_service.dart';
@@ -28,7 +29,10 @@ import '../services/push_token_store.dart';
 class PushProvider extends ChangeNotifier {
   PushProvider({PushNotificationService? service, PushTokenStore? store})
     : _service =
-          service ?? PushNotificationService(tokenStore: store ?? const SupabasePushTokenStore());
+          service ??
+          PushNotificationService(
+            tokenStore: store ?? const SupabasePushTokenStore(),
+          );
 
   final PushNotificationService _service;
 
@@ -148,6 +152,9 @@ class PushProvider extends ChangeNotifier {
       await store.register(
         userId: userId ?? '',
         token: token,
+        // The server sends a version that knows about them the kind of
+        // message Android draws itself, which is what reaches a closed app.
+        appVersion: AppInfo.version,
         deviceLabel: PushNotificationService.describeDevice(),
       );
       _error = null;

@@ -324,11 +324,7 @@ class _UpdateStatus extends StatelessWidget {
             ],
             const SizedBox(height: 12),
             UpdateAction(
-              updateLabel: context.t(
-                'Update to $latest',
-                '$latest मा अपडेट गर्नुहोस्',
-              ),
-              browserLabel: context.t('Download $latest', '$latest डाउनलोड'),
+              label: context.t('Download $latest', '$latest डाउनलोड'),
             ),
           ],
         ),

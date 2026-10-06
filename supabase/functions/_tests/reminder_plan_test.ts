@@ -238,3 +238,67 @@ Deno.test("couldBeDue lets the worker skip idle hours", () => {
   assertEquals(couldBeDue(null, 9), true);
   assertEquals(couldBeDue({ budget_warnings: false }, 14), false);
 });
+
+Deno.test("monthly report: on the first of a BS month, about the one that ended", () => {
+  // Kartik 2083 starts on 2026-10-18; Asoj ran from 2026-09-17.
+  const first = {
+    local: { date: "2026-10-18", hour: 9 },
+    transactions: [
+      expense(6000, "2026-09-20T06:00:00Z"),
+      expense(2000, "2026-10-10T06:00:00Z"),
+      {
+        type: "income",
+        amount: 20000,
+        category_id: null,
+        occurred_at: "2026-09-18T06:00:00Z",
+      },
+      // Bhadra, the month before it.
+      expense(4000, "2026-09-01T06:00:00Z"),
+      // Kartik itself is not part of the report.
+      expense(999, "2026-10-18T02:00:00Z"),
+    ],
+  };
+  const plan = planReminders(input(first));
+  assertEquals(plan.length, 1);
+  assertEquals(plan[0].category, "monthly_report");
+  assertEquals(plan[0].title, "📅 Your Asoj report");
+  assertEquals(
+    plan[0].body,
+    "In Asoj you spent NPR 8,000 and earned NPR 20,000, so NPR 12,000 was " +
+      "saved. That is 100% more than Bhadra. Most went to Food.",
+  );
+  assertEquals(plan[0].keys, ["monthly:2083-6"]);
+  // Opens Reports on that month.
+  assertEquals(plan[0].route, "/reports");
+  assertEquals(plan[0].routeArgs, '"last-month"');
+
+  // Once, on that day, at the reminder hour, and only when there is something
+  // to report and the user has not switched it off.
+  const none = (overrides: Partial<ReminderInput>) =>
+    assertEquals(planReminders(input({ ...first, ...overrides })), []);
+  none({ local: { date: "2026-10-19", hour: 9 } });
+  none({ local: { date: "2026-10-18", hour: 10 } });
+  none({ sentKeys: new Set(["monthly:2083-6"]) });
+  none({ transactions: [expense(999, "2026-10-18T02:00:00Z")] });
+  none({ prefs: { monthly_report: false } });
+});
+
+Deno.test("monthly report: a month that cost more than it brought in says so", () => {
+  const plan = planReminders(input({
+    local: { date: "2026-10-18", hour: 9 },
+    transactions: [
+      expense(9000, "2026-09-20T06:00:00Z"),
+      {
+        type: "income",
+        amount: 5000,
+        category_id: null,
+        occurred_at: "2026-09-18T06:00:00Z",
+      },
+    ],
+  }));
+  assertEquals(
+    plan[0].body,
+    "In Asoj you spent NPR 9,000 and earned NPR 5,000, NPR 4,000 more than " +
+      "came in. Most went to Food.",
+  );
+});

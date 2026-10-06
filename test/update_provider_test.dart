@@ -1,6 +1,4 @@
-import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,7 +7,6 @@ import 'package:http/testing.dart';
 import 'package:kharcha_app/core/theme/app_theme.dart';
 import 'package:kharcha_app/providers/update_provider.dart';
 import 'package:kharcha_app/screens/settings/version_screen.dart';
-import 'package:kharcha_app/services/app_updater.dart';
 import 'package:kharcha_app/services/nepali_date_service.dart';
 import 'package:kharcha_app/services/update_service.dart';
 import 'package:kharcha_app/widgets/common/update_dialog.dart';
@@ -28,25 +25,6 @@ Install over the existing app.
 ''';
 
 /// A fake GitHub that serves [tag] as the latest release and counts requests.
-/// An updater that can install here, and whose download never finishes
-/// until the test says so.
-class _SlowUpdater extends AppUpdater {
-  final Completer<File> file = Completer<File>();
-
-  @override
-  bool get supported => true;
-
-  @override
-  Future<File> download(
-    UpdateInfo update, {
-    void Function(int received, int? total)? onProgress,
-    bool Function()? cancelled,
-  }) => file.future;
-
-  @override
-  Future<void> install(File apk) async {}
-}
-
 class _Releases {
   _Releases(this.tag, {this.fail = false});
 
@@ -66,7 +44,9 @@ class _Releases {
           'assets': <Map<String, String>>[
             <String, String>{
               'name': 'kharcha-$tag.apk',
-              'browser_download_url': 'https://example.com/kharcha-$tag.apk',
+              'browser_download_url':
+                  'https://github.com/nischalsir/kharcha/releases/download/'
+                  '$tag/kharcha-$tag.apk',
             },
           ],
         }),
@@ -131,7 +111,11 @@ void main() {
       expect(updates.isUpdateAvailable, isTrue);
       expect(updates.installedVersion, '1.9.0');
       expect(updates.latestVersion, '1.10.0');
-      expect(updates.updateUrl, 'https://example.com/kharcha-v1.10.0.apk');
+      expect(
+        updates.updateUrl,
+        'https://github.com/nischalsir/kharcha/releases/download/'
+        'v1.10.0/kharcha-v1.10.0.apk',
+      );
       expect(updates.releaseNotes, contains('A new flame'));
       expect(updates.shouldRemind, isTrue);
     });
@@ -392,60 +376,13 @@ void main() {
       expect(find.textContaining('You have 1.0'), findsOneWidget);
       expect(find.textContaining('A new flame'), findsOneWidget);
       expect(find.byIcon(Icons.system_update_rounded), findsOneWidget);
-      expect(find.text('Download'), findsOneWidget);
+      expect(find.text('Download update'), findsOneWidget);
+      // The browser downloads it; the app no longer installs anything
+      // itself, so it says what to do with the file.
+      expect(find.textContaining('Open the file'), findsOneWidget);
       expect(find.text('Later'), findsOneWidget);
       expect(find.text('Don’t remind'), findsOneWidget);
     });
-
-    testWidgets(
-      'once the update is downloading, nothing offers to put it off',
-      (tester) async {
-        final updater = _SlowUpdater();
-        final updates = UpdateProvider(
-          service: _Releases('v2.0.0').service,
-          updater: updater,
-          installedVersion: '1.0.0',
-        );
-        await tester.runAsync(updates.checkOnLaunch);
-        await tester.pumpWidget(
-          MultiProvider(
-            providers: [
-              ChangeNotifierProvider<UpdateProvider>.value(value: updates),
-              Provider<NepaliDateService>(create: (_) => NepaliDateService()),
-            ],
-            child: MaterialApp(
-              theme: AppTheme.light(),
-              home: Scaffold(
-                body: Builder(
-                  builder: (context) => TextButton(
-                    onPressed: () => showUpdateDialog(context),
-                    child: const Text('open'),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.tap(find.text('open'));
-        await tester.pumpAndSettle();
-        expect(find.text('Later'), findsOneWidget);
-        expect(find.text('Don’t remind'), findsOneWidget);
-
-        await tester.tap(find.byKey(const ValueKey<String>('update-now')));
-        await tester.pump();
-        expect(find.textContaining('Downloading'), findsOneWidget);
-        expect(find.text('Later'), findsNothing);
-        expect(find.text('Don’t remind'), findsNothing);
-
-        // Downloaded and waiting to be installed: still nothing to put off.
-        updater.file.complete(File('kharcha-test.apk'));
-        await tester.pump();
-        await tester.pump();
-        expect(find.text('Install'), findsOneWidget);
-        expect(find.text('Later'), findsNothing);
-        expect(find.text('Don’t remind'), findsNothing);
-      },
-    );
 
     testWidgets('Later closes it and silences nothing', (tester) async {
       final updates = await open(tester);

@@ -7,12 +7,10 @@ import '../core/l10n/app_l10n.dart';
 import '../providers/friend_provider.dart';
 import '../widgets/common/app_bottom_nav.dart';
 import '../widgets/common/glass_background.dart';
-import '../widgets/common/root_drawer.dart';
 import '../widgets/common/whats_new_dialog.dart';
-import '../screens/friends/friends_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/more/more_screen.dart';
-import '../screens/pasal/pasal_screen.dart';
+import '../screens/ledger/ledger_screen.dart';
 import '../screens/payments/payments_screen.dart';
 import 'flamey_controller.dart';
 
@@ -81,10 +79,8 @@ class _RootShellState extends State<RootShell>
       case 1:
         return const PaymentsScreen();
       case 2:
-        return const FriendsScreen();
+        return const LedgerScreen();
       case 3:
-        return const PasalScreen();
-      case 4:
         return const MoreScreen();
       default:
         return const HomeScreen();
@@ -131,16 +127,13 @@ class _RootShellState extends State<RootShell>
         selectedIcon: Icons.receipt_long_rounded,
         label: context.t('Payments', 'भुक्तानी'),
       ),
+      // Friends and shops are one tab: both are money owed, and the page
+      // switches between them.
       AppBottomNavItem(
-        icon: Icons.people_outline,
-        selectedIcon: Icons.people_alt_rounded,
-        label: context.t('Friends', 'साथीहरू'),
+        icon: Icons.menu_book_outlined,
+        selectedIcon: Icons.menu_book_rounded,
+        label: context.t('Ledger', 'उधारो'),
         badgeCount: friendOverdue,
-      ),
-      AppBottomNavItem(
-        icon: Icons.storefront_outlined,
-        selectedIcon: Icons.storefront_rounded,
-        label: context.t('Pasal', 'पसल'),
       ),
       AppBottomNavItem(
         icon: Icons.more_horiz,
@@ -153,11 +146,6 @@ class _RootShellState extends State<RootShell>
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBody: true,
-        drawer: RootDrawer(
-          currentIndex: _index,
-          onTabSelected: _select,
-          friendOverdue: friendOverdue,
-        ),
         body: NotificationListener<ScrollNotification>(
           onNotification: _nav.handleScroll,
           child: PageView(
@@ -165,7 +153,7 @@ class _RootShellState extends State<RootShell>
             onPageChanged: _handlePageChanged,
             physics: const NeverScrollableScrollPhysics(),
             children: <Widget>[
-              for (int i = 0; i < 5; i++)
+              for (int i = 0; i < items.length; i++)
                 _KeepAlivePage(key: ValueKey(i), child: _buildPage(i)),
             ],
           ),

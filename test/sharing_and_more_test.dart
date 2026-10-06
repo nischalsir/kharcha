@@ -487,16 +487,13 @@ void main() {
       await tester.pump();
       for (final key in <String>[
         'more-account',
+        'more-net-worth',
         'more-budgets',
         'more-goals',
-        'more-wallets',
-        'more-loans',
         'more-household',
         'more-reports',
         'more-calendar',
-        'more-import',
-        'more-sms',
-        'more-calculator',
+        'more-bill-maker',
         'more-settings',
         'more-backup',
         'more-help',
@@ -514,22 +511,57 @@ void main() {
       final opened = await tapEverything(tester);
       expect(opened, <String>[
         RoutePaths.profile,
+        RoutePaths.netWorth,
         RoutePaths.budgets,
         RoutePaths.goals,
-        RoutePaths.wallets,
-        RoutePaths.loans,
         RoutePaths.household,
         RoutePaths.reports,
         RoutePaths.festivals,
-        RoutePaths.statementImport,
-        RoutePaths.smsImport,
-        RoutePaths.calculator,
+        RoutePaths.billMaker,
         RoutePaths.settings,
         RoutePaths.backup,
         RoutePaths.help,
         RoutePaths.about,
       ]);
       expect(opened.every(RoutePaths.isKnown), isTrue);
+    });
+
+    testWidgets('nothing is listed that is one tap away elsewhere', (
+      tester,
+    ) async {
+      await tapEverything(tester);
+      // Search is on Home's heading, the calculator in its quick actions,
+      // and wallets and loans are opened from Net worth.
+      for (final key in <String>[
+        'more-search',
+        'more-calculator',
+        'more-wallets',
+        'more-loans',
+        'more-sms',
+      ]) {
+        expect(find.byKey(ValueKey<String>(key)), findsNothing, reason: key);
+      }
+      expect(find.textContaining('Google Drive'), findsNothing);
+    });
+
+    testWidgets('one Import row offers the file and the pasted messages', (
+      tester,
+    ) async {
+      final opened = await tapEverything(tester);
+      opened.clear();
+      for (final choice in <String>['import-statement', 'import-messages']) {
+        await tester.tap(find.byKey(const ValueKey<String>('more-import')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ValueKey<String>(choice)));
+        await tester.pumpAndSettle();
+        Navigator.of(tester.element(find.text('opened'))).pop();
+        await tester.pumpAndSettle();
+      }
+      expect(opened, <String>[
+        RoutePaths.statementImport,
+        RoutePaths.smsImport,
+      ]);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('groups are labelled and an update is pointed out', (

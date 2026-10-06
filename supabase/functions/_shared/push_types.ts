@@ -62,6 +62,13 @@ export const PUSH_TYPES: Record<string, PushType> = {
     ttl: '3600s',
     channel: 'kharcha_insights',
   },
+  monthly_report: {
+    prefKey: 'monthly_report',
+    title: 'Your month in Kharcha',
+    priority: 'normal',
+    ttl: '86400s',
+    channel: 'kharcha_insights',
+  },
   pasal_month_end: {
     prefKey: 'pasal_month_end',
     title: 'Pasal reminder',

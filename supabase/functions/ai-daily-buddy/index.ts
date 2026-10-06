@@ -134,16 +134,17 @@ async function sendToUser(
 ): Promise<{ sent: number; pruned: number }> {
   const { data: tokenRows } = await supabase
     .from("push_tokens")
-    .select("token")
+    .select("token, app_version")
     .eq("user_id", userId);
-  const tokens = ((tokenRows ?? []) as Array<{ token: string }>).map((r) =>
-    r.token
-  );
+  const devices = (tokenRows ?? []) as Array<
+    { token: string; app_version: string | null }
+  >;
   const dead: string[] = [];
   let sent = 0;
-  for (const token of tokens) {
+  for (const device of devices) {
     const result = await sendMessage({
-      token,
+      token: device.token,
+      appVersion: device.app_version,
       data: {
         category: CATEGORY,
         title: message.title,
@@ -155,7 +156,9 @@ async function sendToUser(
         // next maintenance window; every buddy push ends in a visible
         // notification, which is what FCM expects of high priority.
         priority: "high",
-        ttl: "1800s",
+        // Two hours: a phone with no signal at six still gets its good
+        // morning when it finds one, but not one that has gone stale.
+        ttl: "7200s",
         collapseKey: "daily-buddy",
       },
     });

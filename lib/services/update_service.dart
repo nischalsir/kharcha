@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi' show Abi;
 
 import 'package:http/http.dart' as http;
 
@@ -19,12 +20,10 @@ class UpdateInfo {
   /// The release's APK when it has one, otherwise the release page.
   final String downloadUrl;
 
-  /// The release's APK, when it has one. This is what the app downloads to
-  /// update itself; without it the update is opened in the browser.
+  /// The release's APK for this phone, when it has one.
   final String? apkUrl;
 
-  /// The APK's size in bytes as the release states it, to tell a complete
-  /// download from one that was cut short.
+  /// The APK's size in bytes as the release states it.
   final int? apkSize;
 
   /// A short, plain-text summary of the release notes. May be empty.
@@ -38,9 +37,65 @@ class UpdateInfo {
 /// description the release notes. Nothing about a release is hard-coded in
 /// the app.
 class UpdateService {
-  UpdateService({http.Client? client}) : _client = client ?? http.Client();
+  UpdateService({http.Client? client, String? abi})
+    : _client = client ?? http.Client(),
+      _abi = abi ?? deviceAbi();
 
   final http.Client _client;
+
+  /// The kind of processor this phone has, as Android names it.
+  final String? _abi;
+
+  /// Android's name for the processor this build is running on, or null
+  /// when it is not one a release is made for.
+  static String? deviceAbi() {
+    final abi = Abi.current();
+    if (abi == Abi.androidArm64) return 'arm64-v8a';
+    if (abi == Abi.androidArm) return 'armeabi-v7a';
+    if (abi == Abi.androidX64) return 'x86_64';
+    return null;
+  }
+
+  static const List<String> _abis = <String>[
+    'arm64-v8a',
+    'armeabi-v7a',
+    'x86_64',
+    'x86',
+  ];
+
+  /// The APK among a release's [assets] that this phone should download.
+  ///
+  /// A release may carry one APK for every phone, or smaller ones named for
+  /// one kind of processor each (`kharcha-v2.4-arm64-v8a.apk`). The one made
+  /// for this phone's processor is preferred, then the one for every phone.
+  /// One made for a different processor is never picked: it would download
+  /// and then refuse to install.
+  ///
+  /// Only a file GitHub serves is accepted, whatever the release says.
+  static ({String url, int? size})? pickApk(Object? assets, {String? abi}) {
+    if (assets is! List) return null;
+    ({String url, int? size})? universal;
+    for (final asset in assets) {
+      if (asset is! Map) continue;
+      final name = '${asset['name'] ?? ''}'.toLowerCase();
+      final url = asset['browser_download_url'];
+      if (!name.endsWith('.apk') || url is! String) continue;
+      final uri = Uri.tryParse(url);
+      if (uri == null || uri.scheme != 'https' || uri.host != 'github.com') {
+        continue;
+      }
+      final size = asset['size'];
+      final found = (url: url, size: size is int && size > 0 ? size : null);
+      final madeFor = _abis.where(name.contains).toList();
+      if (madeFor.isEmpty) {
+        universal ??= found;
+      } else if (abi != null && madeFor.contains(abi)) {
+        return found;
+      }
+    }
+    return universal;
+  }
+
   static const String _repo = 'nischalsir/kharcha';
   static const String _releasesUrl =
       'https://api.github.com/repos/$_repo/releases/latest';
@@ -70,22 +125,9 @@ class UpdateService {
 
       // Link straight to the APK so "Download" starts the download, instead
       // of dropping the user on a web page to hunt for the file.
-      String? apk;
-      int? apkSize;
-      final assets = data['assets'];
-      if (assets is List) {
-        for (final asset in assets) {
-          if (asset is! Map) continue;
-          final name = '${asset['name'] ?? ''}'.toLowerCase();
-          final url = asset['browser_download_url'];
-          if (name.endsWith('.apk') && url is String && url.isNotEmpty) {
-            apk = url;
-            final size = asset['size'];
-            if (size is int && size > 0) apkSize = size;
-            break;
-          }
-        }
-      }
+      final picked = pickApk(data['assets'], abi: _abi);
+      final apk = picked?.url;
+      final apkSize = picked?.size;
       final page = data['html_url'];
       final body = data['body'];
       return UpdateInfo(

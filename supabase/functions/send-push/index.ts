@@ -92,13 +92,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     body.target ?? (caller ? "self" : "user"),
   ) as SendTarget;
   const data = sanitizeData(body.data);
-  // Reported back for diagnostics only. The device picks the channel from
-  // `category` itself; it is deliberately not sent as `android.notification`,
-  // which would turn this into a notification message (see _shared/fcm.ts).
+  // Reported back for diagnostics. The app picks the channel from `category`
+  // when it draws the notification itself; _shared/fcm.ts names the same
+  // channel when Android draws it.
   const channelId = resolveChannel(category);
 
   // ---------------------------------------------------------------- targeting
   const tokens: string[] = [];
+  // The app version behind each token, where the registry knows it. Tokens
+  // handed in raw have none, and are sent the way every version understands.
+  const versions = new Map<string, string | null>();
   let topic: string | undefined;
   let recipients = 0;
   let prefs: Record<string, boolean> | null = null;
@@ -131,6 +134,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const result = await loadTargetTokens(userId);
     if ("error" in result) return serverError(result.error);
     tokens.push(...result.tokens);
+    for (const [token, version] of result.versions) versions.set(token, version);
     prefs = result.prefs;
 
     // Honour the recipient's opt-out. `prefs === null` means the user has no
@@ -182,6 +186,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const results = await sendInBatches(tokens, (token) =>
     sendMessage({
       token,
+      appVersion: versions.get(token),
       data: payload,
       android: {
         priority: spec.priority,
@@ -231,13 +236,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
 async function loadTargetTokens(
   userId: string,
 ): Promise<
-  { tokens: string[]; prefs: Record<string, boolean> | null } | {
+  {
+    tokens: string[];
+    versions: Map<string, string | null>;
+    prefs: Record<string, boolean> | null;
+  } | {
     error: string;
   }
 > {
   const [{ data: tokenRows, error: tokenError }, { data: settings }] =
     await Promise.all([
-      supabase.from("push_tokens").select("token").eq("user_id", userId),
+      supabase.from("push_tokens").select("token, app_version").eq(
+        "user_id",
+        userId,
+      ),
       supabase
         .from("app_settings")
         .select("notifications")
@@ -247,16 +259,24 @@ async function loadTargetTokens(
 
   if (tokenError) return { error: "Could not read push tokens" };
 
-  const tokens = (tokenRows ?? [])
-    .map((row) => (typeof row.token === "string" ? row.token.trim() : ""))
-    .filter((value) => value.length > 0);
+  const tokens: string[] = [];
+  const versions = new Map<string, string | null>();
+  for (const row of tokenRows ?? []) {
+    const token = typeof row.token === "string" ? row.token.trim() : "";
+    if (!token) continue;
+    tokens.push(token);
+    versions.set(
+      token,
+      typeof row.app_version === "string" ? row.app_version : null,
+    );
+  }
 
   const raw = settings?.notifications;
   const prefs = raw && typeof raw === "object" && !Array.isArray(raw)
     ? (raw as Record<string, boolean>)
     : null;
 
-  return { tokens, prefs };
+  return { tokens, versions, prefs };
 }
 
 /** Runs `worker` over `items` with a bounded number of in-flight requests. */

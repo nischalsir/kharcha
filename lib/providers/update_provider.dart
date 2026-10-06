@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/app_info.dart';
-import '../services/app_updater.dart';
 import '../services/update_service.dart';
 
 /// Where the update check stands.
@@ -24,20 +24,6 @@ enum UpdateStatus {
   failed,
 }
 
-/// Where an update the app is installing itself stands.
-enum UpdateInstallState {
-  /// Nothing started.
-  idle,
-  downloading,
-
-  /// Downloaded and handed to Android's installer, which asks the user to
-  /// confirm. Stays here so the installer can be opened again.
-  ready,
-
-  /// The download or the hand-over did not go through.
-  failed,
-}
-
 /// The one source of truth about app updates.
 ///
 /// The startup prompt, the update notification and the About page all read
@@ -46,15 +32,15 @@ enum UpdateInstallState {
 class UpdateProvider extends ChangeNotifier {
   UpdateProvider({
     UpdateService? service,
-    AppUpdater? updater,
     String? installedVersion,
     this.onUpdateFound,
+    Future<Directory> Function()? cacheDirectory,
   }) : _service = service ?? UpdateService(),
-       _updater = updater ?? AppUpdater(),
+       _cacheDirectory = cacheDirectory ?? getTemporaryDirectory,
        installedVersion = installedVersion ?? AppInfo.version;
 
   final UpdateService _service;
-  final AppUpdater _updater;
+  final Future<Directory> Function() _cacheDirectory;
 
   /// The version of the app that is running.
   final String installedVersion;
@@ -74,13 +60,6 @@ class UpdateProvider extends ChangeNotifier {
   bool _promptTaken = false;
   bool _notified = false;
 
-  UpdateInstallState _installState = UpdateInstallState.idle;
-  UpdateProblem? _installProblem;
-  double? _downloadProgress;
-  int _shownPercent = -1;
-  bool _cancelRequested = false;
-  File? _downloaded;
-
   UpdateStatus get status => _status;
 
   /// The latest published release, once known.
@@ -96,21 +75,6 @@ class UpdateProvider extends ChangeNotifier {
     return latest != null &&
         UpdateService.isNewer(latest.version, installedVersion);
   }
-
-  /// Whether the update can be downloaded and installed from inside the app:
-  /// on Android, when the release has an APK. Otherwise it is opened in the
-  /// browser.
-  bool get canInstallInApp =>
-      _updater.supported && isUpdateAvailable && _latest?.apkUrl != null;
-
-  UpdateInstallState get installState => _installState;
-
-  /// What went wrong, when [installState] is [UpdateInstallState.failed].
-  UpdateProblem? get installProblem => _installProblem;
-
-  /// How much of the update has arrived, 0 to 1, or null while the size is
-  /// not known yet.
-  double? get downloadProgress => _downloadProgress;
 
   /// The release the user asked not to be reminded about, if any.
   String? get dontRemindForVersion => _dontRemindForVersion;
@@ -166,10 +130,7 @@ class UpdateProvider extends ChangeNotifier {
     _status = _statusFor(latest);
     await _dropStaleSuppression();
     notifyListeners();
-    // An update that has been installed leaves its file behind.
-    if (_status == UpdateStatus.upToDate && _updater.supported) {
-      unawaited(_updater.cleanUp());
-    }
+    unawaited(_removeOldDownloads());
 
     if (shouldRemind && !_notified) {
       _notified = true;
@@ -241,77 +202,16 @@ class UpdateProvider extends ChangeNotifier {
     }
   }
 
-  /// Downloads the latest release inside the app and opens Android's
-  /// installer on it. The user confirms the install there.
-  Future<void> downloadAndInstall() async {
-    final update = _latest;
-    if (update == null || _installState == UpdateInstallState.downloading) {
-      return;
-    }
-    _cancelRequested = false;
-    _installProblem = null;
-    _downloadProgress = null;
-    _shownPercent = -1;
-    _installState = UpdateInstallState.downloading;
-    notifyListeners();
-    unawaited(markInformed());
+  /// Up to v2.2 the app downloaded its own update into its cache, to hand
+  /// to Android's installer. Updates are downloaded by the browser now, so
+  /// whatever such a version left behind (the size of the whole app) is
+  /// removed.
+  Future<void> _removeOldDownloads() async {
     try {
-      final file = await _updater.download(
-        update,
-        onProgress: _onProgress,
-        cancelled: () => _cancelRequested,
-      );
-      _downloaded = file;
-      _downloadProgress = 1;
-      _installState = UpdateInstallState.ready;
-      notifyListeners();
-      await _updater.install(file);
-    } on UpdateCancelled {
-      _installState = UpdateInstallState.idle;
-      _downloadProgress = null;
-      notifyListeners();
-    } on UpdateFailure catch (failure) {
-      debugPrint('Update: $failure');
-      _fail(failure.problem);
-    } catch (error) {
-      debugPrint('Update: $error');
-      _fail(UpdateProblem.download);
+      final folder = Directory('${(await _cacheDirectory()).path}/updates');
+      if (folder.existsSync()) folder.deleteSync(recursive: true);
+    } catch (_) {
+      // Only space; Android clears the cache itself when it needs to.
     }
-  }
-
-  /// Opens the installer again on the update that is already downloaded,
-  /// for a user who backed out of it.
-  Future<void> installDownloaded() async {
-    final file = _downloaded;
-    if (file == null) return downloadAndInstall();
-    try {
-      await _updater.install(file);
-    } on UpdateFailure catch (failure) {
-      debugPrint('Update: $failure');
-      _fail(failure.problem);
-    }
-  }
-
-  /// Stops a download that is under way.
-  void cancelDownload() {
-    if (_installState == UpdateInstallState.downloading) {
-      _cancelRequested = true;
-    }
-  }
-
-  void _fail(UpdateProblem problem) {
-    _installProblem = problem;
-    _installState = UpdateInstallState.failed;
-    notifyListeners();
-  }
-
-  // Listeners hear about each whole percent, not each chunk.
-  void _onProgress(int received, int? total) {
-    if (total == null || total <= 0) return;
-    _downloadProgress = (received / total).clamp(0, 1).toDouble();
-    final percent = (_downloadProgress! * 100).floor();
-    if (percent == _shownPercent) return;
-    _shownPercent = percent;
-    notifyListeners();
   }
 }

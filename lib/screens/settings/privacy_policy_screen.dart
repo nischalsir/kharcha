@@ -81,9 +81,38 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     'sends only those coordinates to the weather service. '
                     'It is not stored, not linked to your account and not '
                     'used for anything else. If you decline, the weather is '
-                    'estimated from your internet connection instead.\n\n'
-                    'Pictures you attach to shop credit items are kept in '
-                    'your own private folder, readable only by your account.',
+                    'estimated from your internet connection instead.',
+              ),
+              _Section(
+                title: 'Pictures you add',
+                body:
+                    'Receipt photos, pictures of shop credit items and the '
+                    'payment QR codes you save for shops and friends are '
+                    'kept in your own private folder on our server, readable '
+                    'only by your account and shown through short-lived '
+                    'signed links. Removing one in the app deletes the '
+                    'picture, and deleting your account deletes all of them.',
+              ),
+              _Section(
+                title: 'Messages and statements',
+                body:
+                    'Kharcha does not read your text messages and asks for '
+                    'no SMS permission. To import payment alerts you paste '
+                    'the messages yourself; they are read on this phone and '
+                    'nothing is saved until you choose what to import.\n\n'
+                    'A bank or wallet statement you import is sent to our '
+                    'server to be read into transactions for you to review. '
+                    'The file itself is not kept.',
+              ),
+              _Section(
+                title: 'Notifications',
+                body:
+                    'If you allow notifications, an address for this phone '
+                    'is stored with your account so reminders can reach it. '
+                    'They are delivered through Google\'s Firebase Cloud '
+                    'Messaging. A notification may come with a picture, '
+                    'which your phone downloads when it arrives. You can '
+                    'turn each kind off in Settings.',
               ),
               _Section(
                 title: 'Security',
@@ -97,7 +126,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 body:
                     'You can delete individual records, clear the local cache '
                     'from Settings, or remove your profile picture at any time. '
-                    'Deleting your account removes your synced data.',
+                    'You can delete your account yourself, from Settings > '
+                    'Danger Zone > Delete account: it removes the account, '
+                    'everything synced for it and every picture kept for it '
+                    'from our server, and cannot be undone.',
               ),
               _Section(
                 title: 'Children',

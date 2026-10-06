@@ -73,8 +73,6 @@ import 'services/account_avatar_cache.dart';
 import 'services/app_lock.dart';
 import 'services/app_images.dart';
 import 'services/flamey_controller.dart';
-import 'services/google_account.dart';
-import 'services/google_drive_backup_service.dart';
 import 'services/home_widget_service.dart';
 import 'services/incoming_file_service.dart';
 import 'services/image_preload.dart';
@@ -310,7 +308,8 @@ class KharchaApp extends StatelessWidget {
     RoutePaths.loans => const LoansScreen(),
     RoutePaths.household => const HouseholdScreen(),
     RoutePaths.smsImport => const SmsImportScreen(),
-    RoutePaths.reports => const ReportsScreen(),
+    // A monthly report's notification opens on the month it is about.
+    RoutePaths.reports => ReportsScreen(lastMonth: id == 'last-month'),
     RoutePaths.calculator => const CalculatorScreen(),
     RoutePaths.festivals => const FestivalsScreen(),
     RoutePaths.settings => const SettingsScreen(),
@@ -691,19 +690,6 @@ class _AuthWrapperState extends State<_AuthWrapper>
       await inbox.clear();
       await sync.flushBeforeSignOut();
       await push.unregisterForSignOut();
-      // The Google account connected for Drive backup belongs to the account
-      // signing out. Forgetting it here means whoever signs in next is never
-      // silently connected to someone else's Drive.
-      // Only when this account ever connected one: nothing is asked of
-      // Google otherwise.
-      final leaving = auth.userId;
-      if (leaving != null &&
-          await const PrefsDriveLinkStore().linkedEmail(leaving) != null) {
-        await GoogleAccount.signOut().timeout(
-          const Duration(seconds: 4),
-          onTimeout: () {},
-        );
-      }
     };
     auth.addSignOutCleanup(_signOutCleanup!);
     // Covers the already-signed-in case at startup.

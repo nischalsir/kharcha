@@ -11,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../models/transaction_model.dart';
 import '../../providers/report_provider.dart';
+import '../../services/nepali_date_service.dart';
 import '../../services/report_exporter.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/common/form_helpers.dart';
@@ -19,7 +20,11 @@ import '../../widgets/common/page_refresh.dart';
 import '../../widgets/common/glass_back_button.dart';
 
 class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({super.key});
+  const ReportsScreen({super.key, this.lastMonth = false});
+
+  /// Opens on the month before this one instead of the current month: where
+  /// the monthly report's notification leads.
+  final bool lastMonth;
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
@@ -122,6 +127,76 @@ class _ReportsScreenState extends State<ReportsScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Every visit starts on a known month, not wherever the last one ended.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final dates = context.read<NepaliDateService>();
+      final today = dates.today();
+      final thisMonth = BsDate(today.year, today.month, 1);
+      context.read<ReportProvider>().setAnchor(
+        widget.lastMonth ? dates.shiftMonth(thisMonth, -1) : thisMonth,
+      );
+    });
+  }
+
+  /// The month the figures are for, with a step back and a step forward.
+  /// The current month is as far forward as it goes.
+  Widget _monthSwitcher(ReportProvider provider, ThemeData theme) {
+    final dates = context.read<NepaliDateService>();
+    final today = dates.today();
+    final anchor = provider.anchor;
+    final current = anchor.year == today.year && anchor.month == today.month;
+    final previous = dates.shiftMonth(BsDate(today.year, today.month, 1), -1);
+    final last = anchor.year == previous.year && anchor.month == previous.month;
+    void step(int months) => provider.setAnchor(
+      dates.shiftMonth(BsDate(anchor.year, anchor.month, 1), months),
+    );
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Row(
+        children: <Widget>[
+          IconButton(
+            key: const ValueKey<String>('report-prev-month'),
+            tooltip: context.t('Month before', 'अघिल्लो महिना'),
+            onPressed: () => step(-1),
+            icon: const Icon(Icons.chevron_left_rounded),
+          ),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  dates.formatMonth(anchor.year, anchor.month),
+                  key: const ValueKey<String>('report-month'),
+                  style: theme.textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+                if (current || last)
+                  Text(
+                    current
+                        ? context.t('This month', 'यो महिना')
+                        : context.t('Last month', 'गत महिना'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: context.glass.textSecondary,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            key: const ValueKey<String>('report-next-month'),
+            tooltip: context.t('Month after', 'पछिल्लो महिना'),
+            onPressed: current ? null : () => step(1),
+            icon: const Icon(Icons.chevron_right_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final provider = context.watch<ReportProvider>();
     final theme = Theme.of(context);
@@ -144,7 +219,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            // The trends tab is a run of months, not one of them.
+            if (_tab != 2) ...<Widget>[
+              _monthSwitcher(provider, theme),
+              const SizedBox(height: 12),
+            ],
             SizedBox(
               height: 40,
               child: ListView(

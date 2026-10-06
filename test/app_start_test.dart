@@ -38,7 +38,6 @@ void main() {
       'plugins.flutter.io/firebase_core',
       'dexterous.com/flutter/local_notifications',
       IncomingFileService.channelName,
-      'com.nischalpandey.kharcha/app_config',
     ]) {
       messenger.setMockMethodCallHandler(MethodChannel(name), (call) async {
         if (call.method == 'check') return <String>['wifi'];

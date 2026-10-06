@@ -229,6 +229,14 @@ class TransactionProvider extends ChangeNotifier with CacheAware {
     return _guarded(() => _repository.delete(id));
   }
 
+  /// Puts back a transaction that was just deleted, as [item] was before.
+  /// Deleting only marks the row, so nothing has been lost.
+  Future<bool> restore(TransactionModel item) {
+    return _guarded(
+      () => _repository.save(item.copyWith(deletedAt: () => null)),
+    );
+  }
+
   Future<bool> duplicate(String id) {
     return _guarded(() => _repository.duplicate(id));
   }

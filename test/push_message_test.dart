@@ -140,6 +140,31 @@ void main() {
     });
   });
 
+  group('PushMessage.imageUrl', () {
+    PushMessage withImage(String? image) => PushMessage.fromData(
+      <String, dynamic>{
+        'title': 't',
+        'body': 'b',
+        'category': 'daily_buddy',
+        'image': ?image,
+      },
+    )!;
+
+    test('reads an https picture link', () {
+      expect(
+        withImage(' https://example.com/offer.jpg ').imageUrl,
+        'https://example.com/offer.jpg',
+      );
+    });
+
+    test('is null with no picture, or a link the phone will not fetch', () {
+      expect(withImage(null).imageUrl, isNull);
+      expect(withImage('').imageUrl, isNull);
+      expect(withImage('http://example.com/offer.jpg').imageUrl, isNull);
+      expect(withImage('offer.jpg').imageUrl, isNull);
+    });
+  });
+
   group('RoutePaths.isKnown', () {
     test('accepts every declared route', () {
       for (final route in RoutePaths.all) {

@@ -87,6 +87,33 @@ function rateLimited(key: string): boolean {
   return false;
 }
 
+/**
+ * Counts this request against the caller's allowance for the day, in the
+ * database (see the ai_usage migration), and says whether it is still within
+ * it. The check above only remembers the last half minute, and only on this
+ * server instance.
+ *
+ * Fails open: if the count cannot be made, the request goes ahead. A counting
+ * problem must not take the assistant away from everyone.
+ */
+async function withinDailyAllowance(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  mode: 'chat' | 'insight',
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc('take_ai_use', { p_mode: mode });
+    if (error) {
+      console.error('ai-insight: could not count the request', error.message);
+      return true;
+    }
+    return data !== false;
+  } catch (error) {
+    console.error('ai-insight: could not count the request', String(error));
+    return true;
+  }
+}
+
 function fallbackInsight(reason: 'no_data' | 'birthday') {
   if (reason === 'birthday') {
     return {
@@ -157,6 +184,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   if (rateLimited(`${userId}:${mode}`)) {
     return fail('Too many requests. Please wait a moment.', 429);
+  }
+  if (!(await withinDailyAllowance(supabase, mode))) {
+    return fail(
+      'Flamey has answered all it can for today. It will be back tomorrow.',
+      429,
+    );
   }
 
   try {

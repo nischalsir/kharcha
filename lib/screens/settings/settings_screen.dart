@@ -295,6 +295,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         onTap: () => _confirmDeleteAll(),
                       ),
+                      // An account can be closed from where it is used, not
+                      // only by asking for it. A guest has none.
+                      if (!auth.isGuest && auth.isAuthenticated) ...<Widget>[
+                        const Divider(height: 1),
+                        SettingRow(
+                          key: const ValueKey<String>('delete-account'),
+                          icon: Icons.person_remove_rounded,
+                          color: glass.danger,
+                          title: context.t(
+                            'Delete account',
+                            'खाता मेटाउनुहोस्',
+                          ),
+                          subtitle: context.t(
+                            'Your account and everything in it, for good',
+                            'तपाईंको खाता र यसका सबै कुरा, सधैंका लागि',
+                          ),
+                          enabled: !_deletingAccount,
+                          trailing: _deletingAccount
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : null,
+                          onTap: _confirmDeleteAccount,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -580,6 +609,146 @@ class _SettingsScreenState extends State<SettingsScreen> {
             : 'Calendar set to Bikram Sambat (BS).',
       );
     }
+  }
+
+  bool _deletingAccount = false;
+
+  /// Deleting the account: said plainly what goes, the password asked for
+  /// again (an unlocked phone in someone else's hand is not enough), and
+  /// only then done.
+  Future<void> _confirmDeleteAccount() async {
+    if (_deletingAccount) return;
+    final auth = context.read<AuthProvider>();
+    final email = auth.userEmail;
+    final controller = TextEditingController();
+    String? error;
+    bool busy = false;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(dialogContext.t('Delete your account?', 'खाता मेटाउने?')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  dialogContext.t(
+                    'Your account, everything you saved in it and every '
+                        'picture you added are deleted from our server and '
+                        'from this phone. A household you share keeps its '
+                        'entries, without your name. This cannot be undone.',
+                    'तपाईंको खाता, यसमा राखिएका सबै कुरा र थपिएका सबै तस्बिर '
+                        'हाम्रो सर्भर र यो फोनबाट मेटिन्छन्। साझा घरपरिवारका '
+                        'प्रविष्टि रहन्छन्, तपाईंको नाम बिना। यो फिर्ता '
+                        'हुँदैन।',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (email != null)
+                  Text(
+                    email,
+                    style: Theme.of(dialogContext).textTheme.bodySmall,
+                  ),
+                const SizedBox(height: 8),
+                TextField(
+                  key: const ValueKey<String>('delete-account-password'),
+                  controller: controller,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: dialogContext.t('Password', 'पासवर्ड'),
+                    errorText: error,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: busy
+                  ? null
+                  : () => Navigator.pop(dialogContext, false),
+              child: Text(dialogContext.t('Cancel', 'रद्द गर्नुहोस्')),
+            ),
+            FilledButton(
+              key: const ValueKey<String>('delete-account-confirm'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              ),
+              onPressed: busy
+                  ? null
+                  : () async {
+                      final password = controller.text;
+                      if (password.isEmpty) {
+                        setDialogState(
+                          () => error = dialogContext.t(
+                            'Enter your password',
+                            'आफ्नो पासवर्ड लेख्नुहोस्',
+                          ),
+                        );
+                        return;
+                      }
+                      setDialogState(() {
+                        busy = true;
+                        error = null;
+                      });
+                      try {
+                        await auth.verifyCurrentPassword(password);
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext, true);
+                        }
+                      } catch (err) {
+                        if (!dialogContext.mounted) return;
+                        setDialogState(() {
+                          busy = false;
+                          error = AppFailure.from(err).message;
+                        });
+                      }
+                    },
+              child: Text(
+                dialogContext.t('Delete for good', 'सधैंका लागि मेटाउनुहोस्'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final biometric = context.read<BiometricService>();
+    final avatars = context.read<AccountAvatarCache>();
+    final settings = context.read<AppSettingsProvider>();
+    final done = context.t(
+      'Your account has been deleted.',
+      'तपाईंको खाता मेटाइयो।',
+    );
+    setState(() => _deletingAccount = true);
+    try {
+      await auth.deleteAccount();
+    } catch (err) {
+      if (mounted) {
+        setState(() => _deletingAccount = false);
+        showMessage(context, AppFailure.from(err).message);
+      }
+      return;
+    }
+    // Nothing of the account stays on this phone either: not the saved
+    // fingerprint sign-in, not its picture, not its cached data.
+    try {
+      if (email != null) {
+        await biometric.disable(email);
+        await avatars.remove(email);
+      }
+      await settings.resetAllData();
+    } catch (error) {
+      debugPrint('Settings: tidying up after deleting the account ($error)');
+    }
+    navigator.popUntil((route) => route.isFirst);
+    messenger.showSnackBar(SnackBar(content: Text(done)));
   }
 
   Future<void> _confirmDeleteAll() async {
