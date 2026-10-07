@@ -196,11 +196,23 @@ class _AiMoodBadgeState extends State<AiMoodBadge> {
       return const SizedBox.shrink(key: ValueKey<String>('flamey-no-thought'));
     }
     final color = current?.color(context) ?? theme.colorScheme.primary;
-    final fill = color.withValues(alpha: 0.16);
-    final rim = color.withValues(alpha: 0.38);
+    // A plain, soft bubble that stands off the card: white on the light
+    // card, a lighter grey on the dark one, with a faint shadow under it.
+    // The mood's colour is kept for the words.
+    final dark = theme.brightness == Brightness.dark;
+    final fill = dark
+        ? theme.colorScheme.surfaceContainerHighest
+        : Colors.white;
+    final shadow = <BoxShadow>[
+      BoxShadow(
+        color: Colors.black.withValues(alpha: dark ? 0.30 : 0.10),
+        blurRadius: 8,
+        offset: const Offset(0, 2),
+      ),
+    ];
 
-    // A small round one of the same stuff as the cloud, lower as it nears
-    // Flamey: the trail of a thought balloon.
+    // A small round one of the same stuff as the bubble, lower as it nears
+    // Flamey: the trail that makes a bubble a thought.
     Widget puff(double size, double dy) => Transform.translate(
       offset: Offset(0, dy),
       child: Container(
@@ -209,7 +221,7 @@ class _AiMoodBadgeState extends State<AiMoodBadge> {
         decoration: BoxDecoration(
           color: fill,
           shape: BoxShape.circle,
-          border: Border.all(color: rim, width: 1),
+          boxShadow: shadow,
         ),
       ),
     );
@@ -221,23 +233,26 @@ class _AiMoodBadgeState extends State<AiMoodBadge> {
         Flexible(
           child: PressableScale(
             onTap: current == null ? null : () => _showMood(context, current),
-            // Drawn as a thought balloon: a cloud of rounded bumps, lifted a
-            // little above Flamey, with the trail coming down to it.
+            // Lifted a little above Flamey, with the trail coming down to
+            // it.
             child: Transform.translate(
-              offset: const Offset(0, -5),
-              child: CustomPaint(
-                key: const ValueKey<String>('flamey-thought-cloud'),
-                painter: ThoughtCloudPainter(fill: fill, rim: rim),
-                child: Container(
-                  // Room for the bumps all round the words.
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  // Wide enough for a short line over two rows, never so
-                  // wide that it pushes the card's own heading out.
-                  constraints: const BoxConstraints(maxWidth: 164),
-                  child: said != null
+              offset: const Offset(0, -4),
+              child: Container(
+                key: const ValueKey<String>('flamey-thought-bubble'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                // Wide enough for a short line over two rows, never so wide
+                // that it pushes the card's own heading out.
+                constraints: const BoxConstraints(maxWidth: 164),
+                decoration: BoxDecoration(
+                  color: fill,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: shadow,
+                ),
+                child: Builder(
+                  builder: (context) => said != null
                       ? Text(
                           said,
                           style: theme.textTheme.labelSmall?.copyWith(
@@ -275,11 +290,11 @@ class _AiMoodBadgeState extends State<AiMoodBadge> {
         ),
         // Smaller and lower towards Flamey, the way a thought trails down
         // to the head it came from.
-        const SizedBox(width: 1),
-        puff(8, 6),
-        const SizedBox(width: 2),
-        puff(5, 12),
         const SizedBox(width: 3),
+        puff(8, 7),
+        const SizedBox(width: 3),
+        puff(5, 13),
+        const SizedBox(width: 4),
       ],
     );
   }
@@ -346,68 +361,4 @@ class _AiMoodBadgeState extends State<AiMoodBadge> {
       },
     );
   }
-}
-
-/// The cloud of a thought balloon: a soft body with round bumps all the way
-/// round it, filled and outlined as one shape.
-///
-/// It takes whatever size its words need, so a short mood and a two-line
-/// remark are both a cloud rather than a stretched oval.
-class ThoughtCloudPainter extends CustomPainter {
-  const ThoughtCloudPainter({required this.fill, required this.rim});
-
-  final Color fill;
-  final Color rim;
-
-  /// The outline of the cloud for a balloon of [size]: round bumps of one
-  /// size set shoulder to shoulder all the way round, whatever the balloon's
-  /// shape, so one line of words and two both come out as a cloud.
-  static Path cloud(Size size) {
-    final w = size.width;
-    final h = size.height;
-    // How far a bump stands out from the body.
-    final bump = (h * 0.2).clamp(5.0, 8.0);
-    final body = RRect.fromLTRBR(
-      bump,
-      bump,
-      w - bump,
-      h - bump,
-      Radius.circular(((h - bump * 2) / 2).clamp(0.0, 14.0)),
-    );
-    var path = Path()..addRRect(body);
-    // Bumps centred on the body's own edge, evenly along its length.
-    for (final edge in (Path()..addRRect(body)).computeMetrics()) {
-      final count = (edge.length / (bump * 1.5)).round().clamp(6, 60);
-      for (var i = 0; i < count; i++) {
-        final at = edge.getTangentForOffset(edge.length * i / count);
-        if (at == null) continue;
-        path = Path.combine(
-          PathOperation.union,
-          path,
-          Path()..addOval(Rect.fromCircle(center: at.position, radius: bump)),
-        );
-      }
-    }
-    return path;
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (size.isEmpty) return;
-    final path = cloud(size);
-    canvas
-      ..drawPath(path, Paint()..color = fill)
-      ..drawPath(
-        path,
-        Paint()
-          ..color = rim
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1
-          ..strokeJoin = StrokeJoin.round,
-      );
-  }
-
-  @override
-  bool shouldRepaint(ThoughtCloudPainter oldDelegate) =>
-      oldDelegate.fill != fill || oldDelegate.rim != rim;
 }
