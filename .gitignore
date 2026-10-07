@@ -61,7 +61,7 @@ android/local.properties
 *.apk
 *.aab
 # Firebase service account (private key!)
-kharcha-35c62-firebase-adminsdk-*.json
+*-firebase-adminsdk-*.json
 
 # Personal statement samples dropped in the project root: never commit
 /*.pdf

@@ -1,7 +1,7 @@
 name: kharcha_app
 description: "Nepali BS-calendar expense tracker with an AI mascot"
 publish_to: 'none'
-version: 2.4.0+41
+version: 2.4.1+42
 
 environment:
   sdk: ^3.13.4

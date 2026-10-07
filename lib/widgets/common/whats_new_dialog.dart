@@ -23,19 +23,14 @@ class WhatsNew {
   /// version: the pop-up says what is new since the last update, in a few
   /// lines. Replace the list with each release; do not add to it.
   static const List<(String, String)> items = <(String, String)>[
+    ('Notifications are back', 'सूचनाहरू फेरि आउन थाले'),
     (
-      'A cleaner look, in light and dark',
-      'उज्यालो र अँध्यारो दुवैमा सफा नयाँ रूप',
-    ),
-    ('Payments are grouped by day', 'भुक्तानी अब दिनअनुसार समूहमा'),
-    ('A new switch on Ledger and Payments', 'उधारो र भुक्तानीमा नयाँ स्विच'),
-    (
-      'Faster lists, statement imports and restores',
-      'सूची, स्टेटमेन्ट आयात र रिस्टोर अझ छिटो',
+      'The update check works on a shared network',
+      'साझा नेटवर्कमा पनि अपडेट जाँच हुन्छ',
     ),
     (
-      'Sync on a new phone no longer misses rows',
-      'नयाँ फोनमा सिङ्क गर्दा अब कुनै पङ्क्ति छुट्दैन',
+      "Flamey's thought sits in a simpler bubble",
+      'फ्लेमीको विचार अब सरल बबलमा',
     ),
   ];
 

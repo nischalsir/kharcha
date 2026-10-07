@@ -97,6 +97,14 @@ What to do, once, from a computer:
    Play). Students and hobbyists get a free account with a limit on how many
    devices can install; a full account is a one-time USD 25 (it needs a
    card).
+
+   The free account cannot register Kharcha as it is. Tried on 7 October
+   2026: "The package name you've entered already exists on Android. You
+   can only register new package names that have never been seen before on
+   Android using a limited distribution Android Developer Console account."
+   `com.nischalpandey.kharcha` has been installed on phones, so it needs the
+   full account, or the app would have to take a new package name, which
+   makes it a different app that nobody can update to.
 2. Verify your identity as it asks.
 3. Register the app: package name `com.nischalpandey.kharcha` and the signing
    certificate's SHA-256 fingerprint (it is in the table below). Proving

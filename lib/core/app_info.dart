@@ -11,8 +11,8 @@ class AppInfo {
 
   const AppInfo._();
 
-  static const String version = '2.4.0';
-  static const String buildNumber = '41';
+  static const String version = '2.4.1';
+  static const String buildNumber = '42';
 
   /// A version as it is shown to people and named in a release: `1.1` for
   /// `1.1.0`, `1.3.1` as it is. Android and pubspec.yaml need all three
