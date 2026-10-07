@@ -113,6 +113,74 @@ void main() {
     });
   });
 
+  group('when GitHub\'s API will not answer', () {
+    http.Client limited({String? location, int page = 302}) =>
+        MockClient((request) async {
+          if (request.url.host == 'api.github.com') {
+            return http.Response('{"message":"API rate limit exceeded"}', 403);
+          }
+          expect(
+            request.url.toString(),
+            'https://github.com/nischalsir/kharcha/releases/latest',
+          );
+          // The page itself is not followed: only where it points is read.
+          expect(request.followRedirects, isFalse);
+          return http.Response(
+            '',
+            page,
+            headers: <String, String>{'location': ?location},
+          );
+        });
+
+    test('the release page says which version is the latest', () async {
+      final latest = await UpdateService(
+        client: limited(
+          location: 'https://github.com/nischalsir/kharcha/releases/tag/v99.1',
+        ),
+      ).fetchLatest();
+      expect(latest, isNotNull);
+      expect(latest!.version, '99.1');
+      // The file follows from the tag, as the release script names it.
+      expect(
+        latest.apkUrl,
+        'https://github.com/nischalsir/kharcha/releases/download/v99.1/'
+        'kharcha-v99.1.apk',
+      );
+      expect(latest.downloadUrl, latest.apkUrl);
+      expect(latest.notes, isEmpty);
+      expect(UpdateService.isNewer(latest.version, AppInfo.version), isTrue);
+    });
+
+    test('a relative redirect is understood too', () async {
+      final latest = await UpdateService(
+        client: limited(location: '/nischalsir/kharcha/releases/tag/v99.0.0'),
+      ).fetchLatest();
+      expect(latest!.version, '99.0.0');
+    });
+
+    test('anything that is not a release of ours is no answer', () async {
+      for (final location in <String?>[
+        null,
+        'https://example.com/nischalsir/kharcha/releases/tag/v99.0.0',
+        'http://github.com/nischalsir/kharcha/releases/tag/v99.0.0',
+        'https://github.com/nischalsir/kharcha/releases',
+        'https://github.com/nischalsir/kharcha/releases/tag/v9/../../evil',
+        'https://github.com/nischalsir/kharcha/releases/tag/latest',
+      ]) {
+        final latest = await UpdateService(client: limited(location: location))
+            .fetchLatest();
+        expect(latest, isNull, reason: '$location');
+      }
+      // Not a redirect at all.
+      expect(
+        await UpdateService(
+          client: limited(location: 'https://github.com/x', page: 200),
+        ).fetchLatest(),
+        isNull,
+      );
+    });
+  });
+
   test('without an APK asset it falls back to the release page', () async {
     final update = await UpdateService(client: _github('v99.0.0'))
         .checkForUpdate();

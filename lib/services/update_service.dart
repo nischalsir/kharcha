@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' show Abi;
 
@@ -103,8 +104,18 @@ class UpdateService {
       'https://github.com/$_repo/releases/latest';
 
   /// The latest published release, whatever its version, or null when it
-  /// could not be read (offline, rate limited, malformed).
-  Future<UpdateInfo?> fetchLatest() async {
+  /// could not be read (offline, malformed).
+  ///
+  /// GitHub's API is asked first, because it also has the release notes and
+  /// the files. It only answers sixty times an hour for one internet
+  /// address, though, and that address is often shared (a home's Wi-Fi, a
+  /// whole mobile network), so the answer is regularly "rate limit
+  /// exceeded". When the API cannot be read, the release page is asked
+  /// instead: see [_fromReleasePage].
+  Future<UpdateInfo?> fetchLatest() async =>
+      await _fromApi() ?? await _fromReleasePage();
+
+  Future<UpdateInfo?> _fromApi() async {
     try {
       final response = await _client
           .get(
@@ -139,6 +150,47 @@ class UpdateService {
       );
     } catch (_) {
       // The update check is never worth interrupting the user for.
+      return null;
+    }
+  }
+
+  /// The latest release as the website names it, with no API involved.
+  ///
+  /// `github.com/<repo>/releases/latest` answers with a redirect to the
+  /// newest release's own page, whose address ends in its tag. That is the
+  /// version. The APK's address follows from the tag, because
+  /// `tool/release.ps1` names every release's file `kharcha-<tag>.apk`.
+  /// The release notes are not known this way, so they are left empty.
+  Future<UpdateInfo?> _fromReleasePage() async {
+    try {
+      final request = http.Request('GET', Uri.parse(_fallbackPage))
+        ..followRedirects = false;
+      final response = await _client
+          .send(request)
+          .timeout(const Duration(seconds: 10));
+      // Only where it points is wanted, not the page.
+      unawaited(response.stream.drain<void>().catchError((_) {}));
+      final location = response.headers['location'];
+      final redirect = response.statusCode >= 300 && response.statusCode < 400;
+      if (!redirect || location == null) return null;
+      final uri = Uri.parse(_fallbackPage).resolve(location);
+      const marker = '/releases/tag/';
+      final at = uri.path.indexOf(marker);
+      if (uri.scheme != 'https' || uri.host != 'github.com' || at < 0) {
+        return null;
+      }
+      final tag = Uri.decodeComponent(uri.path.substring(at + marker.length));
+      // A tag is a version and nothing else: it is about to be put into an
+      // address.
+      if (!RegExp(r'^v?\d+(\.\d+){1,2}$').hasMatch(tag)) return null;
+      final apk =
+          'https://github.com/$_repo/releases/download/$tag/kharcha-$tag.apk';
+      return UpdateInfo(
+        version: normalizeVersion(tag),
+        downloadUrl: apk,
+        apkUrl: apk,
+      );
+    } catch (_) {
       return null;
     }
   }
